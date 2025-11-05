@@ -203,5 +203,5 @@ MIT License - See [LICENSE](LICENSE) file for details.
 
 - [mc-server-runner](https://github.com/itzg/mc-server-runner) - Process supervision
 - [rcon-cli](https://github.com/itzg/rcon-cli) - RCON client
-- [Meowice flags](https://github.com/Meowlce/Minecraft-Server-Startup-Flags) - JVM optimization
+- [Meowice flags](https://github.com/Meowice/Minecraft-Server-Startup-Flags) - JVM optimization
 - [Paper](https://papermc.io/) - High-performance Minecraft server
