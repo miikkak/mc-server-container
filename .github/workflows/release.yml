@@ -12,6 +12,9 @@ jobs:
   check-release:
     name: Check Release Labels
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
     outputs:
       should_release: ${{ steps.check.outputs.should_release }}
       version_bump: ${{ steps.check.outputs.version_bump }}
