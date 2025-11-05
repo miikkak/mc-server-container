@@ -1,0 +1,65 @@
+# Pre-commit hooks for Minecraft server container repository
+# Install: pip install pre-commit
+# Setup: pre-commit install
+# Run manually: pre-commit run --all-files
+
+repos:
+  # Standard pre-commit hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      # Basic file checks
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: check-case-conflict
+      - id: check-merge-conflict
+      - id: check-symlinks
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: mixed-line-ending
+        args: ['--fix=lf']
+
+      # Prevent commits to main branch
+      - id: no-commit-to-branch
+        args: ['--branch', 'main', '--branch', 'master']
+
+  # Shell script linting with shellcheck
+  # Uses wrapper script to match GitHub Actions behavior (cd into each file's directory)
+  - repo: local
+    hooks:
+      - id: shellcheck
+        name: shellcheck
+        entry: .shellcheck-wrapper.sh
+        language: script
+        types: [shell]
+        files: \.(sh|bash)$
+
+  # Shell script formatting with shfmt
+  - repo: https://github.com/scop/pre-commit-shfmt
+    rev: v3.10.0-1
+    hooks:
+      - id: shfmt
+        args: ['-i', '2', '-ci', '-w']
+        # -i 2: indent with 2 spaces
+        # -ci: indent switch cases
+        # -w: write result to file instead of stdout
+        types: [shell]
+        files: \.(sh|bash)$
+
+  # Docker-specific checks
+  - repo: https://github.com/hadolint/hadolint
+    rev: v2.12.0
+    hooks:
+      - id: hadolint-docker
+        args: ['--ignore', 'DL3008', '--ignore', 'DL3018']
+        # DL3008: Pin versions in apt-get install
+        # DL3018: Pin versions in apk add
+
+  # Pre-push hooks - Second line of defense for branch protection
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      # Prevent pushes to protected branches (defense-in-depth)
+      - id: no-commit-to-branch
+        args: ['--branch', 'main', '--branch', 'master']
+        stages: [pre-push]

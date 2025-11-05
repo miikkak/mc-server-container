@@ -7,10 +7,27 @@ on:
     branches: [ main ]
 
 jobs:
+  hadolint:
+    name: Lint Dockerfile
+    runs-on: ubuntu-latest-beta-small
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run hadolint
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: Dockerfile
+          ignore: DL3008,DL3018
+          # DL3008: Pin versions in apt-get install
+          # DL3018: Pin versions in apk add
+
   build:
     name: Build Container
     runs-on: ubuntu-latest-beta-small
-    
+    needs: hadolint
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -26,12 +43,12 @@ jobs:
           tags: mc-server-container:test
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          
+
   test:
     name: Test Container
     runs-on: ubuntu-latest-beta-small
     needs: build
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -49,21 +66,30 @@ jobs:
 
       - name: Run basic tests
         run: |
+          echo "🧪 Testing container startup"
+
           # Start container
           docker run -d --name mc-test -e EULA=TRUE mc-server-container:test
-          
+
           # Wait for container to start
+          echo "⏳ Waiting for container to start..."
           sleep 10
-          
+
           # Check if container is running
           if [ "$(docker inspect -f '{{.State.Running}}' mc-test)" != "true" ]; then
-            echo "Container failed to start"
+            echo "❌ Container failed to start"
+            echo "📋 Container logs:"
             docker logs mc-test
             exit 1
           fi
-          
-          echo "Container started successfully"
-          
+
+          echo "✅ Container started successfully"
+
+          # Show container logs for debugging
+          echo "📋 Container logs:"
+          docker logs mc-test
+
           # Cleanup
+          echo "🧹 Cleaning up test container"
           docker stop mc-test
           docker rm mc-test
