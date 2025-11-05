@@ -1,0 +1,46 @@
+# Minecraft server files
+server.jar
+server.properties
+eula.txt
+banned-ips.json
+banned-players.json
+ops.json
+usercache.json
+whitelist.json
+logs/
+world/
+world_nether/
+world_the_end/
+plugins/
+mods/
+backups/
+
+# Docker
+.dockerignore
+
+# Local data
+data/
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+*.pem
+*.key
+
+# Build artifacts
+dist/
+build/
+*.tar.gz
+*.zip
