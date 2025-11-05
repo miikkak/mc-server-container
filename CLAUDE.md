@@ -351,7 +351,7 @@ When developing, consider how changes might affect:
 - **mc-server-runner**: https://github.com/itzg/mc-server-runner
 - **rcon-cli**: https://github.com/itzg/rcon-cli
 - **itzg/minecraft-server** (reference): https://github.com/itzg/docker-minecraft-server
-- **Meowice flags**: https://github.com/Meowlce/Minecraft-Server-Startup-Flags
+- **Meowice flags**: https://github.com/Meowice/Minecraft-Server-Startup-Flags
 - **Paper API**: https://api.papermc.io/docs/
 - **GraalVM**: https://www.graalvm.org/
 
