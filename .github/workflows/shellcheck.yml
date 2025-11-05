@@ -10,6 +10,10 @@ jobs:
   shellcheck:
     name: ShellCheck
     runs-on: ubuntu-slim
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
 
     steps:
       - name: Checkout code
