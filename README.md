@@ -57,7 +57,7 @@ docker run -d \
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `USE_MEOWICE_FLAGS` | `false` | Enable [Meowice JVM optimization flags](https://github.com/Meowlce/Minecraft-Server-Startup-Flags) |
+| `USE_MEOWICE_FLAGS` | `false` | Enable [Meowice JVM optimization flags](https://github.com/Meowice/Minecraft-Server-Startup-Flags) |
 | `USE_MEOWICE_GRAALVM_FLAGS` | `false` | Enable GraalVM-specific Meowice flags |
 | `ENABLE_COMMAND_BLOCK` | `false` | Enable command blocks |
 | `ALLOW_FLIGHT` | `false` | Allow flight in survival mode |
