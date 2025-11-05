@@ -3,6 +3,16 @@
 ## Goal
 Build a minimal, controlled Minecraft server Docker container that replaces itzg/minecraft-server with a custom solution using mc-server-runner, eliminating Java helper tool dependencies and compatibility issues while maintaining professional process management.
 
+## Repository Infrastructure Status
+
+✅ **Completed Infrastructure:**
+- Pre-commit hooks configured (shellcheck, shfmt, hadolint, branch protection)
+- GitHub Actions workflows (ShellCheck, Build/Test with hadolint, Semantic Release)
+- GitHub labels configured for release management
+- Issue templates (bug reports, feature requests)
+- Comprehensive documentation (README.md, CLAUDE.md)
+- Git workflow enforces feature branches (no direct commits to main)
+
 ## Current State
 - Using `itzg/minecraft-server:java25-graalvm`
 - Running Paper 1.21.10 server
@@ -28,11 +38,11 @@ Build a minimal, controlled Minecraft server Docker container that replaces itzg
    - Source: https://github.com/itzg/mc-server-runner
    - Handles graceful shutdown, signal management, process supervision
    - Creates named pipe for console commands
-   
+
 2. **rcon-cli** - RCON client tool
    - Source: https://github.com/itzg/rcon-cli
    - Command: `docker exec -it mc rcon-cli`
-   
+
 3. **mc-send-to-console** - Console command wrapper
    - Simple bash script that writes to named pipe
    - Command: `docker exec mc mc-send-to-console <command>`
@@ -184,10 +194,10 @@ mclogs (3.0.9)
 ## Risks & Mitigations
 - **Risk**: Forgotten itzg functionality breaks something
   - *Mitigation*: Keep itzg setup in parallel initially, test thoroughly
-  
+
 - **Risk**: mc-server-runner doesn't handle edge cases
   - *Mitigation*: Review mc-server-runner issues/docs, test crash scenarios
-  
+
 - **Risk**: Manual updates become tedious
   - *Mitigation*: Create helper scripts to automate when needed
 

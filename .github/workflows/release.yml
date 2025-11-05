@@ -15,7 +15,7 @@ jobs:
     outputs:
       should_release: ${{ steps.check.outputs.should_release }}
       version_bump: ${{ steps.check.outputs.version_bump }}
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -28,25 +28,25 @@ jobs:
         with:
           script: |
             const commit = context.sha;
-            
+
             // Get PRs associated with this commit
             const prs = await github.rest.repos.listPullRequestsAssociatedWithCommit({
               owner: context.repo.owner,
               repo: context.repo.repo,
               commit_sha: commit
             });
-            
+
             if (prs.data.length === 0) {
               console.log('No PR associated with this commit');
               core.setOutput('should_release', 'false');
               return;
             }
-            
+
             const pr = prs.data[0];
             const labels = pr.labels.map(l => l.name);
-            
+
             console.log('PR labels:', labels);
-            
+
             if (labels.includes('release:major')) {
               core.setOutput('should_release', 'true');
               core.setOutput('version_bump', 'major');
@@ -69,7 +69,7 @@ jobs:
     permissions:
       contents: write
       packages: write
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -82,7 +82,7 @@ jobs:
           # Get latest tag or default to 0.0.0
           LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
           echo "latest_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
-          
+
           # Remove 'v' prefix for version calculation
           VERSION=${LATEST_TAG#v}
           echo "current_version=$VERSION" >> $GITHUB_OUTPUT
@@ -92,9 +92,9 @@ jobs:
         run: |
           VERSION="${{ steps.get_tag.outputs.current_version }}"
           BUMP="${{ needs.check-release.outputs.version_bump }}"
-          
+
           IFS='.' read -r major minor patch <<< "$VERSION"
-          
+
           if [ "$BUMP" = "major" ]; then
             major=$((major + 1))
             minor=0
@@ -105,7 +105,7 @@ jobs:
           elif [ "$BUMP" = "patch" ]; then
             patch=$((patch + 1))
           fi
-          
+
           NEW_VERSION="$major.$minor.$patch"
           echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
           echo "tag=v$NEW_VERSION" >> $GITHUB_OUTPUT
@@ -137,14 +137,14 @@ jobs:
           script: |
             const tag = '${{ steps.new_version.outputs.tag }}';
             const version = '${{ steps.new_version.outputs.version }}';
-            
+
             await github.rest.git.createRef({
               owner: context.repo.owner,
               repo: context.repo.repo,
               ref: `refs/tags/${tag}`,
               sha: context.sha
             });
-            
+
             await github.rest.repos.createRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
