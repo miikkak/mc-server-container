@@ -9,11 +9,16 @@ on:
 jobs:
   shellcheck:
     name: ShellCheck
-    runs-on: ubuntu-latest-beta-small
+    runs-on: ubuntu-slim
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Install ShellCheck
+        run: |
+          apt-get update
+          apt-get install -y shellcheck
 
       - name: Run ShellCheck
         run: |
