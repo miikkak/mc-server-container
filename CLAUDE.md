@@ -44,13 +44,22 @@ mc-server-container/
 │   ├── workflows/
 │   │   ├── build-test.yml         # Build, lint, and test workflow
 │   │   ├── shellcheck.yml         # ShellCheck linting
-│   │   └── release.yml            # Automated semantic versioning release
+│   │   ├── release.yml            # Automated semantic versioning release
+│   │   ├── dependency-check.yml   # Binary dependency monitoring
+│   │   ├── security-scan.yml      # Trivy security scanning
+│   │   ├── precommit-updates.yml  # Pre-commit hook updates
+│   │   └── dependency-dashboard.yml # Dependency status dashboard
+│   ├── dependabot.yml             # Dependabot configuration
 │   ├── ISSUE_TEMPLATE/            # Bug report and feature request templates
 │   └── labels.yml                 # GitHub labels configuration
+├── docs/
+│   ├── DEPENDENCY_MANAGEMENT.md   # Dependency monitoring guide
+│   └── MONITORING_ARCHITECTURE.md # System architecture documentation
 ├── .pre-commit-config.yaml        # Pre-commit hooks configuration
 ├── .shellcheck-wrapper.sh         # Shellcheck wrapper for pre-commit
 ├── .gitignore                     # Git ignore patterns
 ├── README.md                      # User-facing documentation
+├── SECURITY.md                    # Security policy and reporting
 ├── TODO.md                        # Detailed implementation plan
 ├── CLAUDE.md                      # This file
 ├── LICENSE                        # MIT License
@@ -161,6 +170,35 @@ Automated semantic versioning based on PR labels:
 4. **Create Release**: Tags commit and creates GitHub release
 
 **Only runs on main branch** when a PR with a release label is merged.
+
+### 4. Dependency Monitoring Workflows
+
+The repository includes automated dependency monitoring and security scanning:
+
+#### Dependency Check (`.github/workflows/dependency-check.yml`)
+- **Schedule**: Weekly (Mondays at 09:00 UTC)
+- **Checks**: mc-server-runner, rcon-cli, Docker base image
+- **Output**: Creates/updates issues when updates available
+
+#### Security Scan (`.github/workflows/security-scan.yml`)
+- **Schedule**: Daily (03:00 UTC) + on push/PR
+- **Tool**: Trivy vulnerability scanner
+- **Output**: SARIF to Security tab, issues for CRITICAL/HIGH vulnerabilities
+
+#### Pre-commit Updates (`.github/workflows/precommit-updates.yml`)
+- **Schedule**: Weekly (Mondays at 09:30 UTC)
+- **Action**: Automatically creates PRs with pre-commit hook updates
+
+#### Dependency Dashboard (`.github/workflows/dependency-dashboard.yml`)
+- **Schedule**: Weekly (Mondays at 10:00 UTC)
+- **Output**: Maintains comprehensive dashboard issue with all dependency statuses
+
+#### Dependabot (`.github/dependabot.yml`)
+- **Schedule**: Weekly
+- **Monitors**: GitHub Actions and Docker base image versions
+- **Output**: Automatically creates PRs with updates
+
+See [Dependency Management Guide](docs/DEPENDENCY_MANAGEMENT.md) for details.
 
 ## Container Architecture
 
