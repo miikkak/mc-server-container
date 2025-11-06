@@ -163,8 +163,13 @@ JAVA_OPTS="$JAVA_OPTS -Djdk.graal.CompilerConfiguration=enterprise"
 
 # OpenTelemetry agent (if configured)
 if [ -n "${OTEL_EXPORTER_OTLP_ENDPOINT:-}" ]; then
-  echo "📊 OpenTelemetry enabled"
-  JAVA_OPTS="$JAVA_OPTS -javaagent:/opt/opentelemetry-javaagent.jar"
+  if [ -f /opt/opentelemetry-javaagent.jar ]; then
+    echo "📊 OpenTelemetry enabled"
+    JAVA_OPTS="$JAVA_OPTS -javaagent:/opt/opentelemetry-javaagent.jar"
+  else
+    echo "⚠️  Warning: OTEL_EXPORTER_OTLP_ENDPOINT is set but OpenTelemetry agent not found at /opt/opentelemetry-javaagent.jar"
+    echo "   OpenTelemetry instrumentation will not be available"
+  fi
 fi
 
 # Custom additional opts (if provided)
