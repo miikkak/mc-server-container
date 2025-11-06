@@ -43,8 +43,8 @@ COPY --from=downloader /downloads/rcon-cli /usr/local/bin/rcon-cli
 COPY scripts/entrypoint.sh /scripts/entrypoint.sh
 COPY scripts/mc-send-to-console /usr/local/bin/mc-send-to-console
 
-# Make scripts executable
-RUN chmod +x /scripts/entrypoint.sh /usr/local/bin/mc-send-to-console
+# Make scripts executable and readable
+RUN chmod 755 /scripts/entrypoint.sh /usr/local/bin/mc-send-to-console
 
 # Set working directory
 WORKDIR /data
