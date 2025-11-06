@@ -165,23 +165,12 @@ jobs:
             const rconCliUpdate = '${{ steps.check.outputs.rcon_cli_update }}' === 'true';
             const otelUpdate = '${{ steps.check.outputs.otel_update }}' === 'true';
 
-            // Generate specific branch name based on which components are being updated
-            let branchSuffix = '';
-            if (mcRunnerUpdate && rconCliUpdate && otelUpdate) {
-              branchSuffix = 'mc-runner-rcon-cli-otel';
-            } else if (mcRunnerUpdate && rconCliUpdate) {
-              branchSuffix = 'mc-runner-rcon-cli';
-            } else if (mcRunnerUpdate && otelUpdate) {
-              branchSuffix = 'mc-runner-otel';
-            } else if (rconCliUpdate && otelUpdate) {
-              branchSuffix = 'rcon-cli-otel';
-            } else if (mcRunnerUpdate) {
-              branchSuffix = 'mc-runner';
-            } else if (rconCliUpdate) {
-              branchSuffix = 'rcon-cli';
-            } else if (otelUpdate) {
-              branchSuffix = 'otel';
-            }
+            // Generate branch name by concatenating updated components
+            const updatedComponents = [];
+            if (mcRunnerUpdate) updatedComponents.push('mc-runner');
+            if (rconCliUpdate) updatedComponents.push('rcon-cli');
+            if (otelUpdate) updatedComponents.push('otel');
+            const branchSuffix = updatedComponents.join('-');
 
             const branchName = `chore/update-binary-deps-${branchSuffix}`;
 
