@@ -192,7 +192,7 @@ This repository includes automated dependency monitoring and security scanning:
 ### Automated Processes
 
 - **🤖 Dependabot** - Automatically creates PRs for GitHub Actions and Docker base image updates (weekly)
-- **🔍 Dependency Check** - Monitors binary dependencies (mc-server-runner, rcon-cli) and creates issues when updates are available (weekly)
+- **🔍 Dependency Check** - Monitors binary dependencies (mc-server-runner, rcon-cli) and automatically creates PRs with updates (weekly)
 - **🔒 Security Scan** - Runs Trivy vulnerability scanning on container images and reports to GitHub Security tab (daily)
 - **🔧 Pre-commit Updates** - Automatically creates PRs when pre-commit hook updates are available (weekly)
 - **📊 Dependency Dashboard** - Maintains a comprehensive dashboard issue with all dependency statuses (weekly)

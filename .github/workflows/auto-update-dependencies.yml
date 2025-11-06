@@ -1,0 +1,309 @@
+name: Auto-Update Binary Dependencies
+
+on:
+  workflow_dispatch:
+    inputs:
+      mc_runner_version:
+        description: 'mc-server-runner version (optional, will check latest if not provided)'
+        required: false
+        type: string
+      rcon_cli_version:
+        description: 'rcon-cli version (optional, will check latest if not provided)'
+        required: false
+        type: string
+  workflow_call:
+    inputs:
+      mc_runner_version:
+        description: 'mc-server-runner version to update to'
+        required: false
+        type: string
+      rcon_cli_version:
+        description: 'rcon-cli version to update to'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  update-dependencies:
+    name: Update Binary Dependencies
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Extract current versions from Dockerfile
+        id: current
+        run: |
+          MC_RUNNER_VERSION=$(grep 'ARG MC_SERVER_RUNNER_VERSION=' Dockerfile | cut -d'=' -f2)
+          RCON_CLI_VERSION=$(grep 'ARG RCON_CLI_VERSION=' Dockerfile | cut -d'=' -f2)
+
+          if [ -z "$MC_RUNNER_VERSION" ] || [ -z "$RCON_CLI_VERSION" ]; then
+            echo "❌ Failed to extract versions from Dockerfile"
+            exit 1
+          fi
+
+          echo "mc_runner=$MC_RUNNER_VERSION" >> $GITHUB_OUTPUT
+          echo "rcon_cli=$RCON_CLI_VERSION" >> $GITHUB_OUTPUT
+          echo "📦 Current mc-server-runner: $MC_RUNNER_VERSION"
+          echo "📦 Current rcon-cli: $RCON_CLI_VERSION"
+
+      - name: Determine target versions
+        id: target
+        run: |
+          if [ -n "${{ inputs.mc_runner_version }}" ]; then
+            MC_RUNNER_LATEST="${{ inputs.mc_runner_version }}"
+          else
+            MC_RUNNER_LATEST=$(curl -sf https://api.github.com/repos/itzg/mc-server-runner/releases/latest | jq -r .tag_name)
+            if [ -z "$MC_RUNNER_LATEST" ] || [ "$MC_RUNNER_LATEST" = "null" ]; then
+              echo "❌ Failed to fetch mc-server-runner latest version"
+              exit 1
+            fi
+          fi
+
+          if [ -n "${{ inputs.rcon_cli_version }}" ]; then
+            RCON_CLI_LATEST="${{ inputs.rcon_cli_version }}"
+          else
+            RCON_CLI_LATEST=$(curl -sf https://api.github.com/repos/itzg/rcon-cli/releases/latest | jq -r .tag_name)
+            if [ -z "$RCON_CLI_LATEST" ] || [ "$RCON_CLI_LATEST" = "null" ]; then
+              echo "❌ Failed to fetch rcon-cli latest version"
+              exit 1
+            fi
+          fi
+
+          echo "mc_runner=$MC_RUNNER_LATEST" >> $GITHUB_OUTPUT
+          echo "rcon_cli=$RCON_CLI_LATEST" >> $GITHUB_OUTPUT
+          echo "🔍 Target mc-server-runner: $MC_RUNNER_LATEST"
+          echo "🔍 Target rcon-cli: $RCON_CLI_LATEST"
+
+      - name: Check if updates are needed
+        id: check
+        run: |
+          CURRENT_MC_RUNNER="${{ steps.current.outputs.mc_runner }}"
+          TARGET_MC_RUNNER="${{ steps.target.outputs.mc_runner }}"
+          CURRENT_RCON_CLI="${{ steps.current.outputs.rcon_cli }}"
+          TARGET_RCON_CLI="${{ steps.target.outputs.rcon_cli }}"
+
+          UPDATE_NEEDED=false
+
+          if [ "$CURRENT_MC_RUNNER" != "$TARGET_MC_RUNNER" ]; then
+            echo "mc_runner_update=true" >> $GITHUB_OUTPUT
+            UPDATE_NEEDED=true
+            echo "⚠️ mc-server-runner update needed: $CURRENT_MC_RUNNER → $TARGET_MC_RUNNER"
+          else
+            echo "mc_runner_update=false" >> $GITHUB_OUTPUT
+            echo "✅ mc-server-runner is up to date: $CURRENT_MC_RUNNER"
+          fi
+
+          if [ "$CURRENT_RCON_CLI" != "$TARGET_RCON_CLI" ]; then
+            echo "rcon_cli_update=true" >> $GITHUB_OUTPUT
+            UPDATE_NEEDED=true
+            echo "⚠️ rcon-cli update needed: $CURRENT_RCON_CLI → $TARGET_RCON_CLI"
+          else
+            echo "rcon_cli_update=false" >> $GITHUB_OUTPUT
+            echo "✅ rcon-cli is up to date: $CURRENT_RCON_CLI"
+          fi
+
+          if [ "$UPDATE_NEEDED" = true ]; then
+            echo "updates_needed=true" >> $GITHUB_OUTPUT
+            echo "📝 Updates are needed"
+          else
+            echo "updates_needed=false" >> $GITHUB_OUTPUT
+            echo "✅ All dependencies are up to date"
+          fi
+
+      - name: Create PR with updates
+        if: steps.check.outputs.updates_needed == 'true'
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const currentMcRunner = '${{ steps.current.outputs.mc_runner }}';
+            const targetMcRunner = '${{ steps.target.outputs.mc_runner }}';
+            const currentRconCli = '${{ steps.current.outputs.rcon_cli }}';
+            const targetRconCli = '${{ steps.target.outputs.rcon_cli }}';
+            const mcRunnerUpdate = '${{ steps.check.outputs.mc_runner_update }}' === 'true';
+            const rconCliUpdate = '${{ steps.check.outputs.rcon_cli_update }}' === 'true';
+
+            let branchSuffix = '';
+            if (mcRunnerUpdate && rconCliUpdate) {
+              branchSuffix = 'all';
+            } else if (mcRunnerUpdate) {
+              branchSuffix = 'mc-runner';
+            } else if (rconCliUpdate) {
+              branchSuffix = 'rcon-cli';
+            }
+
+            const branchName = `chore/update-binary-deps-${branchSuffix}`;
+
+            const prs = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              head: `${context.repo.owner}:${branchName}`
+            });
+
+            if (prs.data.length > 0) {
+              console.log(`PR already exists: #${prs.data[0].number}`);
+              return;
+            }
+
+            try {
+              const { data: ref } = await github.rest.git.getRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: 'heads/main'
+              });
+
+              await github.rest.git.createRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `refs/heads/${branchName}`,
+                sha: ref.object.sha
+              });
+
+              console.log(`✅ Created branch: ${branchName}`);
+
+              const { data: dockerfileData } = await github.rest.repos.getContent({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                path: 'Dockerfile',
+                ref: branchName
+              });
+
+              let dockerfile = Buffer.from(dockerfileData.content, 'base64').toString('utf8');
+
+              if (mcRunnerUpdate) {
+                dockerfile = dockerfile.replace(
+                  /ARG MC_SERVER_RUNNER_VERSION=[^\s\r\n]+/,
+                  `ARG MC_SERVER_RUNNER_VERSION=${targetMcRunner}`
+                );
+                console.log(`✅ Updated mc-server-runner: ${currentMcRunner} → ${targetMcRunner}`);
+              }
+
+              if (rconCliUpdate) {
+                dockerfile = dockerfile.replace(
+                  /ARG RCON_CLI_VERSION=[^\s\r\n]+/,
+                  `ARG RCON_CLI_VERSION=${targetRconCli}`
+                );
+                console.log(`✅ Updated rcon-cli: ${currentRconCli} → ${targetRconCli}`);
+              }
+
+              await github.rest.repos.createOrUpdateFileContents({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                path: 'Dockerfile',
+                message: 'chore: update binary dependency versions',
+                content: Buffer.from(dockerfile).toString('base64'),
+                sha: dockerfileData.sha,
+                branch: branchName
+              });
+
+              console.log('✅ Updated Dockerfile');
+
+              let updates = [];
+              if (mcRunnerUpdate) {
+                updates.push(`- **mc-server-runner**: ${currentMcRunner} → ${targetMcRunner}`);
+              }
+              if (rconCliUpdate) {
+                updates.push(`- **rcon-cli**: ${currentRconCli} → ${targetRconCli}`);
+              }
+
+              let releaseLinks = [];
+              if (mcRunnerUpdate) {
+                releaseLinks.push(`- [mc-server-runner ${targetMcRunner}](https://github.com/itzg/mc-server-runner/releases/tag/${targetMcRunner})`);
+              }
+              if (rconCliUpdate) {
+                releaseLinks.push(`- [rcon-cli ${targetRconCli}](https://github.com/itzg/rcon-cli/releases/tag/${targetRconCli})`);
+              }
+
+              const prBody = [
+                '## Update Binary Dependencies',
+                '',
+                'This PR updates the following binary dependencies to their latest versions:',
+                '',
+                updates.join('\n'),
+                '',
+                '### Release Notes',
+                '',
+                releaseLinks.join('\n'),
+                '',
+                '### Changes Made',
+                '',
+                '- Updated version numbers in `Dockerfile`',
+                '- Container will download new binaries during build',
+                '',
+                '### Testing',
+                '',
+                'The CI/CD pipeline will:',
+                '1. Lint the Dockerfile with hadolint',
+                '2. Build the container with new binaries',
+                '3. Run integration tests with Paper server',
+                '',
+                'To test locally:',
+                '',
+                '```bash',
+                'docker build -t mc-server-container:test .',
+                'docker run -d --name mc-test -e EULA=TRUE mc-server-container:test',
+                'docker logs mc-test',
+                'docker stop mc-test && docker rm mc-test',
+                '```',
+                '',
+                '---',
+                '*This PR was automatically created by the auto-update-dependencies workflow.*'
+              ].join('\n');
+
+              const { data: pr } = await github.rest.pulls.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: 'chore: update binary dependency versions',
+                head: branchName,
+                base: 'main',
+                body: prBody
+              });
+
+              console.log(`✅ Created PR #${pr.number}`);
+
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                labels: ['dependencies', 'automated', 'release:patch']
+              });
+
+              console.log('✅ Added labels to PR');
+
+              const issues = await github.rest.issues.listForRepo({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                labels: 'dependencies,automated',
+                state: 'open'
+              });
+
+              for (const issue of issues.data) {
+                if (issue.title.includes('Binary dependency updates available')) {
+                  await github.rest.issues.createComment({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issue.number,
+                    body: `Automated PR created: #${pr.number}\n\nClosing this issue as the updates are now in progress.`
+                  });
+
+                  await github.rest.issues.update({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issue.number,
+                    state: 'closed'
+                  });
+
+                  console.log(`✅ Closed issue #${issue.number}`);
+                }
+              }
+
+            } catch (error) {
+              console.error('Error:', error);
+              throw error;
+            }

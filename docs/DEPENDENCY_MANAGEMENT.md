@@ -30,17 +30,18 @@ The repository uses multiple automated tools and workflows to monitor dependenci
 - Custom workflow checks image digests for patches
 **Action Required:** Review PRs/issues and rebuild container
 
-### 3. Binary Dependencies (Custom Check)
+### 3. Binary Dependencies (Automated Update)
 
-**What:** 
+**What:**
 - `mc-server-runner` - Process supervisor
 - `rcon-cli` - RCON client
 
 **Frequency:** Weekly (Mondays at 09:00 UTC)
-**Process:** 
+**Process:**
 - Workflow checks GitHub releases for new versions
-- Issues created when updates are available
-**Action Required:** Update Dockerfile and test
+- Automatically creates PRs with updated versions
+- Issues created initially, then closed when PR is created
+**Action Required:** Review and merge PRs
 
 ### 4. Pre-commit Hooks (Automated Update)
 
@@ -63,9 +64,24 @@ The repository uses multiple automated tools and workflows to monitor dependenci
 
 **Outputs:**
 - Creates/updates issues when updates are available
+- Automatically triggers `auto-update-dependencies.yml` for binary updates
 - Issues are labeled: `dependencies`, `automated`, `enhancement`
 
 **Manual Trigger:** Yes (workflow_dispatch)
+
+### `auto-update-dependencies.yml`
+
+**Schedule:** On-demand (triggered by dependency-check.yml or manually)
+
+**Jobs:**
+1. `update-dependencies` - Creates PR with updated binary dependency versions
+
+**Outputs:**
+- Automatically creates PR with version updates in Dockerfile
+- Closes related dependency issues
+- PRs are labeled: `dependencies`, `automated`, `release:patch`
+
+**Manual Trigger:** Yes (workflow_dispatch with optional version inputs)
 
 ### `security-scan.yml`
 
@@ -136,26 +152,24 @@ The repository uses multiple automated tools and workflows to monitor dependenci
 4. **Create PR:** If testing passes, create PR with `release:patch` label
 5. **Close Issue:** Issue is automatically closed when PR merges
 
-### Binary Dependency Update (Issue)
+### Binary Dependency Update (Automated PR)
 
-1. **Review Issue:** Check the new versions available
-2. **Update Dockerfile:**
+**NEW:** Binary dependencies are now automatically updated via PR!
+
+1. **Review PR:** An automated PR will be created with version updates
+2. **Check Release Notes:** PR includes links to release notes for each update
+3. **Verify Tests:** Ensure CI/CD tests pass (build, lint, integration tests)
+4. **Merge:** Approve and merge the PR
+5. **Labels:** PR already has `dependencies`, `automated`, `release:patch` labels
+
+**Manual Update (if automation fails):**
+1. Trigger `auto-update-dependencies.yml` workflow manually
+2. Or update Dockerfile manually:
    ```dockerfile
    ARG MC_SERVER_RUNNER_VERSION=<new_version>
    ARG RCON_CLI_VERSION=<new_version>
    ```
-3. **Test Build:**
-   ```bash
-   docker build -t mc-server-container:test .
-   ```
-4. **Test Container:**
-   ```bash
-   docker run -d --name mc-test -e EULA=TRUE mc-server-container:test
-   docker logs mc-test
-   docker stop mc-test && docker rm mc-test
-   ```
-5. **Create PR:** Create PR with changes and add `release:patch` label
-6. **Close Issue:** Reference issue in PR to auto-close
+3. Create PR with changes and add `release:patch` label
 
 ### Pre-commit Hook Update (PR)
 
