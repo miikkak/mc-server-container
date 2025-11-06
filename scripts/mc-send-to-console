@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 # mc-send-to-console - Send commands to Minecraft server console via named pipe
 #
 # Usage: mc-send-to-console <command>

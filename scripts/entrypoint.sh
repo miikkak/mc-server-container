@@ -37,10 +37,8 @@ fi
 if [ ! -f paper.jar ]; then
   echo "❌ ERROR: /data/paper.jar not found"
   echo ""
-  echo "Download Paper JAR to /data/paper.jar"
-  echo "Example:"
-  echo "  wget -O /data/paper.jar \\"
-  echo "    https://api.papermc.io/v2/projects/paper/versions/1.21.10/builds/latest/downloads/paper-1.21.10-latest.jar"
+  echo "Download Paper JAR to /data/paper.jar before starting the server"
+  echo "Visit: https://papermc.io/downloads"
   echo ""
   exit 1
 fi
