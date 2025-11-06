@@ -55,6 +55,7 @@ jobs:
           echo "🔍 Latest OpenTelemetry agent: $LATEST"
 
       - name: Compare versions and create issue if needed
+        id: compare
         uses: actions/github-script@v8
         with:
           script: |
@@ -81,6 +82,7 @@ jobs:
 
             if (updates.length === 0) {
               console.log('✅ All dependencies are up to date!');
+              core.setOutput('updates_available', 'false');
               return;
             }
 
@@ -150,7 +152,7 @@ jobs:
             core.setOutput('otel_latest', latestOtel);
 
       - name: Trigger auto-update workflow
-        if: steps.current.outputs.mc_runner != steps.mc_runner.outputs.latest || steps.current.outputs.rcon_cli != steps.rcon_cli.outputs.latest || steps.current.outputs.otel != steps.otel.outputs.latest
+        if: steps.compare.outputs.updates_available == 'true'
         uses: actions/github-script@v8
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}

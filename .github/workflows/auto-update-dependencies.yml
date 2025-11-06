@@ -165,19 +165,16 @@ jobs:
             const rconCliUpdate = '${{ steps.check.outputs.rcon_cli_update }}' === 'true';
             const otelUpdate = '${{ steps.check.outputs.otel_update }}' === 'true';
 
+            // Generate specific branch name based on which components are being updated
             let branchSuffix = '';
-            const updateCount = [mcRunnerUpdate, rconCliUpdate, otelUpdate].filter(Boolean).length;
-            if (updateCount === 3) {
-              branchSuffix = 'all';
-            } else if (updateCount === 2) {
-              // Be specific about which 2 components are being updated
-              if (mcRunnerUpdate && rconCliUpdate) {
-                branchSuffix = 'mc-runner-rcon-cli';
-              } else if (mcRunnerUpdate && otelUpdate) {
-                branchSuffix = 'mc-runner-otel';
-              } else if (rconCliUpdate && otelUpdate) {
-                branchSuffix = 'rcon-cli-otel';
-              }
+            if (mcRunnerUpdate && rconCliUpdate && otelUpdate) {
+              branchSuffix = 'mc-runner-rcon-cli-otel';
+            } else if (mcRunnerUpdate && rconCliUpdate) {
+              branchSuffix = 'mc-runner-rcon-cli';
+            } else if (mcRunnerUpdate && otelUpdate) {
+              branchSuffix = 'mc-runner-otel';
+            } else if (rconCliUpdate && otelUpdate) {
+              branchSuffix = 'rcon-cli-otel';
             } else if (mcRunnerUpdate) {
               branchSuffix = 'mc-runner';
             } else if (rconCliUpdate) {
