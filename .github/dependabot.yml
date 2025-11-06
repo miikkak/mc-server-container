@@ -10,7 +10,7 @@ updates:
       interval: "weekly"
       day: "monday"
       time: "09:00"
-      timezone: "Europe/Helsinki"
+      timezone: "UTC"
     labels:
       - "dependencies"
       - "github-actions"
@@ -29,7 +29,7 @@ updates:
       interval: "weekly"
       day: "monday"
       time: "09:00"
-      timezone: "Europe/Helsinki"
+      timezone: "UTC"
     labels:
       - "dependencies"
       - "docker"

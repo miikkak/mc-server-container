@@ -22,10 +22,19 @@ jobs:
       - name: Extract current versions
         id: versions
         run: |
-          # Get versions from Dockerfile
+          # Get versions from Dockerfile with error handling
           MC_RUNNER=$(grep 'ARG MC_SERVER_RUNNER_VERSION=' Dockerfile | cut -d'=' -f2)
           RCON_CLI=$(grep 'ARG RCON_CLI_VERSION=' Dockerfile | cut -d'=' -f2)
           BASE_IMAGE=$(grep '^FROM container-registry.oracle.com/graalvm/jdk:' Dockerfile | head -1 | awk '{print $2}')
+          
+          # Verify values were extracted
+          if [ -z "$MC_RUNNER" ] || [ -z "$RCON_CLI" ] || [ -z "$BASE_IMAGE" ]; then
+            echo "❌ Failed to extract versions from Dockerfile"
+            echo "MC_RUNNER: $MC_RUNNER"
+            echo "RCON_CLI: $RCON_CLI"
+            echo "BASE_IMAGE: $BASE_IMAGE"
+            exit 1
+          fi
           
           echo "mc_runner=$MC_RUNNER" >> $GITHUB_OUTPUT
           echo "rcon_cli=$RCON_CLI" >> $GITHUB_OUTPUT

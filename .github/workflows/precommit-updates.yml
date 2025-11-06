@@ -64,7 +64,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               state: 'open',
-              head: `${context.repo.owner}:chore/update-pre-commit-hooks`
+              head: 'chore/update-pre-commit-hooks'
             });
 
             if (prs.data.length > 0) {
