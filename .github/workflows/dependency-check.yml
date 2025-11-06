@@ -25,10 +25,13 @@ jobs:
         run: |
           MC_RUNNER_VERSION=$(grep 'ARG MC_SERVER_RUNNER_VERSION=' Dockerfile | cut -d'=' -f2)
           RCON_CLI_VERSION=$(grep 'ARG RCON_CLI_VERSION=' Dockerfile | cut -d'=' -f2)
+          OTEL_VERSION=$(grep 'ARG OTEL_VERSION=' Dockerfile | cut -d'=' -f2)
           echo "mc_runner=$MC_RUNNER_VERSION" >> $GITHUB_OUTPUT
           echo "rcon_cli=$RCON_CLI_VERSION" >> $GITHUB_OUTPUT
+          echo "otel=$OTEL_VERSION" >> $GITHUB_OUTPUT
           echo "📦 Current mc-server-runner: $MC_RUNNER_VERSION"
           echo "📦 Current rcon-cli: $RCON_CLI_VERSION"
+          echo "📦 Current OpenTelemetry agent: $OTEL_VERSION"
 
       - name: Check mc-server-runner latest release
         id: mc_runner
@@ -44,6 +47,13 @@ jobs:
           echo "latest=$LATEST" >> $GITHUB_OUTPUT
           echo "🔍 Latest rcon-cli: $LATEST"
 
+      - name: Check OpenTelemetry agent latest release
+        id: otel
+        run: |
+          LATEST=$(curl -s https://api.github.com/repos/open-telemetry/opentelemetry-java-instrumentation/releases/latest | jq -r .tag_name | sed 's/^v//')
+          echo "latest=$LATEST" >> $GITHUB_OUTPUT
+          echo "🔍 Latest OpenTelemetry agent: $LATEST"
+
       - name: Compare versions and create issue if needed
         uses: actions/github-script@v8
         with:
@@ -52,6 +62,8 @@ jobs:
             const latestMcRunner = '${{ steps.mc_runner.outputs.latest }}';
             const currentRconCli = '${{ steps.current.outputs.rcon_cli }}';
             const latestRconCli = '${{ steps.rcon_cli.outputs.latest }}';
+            const currentOtel = '${{ steps.current.outputs.otel }}';
+            const latestOtel = '${{ steps.otel.outputs.latest }}';
 
             let updates = [];
 
@@ -61,6 +73,10 @@ jobs:
 
             if (currentRconCli !== latestRconCli) {
               updates.push(`- **rcon-cli**: ${currentRconCli} → ${latestRconCli}`);
+            }
+
+            if (currentOtel !== latestOtel) {
+              updates.push(`- **OpenTelemetry Java agent**: ${currentOtel} → ${latestOtel}`);
             }
 
             if (updates.length === 0) {
@@ -92,6 +108,7 @@ jobs:
                \`\`\`dockerfile
                ARG MC_SERVER_RUNNER_VERSION=${latestMcRunner}
                ARG RCON_CLI_VERSION=${latestRconCli}
+               ARG OTEL_VERSION=${latestOtel}
                \`\`\`
 
             2. Test the build locally:
@@ -130,19 +147,22 @@ jobs:
             core.setOutput('updates_available', 'true');
             core.setOutput('mc_runner_latest', latestMcRunner);
             core.setOutput('rcon_cli_latest', latestRconCli);
+            core.setOutput('otel_latest', latestOtel);
 
       - name: Trigger auto-update workflow
-        if: steps.current.outputs.mc_runner != steps.mc_runner.outputs.latest || steps.current.outputs.rcon_cli != steps.rcon_cli.outputs.latest
+        if: steps.current.outputs.mc_runner != steps.mc_runner.outputs.latest || steps.current.outputs.rcon_cli != steps.rcon_cli.outputs.latest || steps.current.outputs.otel != steps.otel.outputs.latest
         uses: actions/github-script@v8
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const mcRunnerVersion = '${{ steps.mc_runner.outputs.latest }}';
             const rconCliVersion = '${{ steps.rcon_cli.outputs.latest }}';
+            const otelVersion = '${{ steps.otel.outputs.latest }}';
 
             console.log('🤖 Triggering auto-update workflow...');
             console.log(`  mc-server-runner: ${mcRunnerVersion}`);
             console.log(`  rcon-cli: ${rconCliVersion}`);
+            console.log(`  OpenTelemetry agent: ${otelVersion}`);
 
             await github.rest.actions.createWorkflowDispatch({
               owner: context.repo.owner,
@@ -151,7 +171,8 @@ jobs:
               ref: 'main',
               inputs: {
                 mc_runner_version: mcRunnerVersion,
-                rcon_cli_version: rconCliVersion
+                rcon_cli_version: rconCliVersion,
+                otel_version: otelVersion
               }
             });
 

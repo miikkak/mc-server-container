@@ -18,6 +18,10 @@ ARG RCON_CLI_VERSION=1.7.2
 ADD https://github.com/itzg/rcon-cli/releases/download/${RCON_CLI_VERSION}/rcon-cli_${RCON_CLI_VERSION}_linux_amd64.tar.gz rcon-cli.tar.gz
 RUN tar -xzf rcon-cli.tar.gz && chmod +x rcon-cli
 
+# Download OpenTelemetry Java agent
+ARG OTEL_VERSION=2.11.0
+ADD https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v${OTEL_VERSION}/opentelemetry-javaagent.jar opentelemetry-javaagent.jar
+
 # ============================================================================
 # Stage 2: Final image
 # ============================================================================
@@ -38,6 +42,7 @@ RUN mkdir -p /data /opt /scripts \
 # Copy binaries from downloader stage
 COPY --from=downloader /downloads/mc-server-runner /usr/local/bin/mc-server-runner
 COPY --from=downloader /downloads/rcon-cli /usr/local/bin/rcon-cli
+COPY --from=downloader /downloads/opentelemetry-javaagent.jar /opt/opentelemetry-javaagent.jar
 
 # Copy scripts
 COPY scripts/entrypoint.sh /scripts/entrypoint.sh

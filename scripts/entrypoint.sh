@@ -164,15 +164,6 @@ JAVA_OPTS="$JAVA_OPTS -Djdk.graal.CompilerConfiguration=enterprise"
 # OpenTelemetry agent (if configured)
 if [ -n "${OTEL_EXPORTER_OTLP_ENDPOINT:-}" ]; then
   echo "📊 OpenTelemetry enabled"
-
-  # Download agent if not present
-  if [ ! -f /opt/opentelemetry-javaagent.jar ]; then
-    echo "⬇️  Downloading OpenTelemetry Java agent..."
-    wget -q -O /opt/opentelemetry-javaagent.jar \
-      https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/latest/download/opentelemetry-javaagent.jar
-    echo "✅ OpenTelemetry agent downloaded"
-  fi
-
   JAVA_OPTS="$JAVA_OPTS -javaagent:/opt/opentelemetry-javaagent.jar"
 fi
 
