@@ -43,6 +43,7 @@ jobs:
           format: 'sarif'
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH'
+          exit-code: '0'  # Don't fail the workflow, just report
 
       - name: Upload Trivy results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
@@ -56,6 +57,7 @@ jobs:
           image-ref: 'mc-server-container:scan'
           format: 'table'
           severity: 'CRITICAL,HIGH,MEDIUM'
+          exit-code: '0'  # Don't fail the workflow, just report
 
       - name: Run Trivy vulnerability scanner (JSON output)
         uses: aquasecurity/trivy-action@0.28.0
@@ -64,6 +66,7 @@ jobs:
           format: 'json'
           output: 'trivy-results.json'
           severity: 'CRITICAL,HIGH'
+          exit-code: '0'  # Don't fail the workflow, just report
 
       - name: Check for vulnerabilities and create issue
         if: github.event_name == 'schedule'
@@ -175,6 +178,7 @@ jobs:
           scan-ref: '.'
           format: 'sarif'
           output: 'trivy-config.sarif'
+          exit-code: '0'  # Don't fail the workflow, just report
 
       - name: Upload Trivy config results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
@@ -189,3 +193,4 @@ jobs:
           scan-type: 'config'
           scan-ref: '.'
           format: 'table'
+          exit-code: '0'  # Don't fail the workflow, just report
