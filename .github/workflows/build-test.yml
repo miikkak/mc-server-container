@@ -197,4 +197,4 @@ jobs:
           echo "🧹 Cleaning up test container"
           docker stop mc-test
           docker rm mc-test
-          rm -rf test-data
+          sudo rm -rf test-data
