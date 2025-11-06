@@ -134,6 +134,12 @@ jobs:
           JAR_SIZE=$(stat -c%s test-data/paper.jar 2>/dev/null || stat -f%z test-data/paper.jar)
           echo "✅ Downloaded Paper JAR (${JAR_SIZE} bytes)"
 
+          # Change ownership to minecraft user (UID 25565)
+          # This allows the container's minecraft user to write to /data
+          echo "🔧 Setting permissions for minecraft user"
+          sudo chown -R 25565:25565 test-data
+          echo "✅ Permissions set"
+
       - name: Run integration tests
         if: steps.check_dockerfile.outputs.exists == 'true'
         run: |
