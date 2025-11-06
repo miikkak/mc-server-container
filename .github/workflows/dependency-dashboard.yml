@@ -1,0 +1,220 @@
+name: Dependency Dashboard
+
+on:
+  schedule:
+    # Run every Monday at 10:00 UTC
+    - cron: '0 10 * * 1'
+  workflow_dispatch: # Allow manual trigger
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  create-dashboard:
+    name: Create Dependency Dashboard
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Extract current versions
+        id: versions
+        run: |
+          # Get versions from Dockerfile
+          MC_RUNNER=$(grep 'ARG MC_SERVER_RUNNER_VERSION=' Dockerfile | cut -d'=' -f2)
+          RCON_CLI=$(grep 'ARG RCON_CLI_VERSION=' Dockerfile | cut -d'=' -f2)
+          BASE_IMAGE=$(grep '^FROM container-registry.oracle.com/graalvm/jdk:' Dockerfile | head -1 | awk '{print $2}')
+          
+          echo "mc_runner=$MC_RUNNER" >> $GITHUB_OUTPUT
+          echo "rcon_cli=$RCON_CLI" >> $GITHUB_OUTPUT
+          echo "base_image=$BASE_IMAGE" >> $GITHUB_OUTPUT
+
+      - name: Check latest versions
+        id: latest
+        run: |
+          # Check mc-server-runner
+          MC_RUNNER_LATEST=$(curl -s https://api.github.com/repos/itzg/mc-server-runner/releases/latest | jq -r .tag_name)
+          echo "mc_runner=$MC_RUNNER_LATEST" >> $GITHUB_OUTPUT
+          
+          # Check rcon-cli
+          RCON_CLI_LATEST=$(curl -s https://api.github.com/repos/itzg/rcon-cli/releases/latest | jq -r .tag_name)
+          echo "rcon_cli=$RCON_CLI_LATEST" >> $GITHUB_OUTPUT
+
+      - name: Check GitHub Actions versions
+        id: actions
+        run: |
+          # Extract action versions from workflows
+          echo "### GitHub Actions" > actions-report.md
+          echo "" >> actions-report.md
+          
+          for workflow in .github/workflows/*.yml; do
+            echo "**$(basename $workflow)**:" >> actions-report.md
+            grep -E "uses: .+@v[0-9]+" "$workflow" | sed 's/.*uses: /- /' | sort -u >> actions-report.md
+            echo "" >> actions-report.md
+          done
+
+      - name: Create or update dashboard issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const currentMcRunner = '${{ steps.versions.outputs.mc_runner }}';
+            const latestMcRunner = '${{ steps.latest.outputs.mc_runner }}';
+            const currentRconCli = '${{ steps.versions.outputs.rcon_cli }}';
+            const latestRconCli = '${{ steps.latest.outputs.rcon_cli }}';
+            const baseImage = '${{ steps.versions.outputs.base_image }}';
+
+            const mcRunnerStatus = currentMcRunner === latestMcRunner ? '✅' : '⚠️';
+            const rconCliStatus = currentRconCli === latestRconCli ? '✅' : '⚠️';
+
+            const actionsReport = fs.readFileSync('actions-report.md', 'utf8');
+
+            const body = `# 📊 Dependency Status Dashboard
+
+            This dashboard provides an overview of all dependencies in the repository and their update status.
+
+            **Last Updated:** ${new Date().toISOString()}
+
+            ---
+
+            ## Binary Dependencies
+
+            | Dependency | Current | Latest | Status |
+            |------------|---------|--------|--------|
+            | **mc-server-runner** | ${currentMcRunner} | ${latestMcRunner} | ${mcRunnerStatus} |
+            | **rcon-cli** | ${currentRconCli} | ${latestRconCli} | ${rconCliStatus} |
+
+            ## Docker Base Image
+
+            | Component | Version |
+            |-----------|---------|
+            | **Base Image** | \`${baseImage}\` |
+
+            > **Note:** Base image updates are checked daily by the dependency-check workflow.
+
+            ---
+
+            ## Automation Status
+
+            ### Active Monitors
+
+            - 🤖 **Dependabot** - Monitors GitHub Actions and Docker base image (weekly)
+            - 🔍 **Dependency Check** - Checks binary dependencies (weekly)
+            - 🔒 **Security Scan** - Scans for vulnerabilities with Trivy (daily)
+            - 🔧 **Pre-commit Updates** - Checks pre-commit hook versions (weekly)
+
+            ### Recent Activity
+
+            Check the following for recent dependency-related activity:
+            - [Open Dependency PRs](https://github.com/${context.repo.owner}/${context.repo.repo}/pulls?q=is%3Apr+is%3Aopen+label%3Adependencies)
+            - [Dependency Issues](https://github.com/${context.repo.owner}/${context.repo.repo}/issues?q=is%3Aissue+is%3Aopen+label%3Adependencies)
+            - [Security Alerts](https://github.com/${context.repo.owner}/${context.repo.repo}/security)
+
+            ---
+
+            ${actionsReport}
+
+            ---
+
+            ## Dependency Update Process
+
+            ### Automated Updates (Managed by Dependabot)
+            - GitHub Actions are automatically updated via Dependabot PRs
+            - Docker base image updates are detected by Dependabot
+
+            ### Semi-Automated Updates (Issue/PR Created)
+            - Binary dependencies (mc-server-runner, rcon-cli) - Issues created when updates available
+            - Pre-commit hooks - PRs automatically created with updates
+
+            ### Manual Monitoring
+            - Pre-commit hook dependency versions
+            - GraalVM JDK security patches
+
+            ---
+
+            ## How to Update Dependencies
+
+            ### Binary Dependencies (mc-server-runner, rcon-cli)
+
+            1. Update versions in \`Dockerfile\`:
+               \`\`\`dockerfile
+               ARG MC_SERVER_RUNNER_VERSION=<new_version>
+               ARG RCON_CLI_VERSION=<new_version>
+               \`\`\`
+
+            2. Test locally:
+               \`\`\`bash
+               docker build -t mc-server-container:test .
+               docker run -d --name mc-test -e EULA=TRUE mc-server-container:test
+               docker logs mc-test
+               docker stop mc-test && docker rm mc-test
+               \`\`\`
+
+            3. Create PR with \`release:patch\` label
+
+            ### GitHub Actions
+
+            Dependabot automatically creates PRs for GitHub Actions updates. Simply review and merge.
+
+            ### Pre-commit Hooks
+
+            PRs are automatically created by the pre-commit-updates workflow. Review and merge.
+
+            ---
+
+            ## Security
+
+            - **Container Scanning:** Daily Trivy scans check for vulnerabilities
+            - **SARIF Upload:** Results uploaded to GitHub Security tab
+            - **Automated Issues:** High/critical vulnerabilities trigger issue creation
+
+            Check [Security Advisories](https://github.com/${context.repo.owner}/${context.repo.repo}/security/advisories) for details.
+
+            ---
+
+            *This dashboard is automatically updated weekly by the dependency-dashboard workflow.*
+            *To trigger a manual update, run the workflow from [Actions tab](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/workflows/dependency-dashboard.yml).*`;
+
+            // Check if dashboard issue exists
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'dashboard',
+              state: 'open'
+            });
+
+            const existingDashboard = issues.data.find(issue => 
+              issue.title.includes('Dependency Status Dashboard')
+            );
+
+            if (existingDashboard) {
+              // Update existing dashboard
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingDashboard.number,
+                body: body
+              });
+              console.log(`📊 Updated dashboard issue #${existingDashboard.number}`);
+            } else {
+              // Create new dashboard
+              const newIssue = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: '📊 Dependency Status Dashboard',
+                body: body,
+                labels: ['dashboard', 'documentation']
+              });
+              
+              // Pin the issue
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: newIssue.data.number,
+                state: 'open'
+              });
+              
+              console.log(`📊 Created dashboard issue #${newIssue.data.number}`);
+            }

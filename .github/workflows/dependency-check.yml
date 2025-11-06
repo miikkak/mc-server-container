@@ -1,0 +1,225 @@
+name: Dependency Check
+
+on:
+  schedule:
+    # Run every Monday at 09:00 UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch: # Allow manual trigger
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check-binary-dependencies:
+    name: Check Binary Dependencies
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Extract current versions from Dockerfile
+        id: current
+        run: |
+          MC_RUNNER_VERSION=$(grep 'ARG MC_SERVER_RUNNER_VERSION=' Dockerfile | cut -d'=' -f2)
+          RCON_CLI_VERSION=$(grep 'ARG RCON_CLI_VERSION=' Dockerfile | cut -d'=' -f2)
+          echo "mc_runner=$MC_RUNNER_VERSION" >> $GITHUB_OUTPUT
+          echo "rcon_cli=$RCON_CLI_VERSION" >> $GITHUB_OUTPUT
+          echo "📦 Current mc-server-runner: $MC_RUNNER_VERSION"
+          echo "📦 Current rcon-cli: $RCON_CLI_VERSION"
+
+      - name: Check mc-server-runner latest release
+        id: mc_runner
+        run: |
+          LATEST=$(curl -s https://api.github.com/repos/itzg/mc-server-runner/releases/latest | jq -r .tag_name)
+          echo "latest=$LATEST" >> $GITHUB_OUTPUT
+          echo "🔍 Latest mc-server-runner: $LATEST"
+
+      - name: Check rcon-cli latest release
+        id: rcon_cli
+        run: |
+          LATEST=$(curl -s https://api.github.com/repos/itzg/rcon-cli/releases/latest | jq -r .tag_name)
+          echo "latest=$LATEST" >> $GITHUB_OUTPUT
+          echo "🔍 Latest rcon-cli: $LATEST"
+
+      - name: Compare versions and create issue if needed
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const currentMcRunner = '${{ steps.current.outputs.mc_runner }}';
+            const latestMcRunner = '${{ steps.mc_runner.outputs.latest }}';
+            const currentRconCli = '${{ steps.current.outputs.rcon_cli }}';
+            const latestRconCli = '${{ steps.rcon_cli.outputs.latest }}';
+
+            let updates = [];
+
+            if (currentMcRunner !== latestMcRunner) {
+              updates.push(`- **mc-server-runner**: ${currentMcRunner} → ${latestMcRunner}`);
+            }
+
+            if (currentRconCli !== latestRconCli) {
+              updates.push(`- **rcon-cli**: ${currentRconCli} → ${latestRconCli}`);
+            }
+
+            if (updates.length === 0) {
+              console.log('✅ All dependencies are up to date!');
+              return;
+            }
+
+            // Check if an issue already exists
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'dependencies,automated',
+              state: 'open'
+            });
+
+            const existingIssue = issues.data.find(issue => 
+              issue.title.includes('Binary dependency updates available')
+            );
+
+            const body = `## Binary Dependency Updates Available
+
+            The following binary dependencies have new versions available:
+
+            ${updates.join('\n')}
+
+            ### Update Instructions
+
+            1. Update the versions in the \`Dockerfile\`:
+               \`\`\`dockerfile
+               ARG MC_SERVER_RUNNER_VERSION=${latestMcRunner}
+               ARG RCON_CLI_VERSION=${latestRconCli}
+               \`\`\`
+
+            2. Test the build locally:
+               \`\`\`bash
+               docker build -t mc-server-container:test .
+               \`\`\`
+
+            3. Create a PR with the changes and add the \`release:patch\` label.
+
+            ---
+            *This issue was automatically created by the dependency-check workflow.*
+            *Last checked: ${new Date().toISOString()}*`;
+
+            if (existingIssue) {
+              // Update existing issue
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingIssue.number,
+                body: body
+              });
+              console.log(`📝 Updated existing issue #${existingIssue.number}`);
+            } else {
+              // Create new issue
+              const newIssue = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: '⬆️ Binary dependency updates available',
+                body: body,
+                labels: ['dependencies', 'automated', 'enhancement']
+              });
+              console.log(`📝 Created new issue #${newIssue.data.number}`);
+            }
+
+  check-base-image:
+    name: Check Base Image Updates
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check GraalVM base image
+        id: check_image
+        run: |
+          # Extract current base image
+          CURRENT_IMAGE=$(grep '^FROM container-registry.oracle.com/graalvm/jdk:' Dockerfile | head -1 | awk '{print $2}')
+          echo "current=$CURRENT_IMAGE" >> $GITHUB_OUTPUT
+          echo "📦 Current base image: $CURRENT_IMAGE"
+
+          # Get current digest
+          CURRENT_DIGEST=$(docker manifest inspect "$CURRENT_IMAGE" 2>/dev/null | jq -r '.config.digest' || echo "unknown")
+          echo "current_digest=$CURRENT_DIGEST" >> $GITHUB_OUTPUT
+
+          # Pull latest to check for updates
+          echo "🔍 Checking for updates..."
+          docker pull "$CURRENT_IMAGE" --quiet
+
+          # Get latest digest
+          LATEST_DIGEST=$(docker inspect "$CURRENT_IMAGE" --format='{{.Id}}')
+          echo "latest_digest=$LATEST_DIGEST" >> $GITHUB_OUTPUT
+
+          if [ "$CURRENT_DIGEST" != "$LATEST_DIGEST" ]; then
+            echo "update_available=true" >> $GITHUB_OUTPUT
+            echo "⚠️ Base image has updates available"
+          else
+            echo "update_available=false" >> $GITHUB_OUTPUT
+            echo "✅ Base image is up to date"
+          fi
+
+      - name: Create issue if update available
+        if: steps.check_image.outputs.update_available == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const currentImage = '${{ steps.check_image.outputs.current }}';
+            const currentDigest = '${{ steps.check_image.outputs.current_digest }}';
+            const latestDigest = '${{ steps.check_image.outputs.latest_digest }}';
+
+            // Check if an issue already exists
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'dependencies,docker,automated',
+              state: 'open'
+            });
+
+            const existingIssue = issues.data.find(issue => 
+              issue.title.includes('GraalVM base image update available')
+            );
+
+            if (existingIssue) {
+              console.log(`Issue already exists: #${existingIssue.number}`);
+              return;
+            }
+
+            const body = `## GraalVM Base Image Update Available
+
+            A new version of the GraalVM base image is available.
+
+            **Current Image:** \`${currentImage}\`
+            **Current Digest:** \`${currentDigest}\`
+            **Latest Digest:** \`${latestDigest}\`
+
+            ### Update Instructions
+
+            1. Rebuild the container to pull the latest base image:
+               \`\`\`bash
+               docker build --no-cache --pull -t mc-server-container:test .
+               \`\`\`
+
+            2. Test the updated container:
+               \`\`\`bash
+               docker run -d --name mc-test -e EULA=TRUE mc-server-container:test
+               docker logs mc-test
+               docker stop mc-test && docker rm mc-test
+               \`\`\`
+
+            3. If tests pass, create a PR and add the \`release:patch\` label.
+
+            ---
+            *This issue was automatically created by the dependency-check workflow.*
+            *Checked on: ${new Date().toISOString()}*`;
+
+            const newIssue = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '⬆️ GraalVM base image update available',
+              body: body,
+              labels: ['dependencies', 'docker', 'automated', 'enhancement']
+            });
+            console.log(`📝 Created issue #${newIssue.data.number}`);
