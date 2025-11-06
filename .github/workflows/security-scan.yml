@@ -19,6 +19,10 @@ jobs:
   trivy-scan:
     name: Trivy Security Scan
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      issues: write
 
     steps:
       - name: Checkout code
@@ -166,6 +170,9 @@ jobs:
   dockerfile-scan:
     name: Dockerfile Security Check
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
 
     steps:
       - name: Checkout code
