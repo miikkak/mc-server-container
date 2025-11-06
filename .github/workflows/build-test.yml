@@ -101,33 +101,94 @@ jobs:
           tags: mc-server-container:test
           cache-from: type=gha
 
-      - name: Run basic tests
+      - name: Prepare test data
         if: steps.check_dockerfile.outputs.exists == 'true'
         run: |
-          echo "🧪 Testing container startup"
+          echo "📦 Preparing test data directory"
+          mkdir -p test-data
 
-          # Start container
-          docker run -d --name mc-test -e EULA=TRUE mc-server-container:test
+          # Accept EULA
+          echo "eula=true" > test-data/eula.txt
+          echo "✅ Created eula.txt"
 
-          # Wait for container to start
-          echo "⏳ Waiting for container to start..."
-          sleep 10
+          # Download Paper JAR
+          echo "⬇️  Downloading Paper JAR..."
+          PAPER_VERSION="1.21.3"
 
-          # Check if container is running
-          if [ "$(docker inspect -f '{{.State.Running}}' mc-test)" != "true" ]; then
-            echo "❌ Container failed to start"
+          # Get latest build number
+          BUILD_NUMBER=$(curl -s "https://api.papermc.io/v2/projects/paper/versions/${PAPER_VERSION}" | \
+            jq -r '.builds[-1]')
+
+          echo "📋 Downloading Paper ${PAPER_VERSION} build ${BUILD_NUMBER}"
+
+          # Download Paper JAR
+          curl -s -o test-data/paper.jar \
+            "https://api.papermc.io/v2/projects/paper/versions/${PAPER_VERSION}/builds/${BUILD_NUMBER}/downloads/paper-${PAPER_VERSION}-${BUILD_NUMBER}.jar"
+
+          # Verify download
+          if [ ! -f test-data/paper.jar ]; then
+            echo "❌ Failed to download Paper JAR"
+            exit 1
+          fi
+
+          JAR_SIZE=$(stat -c%s test-data/paper.jar 2>/dev/null || stat -f%z test-data/paper.jar)
+          echo "✅ Downloaded Paper JAR (${JAR_SIZE} bytes)"
+
+      - name: Run integration tests
+        if: steps.check_dockerfile.outputs.exists == 'true'
+        run: |
+          echo "🧪 Starting integration test with real Paper server"
+
+          # Start container with actual data
+          docker run -d --name mc-test \
+            -v $(pwd)/test-data:/data \
+            -e MEMORY=2G \
+            mc-server-container:test
+
+          echo "⏳ Waiting for Paper server to start (this may take 30-60 seconds)..."
+
+          # Wait up to 90 seconds for server to start
+          MAX_WAIT=90
+          ELAPSED=0
+          SERVER_STARTED=false
+
+          while [ $ELAPSED -lt $MAX_WAIT ]; do
+            if docker logs mc-test 2>&1 | grep -q "Done (.*s)! For help, type \"help\""; then
+              SERVER_STARTED=true
+              echo "✅ Server started successfully after ${ELAPSED}s"
+              break
+            fi
+
+            # Check if container is still running
+            if [ "$(docker inspect -f '{{.State.Running}}' mc-test)" != "true" ]; then
+              echo "❌ Container stopped unexpectedly"
+              echo "📋 Container logs:"
+              docker logs mc-test
+              exit 1
+            fi
+
+            sleep 5
+            ELAPSED=$((ELAPSED + 5))
+            echo "  ... waiting (${ELAPSED}s / ${MAX_WAIT}s)"
+          done
+
+          if [ "$SERVER_STARTED" != "true" ]; then
+            echo "❌ Server failed to start within ${MAX_WAIT} seconds"
             echo "📋 Container logs:"
             docker logs mc-test
             exit 1
           fi
 
-          echo "✅ Container started successfully"
+          echo ""
+          echo "📋 Server startup logs:"
+          docker logs mc-test | tail -20
 
-          # Show container logs for debugging
-          echo "📋 Container logs:"
-          docker logs mc-test
+          echo ""
+          echo "✅ Integration test passed - Paper server started successfully"
 
           # Cleanup
+          echo ""
           echo "🧹 Cleaning up test container"
           docker stop mc-test
           docker rm mc-test
+          rm -rf test-data
