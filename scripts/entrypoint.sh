@@ -167,7 +167,7 @@ if [ -n "${OTEL_EXPORTER_OTLP_ENDPOINT:-}" ]; then
     echo "📊 OpenTelemetry enabled"
     JAVA_OPTS="$JAVA_OPTS -javaagent:/opt/opentelemetry-javaagent.jar"
   else
-    echo "⚠️  Warning: OTEL_EXPORTER_OTLP_ENDPOINT is set but OpenTelemetry agent not found at /opt/opentelemetry-javaagent.jar"
+    echo "⚠️ Warning: OTEL_EXPORTER_OTLP_ENDPOINT is set but OpenTelemetry agent not found at /opt/opentelemetry-javaagent.jar"
     echo "   This may indicate an image build issue. Please verify you are using the latest image or rebuild the container."
     echo "   OpenTelemetry instrumentation will not be available."
   fi
