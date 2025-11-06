@@ -12,9 +12,7 @@ on:
 
 permissions:
   contents: read
-  security-events: write
   issues: write
-  actions: read
 
 jobs:
   trivy-scan:
@@ -22,9 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      security-events: write
       issues: write
-      actions: read
 
     steps:
       - name: Checkout code
@@ -41,21 +37,6 @@ jobs:
           tags: mc-server-container:scan
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          image-ref: 'mc-server-container:scan'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-          severity: 'CRITICAL,HIGH'
-          exit-code: '0'  # Don't fail the workflow, just report
-
-      - name: Upload Trivy results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
-        with:
-          sarif_file: 'trivy-results.sarif'
 
       - name: Run Trivy vulnerability scanner (table output)
         uses: aquasecurity/trivy-action@0.28.0
@@ -132,7 +113,7 @@ jobs:
 
             ### Action Required
 
-            1. Review the vulnerabilities in the [Security tab](https://github.com/${context.repo.owner}/${context.repo.repo}/security/code-scanning)
+            1. Review the vulnerabilities in the workflow logs (link below)
             2. Update affected dependencies or base image
             3. Rebuild and test the container
             4. Create a PR with fixes and add \`release:patch\` label
@@ -174,28 +155,10 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      security-events: write
-      actions: read
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Run Trivy config scanner on Dockerfile
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          scan-type: 'config'
-          scan-ref: '.'
-          format: 'sarif'
-          output: 'trivy-config.sarif'
-          exit-code: '0'  # Don't fail the workflow, just report
-
-      - name: Upload Trivy config results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
-        with:
-          sarif_file: 'trivy-config.sarif'
-          category: 'dockerfile'
 
       - name: Run Trivy config scanner (table output)
         uses: aquasecurity/trivy-action@0.28.0
