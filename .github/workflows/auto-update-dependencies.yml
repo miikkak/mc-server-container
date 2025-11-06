@@ -11,6 +11,10 @@ on:
         description: 'rcon-cli version (optional, will check latest if not provided)'
         required: false
         type: string
+      otel_version:
+        description: 'OpenTelemetry agent version (optional, will check latest if not provided)'
+        required: false
+        type: string
   workflow_call:
     inputs:
       mc_runner_version:
@@ -19,6 +23,10 @@ on:
         type: string
       rcon_cli_version:
         description: 'rcon-cli version to update to'
+        required: false
+        type: string
+      otel_version:
+        description: 'OpenTelemetry agent version to update to'
         required: false
         type: string
 
@@ -41,16 +49,19 @@ jobs:
         run: |
           MC_RUNNER_VERSION=$(grep 'ARG MC_SERVER_RUNNER_VERSION=' Dockerfile | cut -d'=' -f2)
           RCON_CLI_VERSION=$(grep 'ARG RCON_CLI_VERSION=' Dockerfile | cut -d'=' -f2)
+          OTEL_VERSION=$(grep 'ARG OTEL_VERSION=' Dockerfile | cut -d'=' -f2)
 
-          if [ -z "$MC_RUNNER_VERSION" ] || [ -z "$RCON_CLI_VERSION" ]; then
+          if [ -z "$MC_RUNNER_VERSION" ] || [ -z "$RCON_CLI_VERSION" ] || [ -z "$OTEL_VERSION" ]; then
             echo "❌ Failed to extract versions from Dockerfile"
             exit 1
           fi
 
           echo "mc_runner=$MC_RUNNER_VERSION" >> $GITHUB_OUTPUT
           echo "rcon_cli=$RCON_CLI_VERSION" >> $GITHUB_OUTPUT
+          echo "otel=$OTEL_VERSION" >> $GITHUB_OUTPUT
           echo "📦 Current mc-server-runner: $MC_RUNNER_VERSION"
           echo "📦 Current rcon-cli: $RCON_CLI_VERSION"
+          echo "📦 Current OpenTelemetry agent: $OTEL_VERSION"
 
       - name: Determine target versions
         id: target
@@ -75,10 +86,22 @@ jobs:
             fi
           fi
 
+          if [ -n "${{ inputs.otel_version }}" ]; then
+            OTEL_LATEST="${{ inputs.otel_version }}"
+          else
+            OTEL_LATEST=$(curl -sf https://api.github.com/repos/open-telemetry/opentelemetry-java-instrumentation/releases/latest | jq -r .tag_name | sed 's/^v//')
+            if [ -z "$OTEL_LATEST" ] || [ "$OTEL_LATEST" = "null" ]; then
+              echo "❌ Failed to fetch OpenTelemetry agent latest version"
+              exit 1
+            fi
+          fi
+
           echo "mc_runner=$MC_RUNNER_LATEST" >> $GITHUB_OUTPUT
           echo "rcon_cli=$RCON_CLI_LATEST" >> $GITHUB_OUTPUT
+          echo "otel=$OTEL_LATEST" >> $GITHUB_OUTPUT
           echo "🔍 Target mc-server-runner: $MC_RUNNER_LATEST"
           echo "🔍 Target rcon-cli: $RCON_CLI_LATEST"
+          echo "🔍 Target OpenTelemetry agent: $OTEL_LATEST"
 
       - name: Check if updates are needed
         id: check
@@ -87,6 +110,8 @@ jobs:
           TARGET_MC_RUNNER="${{ steps.target.outputs.mc_runner }}"
           CURRENT_RCON_CLI="${{ steps.current.outputs.rcon_cli }}"
           TARGET_RCON_CLI="${{ steps.target.outputs.rcon_cli }}"
+          CURRENT_OTEL="${{ steps.current.outputs.otel }}"
+          TARGET_OTEL="${{ steps.target.outputs.otel }}"
 
           UPDATE_NEEDED=false
 
@@ -108,6 +133,15 @@ jobs:
             echo "✅ rcon-cli is up to date: $CURRENT_RCON_CLI"
           fi
 
+          if [ "$CURRENT_OTEL" != "$TARGET_OTEL" ]; then
+            echo "otel_update=true" >> $GITHUB_OUTPUT
+            UPDATE_NEEDED=true
+            echo "⚠️ OpenTelemetry agent update needed: $CURRENT_OTEL → $TARGET_OTEL"
+          else
+            echo "otel_update=false" >> $GITHUB_OUTPUT
+            echo "✅ OpenTelemetry agent is up to date: $CURRENT_OTEL"
+          fi
+
           if [ "$UPDATE_NEEDED" = true ]; then
             echo "updates_needed=true" >> $GITHUB_OUTPUT
             echo "📝 Updates are needed"
@@ -125,17 +159,18 @@ jobs:
             const targetMcRunner = '${{ steps.target.outputs.mc_runner }}';
             const currentRconCli = '${{ steps.current.outputs.rcon_cli }}';
             const targetRconCli = '${{ steps.target.outputs.rcon_cli }}';
+            const currentOtel = '${{ steps.current.outputs.otel }}';
+            const targetOtel = '${{ steps.target.outputs.otel }}';
             const mcRunnerUpdate = '${{ steps.check.outputs.mc_runner_update }}' === 'true';
             const rconCliUpdate = '${{ steps.check.outputs.rcon_cli_update }}' === 'true';
+            const otelUpdate = '${{ steps.check.outputs.otel_update }}' === 'true';
 
-            let branchSuffix = '';
-            if (mcRunnerUpdate && rconCliUpdate) {
-              branchSuffix = 'all';
-            } else if (mcRunnerUpdate) {
-              branchSuffix = 'mc-runner';
-            } else if (rconCliUpdate) {
-              branchSuffix = 'rcon-cli';
-            }
+            // Generate branch name by concatenating updated components
+            const updatedComponents = [];
+            if (mcRunnerUpdate) updatedComponents.push('mc-runner');
+            if (rconCliUpdate) updatedComponents.push('rcon-cli');
+            if (otelUpdate) updatedComponents.push('otel');
+            const branchSuffix = updatedComponents.join('-');
 
             const branchName = `chore/update-binary-deps-${branchSuffix}`;
 
@@ -192,6 +227,14 @@ jobs:
                 console.log(`✅ Updated rcon-cli: ${currentRconCli} → ${targetRconCli}`);
               }
 
+              if (otelUpdate) {
+                dockerfile = dockerfile.replace(
+                  /ARG OTEL_VERSION=[^\s\r\n]+/,
+                  `ARG OTEL_VERSION=${targetOtel}`
+                );
+                console.log(`✅ Updated OpenTelemetry agent: ${currentOtel} → ${targetOtel}`);
+              }
+
               await github.rest.repos.createOrUpdateFileContents({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
@@ -211,6 +254,9 @@ jobs:
               if (rconCliUpdate) {
                 updates.push(`- **rcon-cli**: ${currentRconCli} → ${targetRconCli}`);
               }
+              if (otelUpdate) {
+                updates.push(`- **OpenTelemetry Java agent**: ${currentOtel} → ${targetOtel}`);
+              }
 
               let releaseLinks = [];
               if (mcRunnerUpdate) {
@@ -218,6 +264,9 @@ jobs:
               }
               if (rconCliUpdate) {
                 releaseLinks.push(`- [rcon-cli ${targetRconCli}](https://github.com/itzg/rcon-cli/releases/tag/${targetRconCli})`);
+              }
+              if (otelUpdate) {
+                releaseLinks.push(`- [OpenTelemetry Java agent v${targetOtel}](https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/tag/v${targetOtel})`);
               }
 
               const prBody = [

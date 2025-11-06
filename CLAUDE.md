@@ -23,6 +23,7 @@ This container eliminates Java helper tool dependencies and Java 25 compatibilit
 - **Base Image**: `container-registry.oracle.com/graalvm/jdk:latest` (Oracle GraalVM LTS)
 - **Process Manager**: [mc-server-runner](https://github.com/itzg/mc-server-runner) (Go binary)
 - **RCON Client**: [rcon-cli](https://github.com/itzg/rcon-cli)
+- **Observability**: [OpenTelemetry Java agent](https://github.com/open-telemetry/opentelemetry-java-instrumentation) (optional)
 - **Server**: Paper (manual JAR management)
 - **Scripts**: Bash with `set -euo pipefail`
 - **Testing**: Docker, ShellCheck, Hadolint
@@ -177,7 +178,7 @@ The repository includes automated dependency monitoring and security scanning:
 
 #### Dependency Check (`.github/workflows/dependency-check.yml`)
 - **Schedule**: Weekly (Mondays at 09:00 UTC)
-- **Checks**: mc-server-runner, rcon-cli, Docker base image
+- **Checks**: mc-server-runner, rcon-cli, OpenTelemetry Java agent, Docker base image
 - **Output**: Creates/updates issues when updates available
 
 #### Security Scan (`.github/workflows/security-scan.yml`)
@@ -319,8 +320,9 @@ Dependencies in this container:
 
 1. **mc-server-runner** - Download latest from GitHub releases
 2. **rcon-cli** - Download latest from GitHub releases
-3. **Paper JAR** - User manages manually (or use `download-paper.sh` helper)
-4. **Plugins** - User manages manually (or use `update-plugins.sh` helper)
+3. **OpenTelemetry Java agent** - Download latest from GitHub releases
+4. **Paper JAR** - User manages manually (or use `download-paper.sh` helper)
+5. **Plugins** - User manages manually (or use `update-plugins.sh` helper)
 
 ## Release Process
 
@@ -388,6 +390,7 @@ When developing, consider how changes might affect:
 
 - **mc-server-runner**: https://github.com/itzg/mc-server-runner
 - **rcon-cli**: https://github.com/itzg/rcon-cli
+- **OpenTelemetry Java agent**: https://github.com/open-telemetry/opentelemetry-java-instrumentation
 - **itzg/minecraft-server** (reference): https://github.com/itzg/docker-minecraft-server
 - **Meowice flags**: https://github.com/Meowice/Minecraft-Server-Startup-Flags
 - **Paper API**: https://api.papermc.io/docs/
