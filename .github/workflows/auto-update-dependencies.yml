@@ -41,6 +41,12 @@ jobs:
         run: |
           MC_RUNNER_VERSION=$(grep 'ARG MC_SERVER_RUNNER_VERSION=' Dockerfile | cut -d'=' -f2)
           RCON_CLI_VERSION=$(grep 'ARG RCON_CLI_VERSION=' Dockerfile | cut -d'=' -f2)
+
+          if [ -z "$MC_RUNNER_VERSION" ] || [ -z "$RCON_CLI_VERSION" ]; then
+            echo "❌ Failed to extract versions from Dockerfile"
+            exit 1
+          fi
+
           echo "mc_runner=$MC_RUNNER_VERSION" >> $GITHUB_OUTPUT
           echo "rcon_cli=$RCON_CLI_VERSION" >> $GITHUB_OUTPUT
           echo "📦 Current mc-server-runner: $MC_RUNNER_VERSION"
@@ -52,13 +58,21 @@ jobs:
           if [ -n "${{ inputs.mc_runner_version }}" ]; then
             MC_RUNNER_LATEST="${{ inputs.mc_runner_version }}"
           else
-            MC_RUNNER_LATEST=$(curl -s https://api.github.com/repos/itzg/mc-server-runner/releases/latest | jq -r .tag_name)
+            MC_RUNNER_LATEST=$(curl -sf https://api.github.com/repos/itzg/mc-server-runner/releases/latest | jq -r .tag_name)
+            if [ -z "$MC_RUNNER_LATEST" ] || [ "$MC_RUNNER_LATEST" = "null" ]; then
+              echo "❌ Failed to fetch mc-server-runner latest version"
+              exit 1
+            fi
           fi
 
           if [ -n "${{ inputs.rcon_cli_version }}" ]; then
             RCON_CLI_LATEST="${{ inputs.rcon_cli_version }}"
           else
-            RCON_CLI_LATEST=$(curl -s https://api.github.com/repos/itzg/rcon-cli/releases/latest | jq -r .tag_name)
+            RCON_CLI_LATEST=$(curl -sf https://api.github.com/repos/itzg/rcon-cli/releases/latest | jq -r .tag_name)
+            if [ -z "$RCON_CLI_LATEST" ] || [ "$RCON_CLI_LATEST" = "null" ]; then
+              echo "❌ Failed to fetch rcon-cli latest version"
+              exit 1
+            fi
           fi
 
           echo "mc_runner=$MC_RUNNER_LATEST" >> $GITHUB_OUTPUT
@@ -164,7 +178,7 @@ jobs:
 
               if (mcRunnerUpdate) {
                 dockerfile = dockerfile.replace(
-                  /ARG MC_SERVER_RUNNER_VERSION=.*/,
+                  /ARG MC_SERVER_RUNNER_VERSION=[^\s\r\n]+/,
                   `ARG MC_SERVER_RUNNER_VERSION=${targetMcRunner}`
                 );
                 console.log(`✅ Updated mc-server-runner: ${currentMcRunner} → ${targetMcRunner}`);
@@ -172,7 +186,7 @@ jobs:
 
               if (rconCliUpdate) {
                 dockerfile = dockerfile.replace(
-                  /ARG RCON_CLI_VERSION=.*/,
+                  /ARG RCON_CLI_VERSION=[^\s\r\n]+/,
                   `ARG RCON_CLI_VERSION=${targetRconCli}`
                 );
                 console.log(`✅ Updated rcon-cli: ${currentRconCli} → ${targetRconCli}`);
