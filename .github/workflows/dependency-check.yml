@@ -9,6 +9,7 @@ on:
 permissions:
   contents: read
   issues: write
+  actions: write
 
 jobs:
   check-binary-dependencies:
@@ -75,7 +76,7 @@ jobs:
               state: 'open'
             });
 
-            const existingIssue = issues.data.find(issue => 
+            const existingIssue = issues.data.find(issue =>
               issue.title.includes('Binary dependency updates available')
             );
 
@@ -124,6 +125,37 @@ jobs:
               });
               console.log(`📝 Created new issue #${newIssue.data.number}`);
             }
+
+            // Set outputs for triggering auto-update workflow
+            core.setOutput('updates_available', 'true');
+            core.setOutput('mc_runner_latest', latestMcRunner);
+            core.setOutput('rcon_cli_latest', latestRconCli);
+
+      - name: Trigger auto-update workflow
+        if: steps.current.outputs.mc_runner != steps.mc_runner.outputs.latest || steps.current.outputs.rcon_cli != steps.rcon_cli.outputs.latest
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const mcRunnerVersion = '${{ steps.mc_runner.outputs.latest }}';
+            const rconCliVersion = '${{ steps.rcon_cli.outputs.latest }}';
+
+            console.log('🤖 Triggering auto-update workflow...');
+            console.log(`  mc-server-runner: ${mcRunnerVersion}`);
+            console.log(`  rcon-cli: ${rconCliVersion}`);
+
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'auto-update-dependencies.yml',
+              ref: 'main',
+              inputs: {
+                mc_runner_version: mcRunnerVersion,
+                rcon_cli_version: rconCliVersion
+              }
+            });
+
+            console.log('✅ Auto-update workflow triggered successfully');
 
   check-base-image:
     name: Check Base Image Updates
@@ -178,7 +210,7 @@ jobs:
               state: 'open'
             });
 
-            const existingIssue = issues.data.find(issue => 
+            const existingIssue = issues.data.find(issue =>
               issue.title.includes('GraalVM base image update available')
             );
 
