@@ -27,7 +27,7 @@ jobs:
 
       - name: Check for release labels in recent commit
         id: check
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const commit = context.sha;
@@ -135,7 +135,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Create GitHub Release
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const tag = '${{ steps.new_version.outputs.tag }}';
