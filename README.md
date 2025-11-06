@@ -185,6 +185,33 @@ mc-server-container/
 | Offline operation | Yes | No (needs APIs) |
 | Process manager | mc-server-runner | Custom Java tools |
 
+## Dependency Management
+
+This repository includes automated dependency monitoring and security scanning:
+
+### Automated Processes
+
+- **🤖 Dependabot** - Automatically creates PRs for GitHub Actions and Docker base image updates (weekly)
+- **🔍 Dependency Check** - Monitors binary dependencies (mc-server-runner, rcon-cli) and creates issues when updates are available (weekly)
+- **🔒 Security Scan** - Runs Trivy vulnerability scanning on container images and reports to GitHub Security tab (daily)
+- **🔧 Pre-commit Updates** - Automatically creates PRs when pre-commit hook updates are available (weekly)
+- **📊 Dependency Dashboard** - Maintains a comprehensive dashboard issue with all dependency statuses (weekly)
+
+### Viewing Dependency Status
+
+Check the [Dependency Status Dashboard](../../issues?q=is%3Aissue+is%3Aopen+label%3Adashboard) issue for a complete overview of all dependencies and their current status.
+
+For detailed information, see [Dependency Management Guide](docs/DEPENDENCY_MANAGEMENT.md).
+
+### Security Alerts
+
+Security vulnerabilities are automatically detected and reported:
+- View alerts in the [Security tab](../../security)
+- Critical/high vulnerabilities trigger automatic issue creation
+- SARIF results are uploaded for detailed analysis
+
+See [Security Policy](SECURITY.md) for detailed security information.
+
 ## Contributing
 
 Contributions are welcome! Please:
