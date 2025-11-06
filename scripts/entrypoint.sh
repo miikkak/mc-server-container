@@ -206,7 +206,7 @@ echo ""
 
 # shellcheck disable=SC2086
 exec mc-server-runner \
-  --shell /bin/sh \
+  --shell bash \
   --named-pipe /tmp/minecraft-console \
   --stop-server-announce-delay 30s \
   -- java $JAVA_OPTS -jar paper.jar nogui
