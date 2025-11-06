@@ -201,12 +201,16 @@ This repository includes automated dependency monitoring and security scanning:
 
 Check the [Dependency Status Dashboard](../../issues?q=is%3Aissue+is%3Aopen+label%3Adashboard) issue for a complete overview of all dependencies and their current status.
 
+For detailed information, see [Dependency Management Guide](docs/DEPENDENCY_MANAGEMENT.md).
+
 ### Security Alerts
 
 Security vulnerabilities are automatically detected and reported:
 - View alerts in the [Security tab](../../security)
 - Critical/high vulnerabilities trigger automatic issue creation
 - SARIF results are uploaded for detailed analysis
+
+See [Security Policy](SECURITY.md) for detailed security information.
 
 ## Contributing
 
