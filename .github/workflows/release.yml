@@ -132,8 +132,8 @@ jobs:
             ghcr.io/${{ github.repository }}:latest
             ghcr.io/${{ github.repository }}:${{ steps.new_version.outputs.version }}
           cache-from: |
-            type=gha,scope=refs/heads/main
             type=gha,scope=${{ github.ref }}
+            type=gha,scope=refs/heads/main
           cache-to: type=gha,mode=max,scope=refs/heads/main
 
       - name: Create GitHub Release
