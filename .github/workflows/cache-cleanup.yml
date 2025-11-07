@@ -1,0 +1,105 @@
+name: Cache Cleanup
+
+on:
+  schedule:
+    # Run every Sunday at 02:00 UTC
+    - cron: '0 2 * * 0'
+  workflow_dispatch: # Allow manual trigger
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  cleanup-caches:
+    name: Clean Up Stale Caches
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Cleanup old caches
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const CACHE_AGE_DAYS = 7;
+            const now = Date.now();
+            const maxAge = CACHE_AGE_DAYS * 24 * 60 * 60 * 1000;
+
+            console.log(`🧹 Starting cache cleanup (removing caches older than ${CACHE_AGE_DAYS} days)`);
+
+            // Get all caches
+            const caches = await github.paginate(github.rest.actions.getActionsCacheList, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 100
+            });
+
+            console.log(`📦 Found ${caches.length} total caches`);
+
+            let deletedCount = 0;
+            let deletedSize = 0;
+
+            for (const cache of caches) {
+              const cacheAge = now - new Date(cache.created_at).getTime();
+              const cacheAgeDays = Math.floor(cacheAge / (24 * 60 * 60 * 1000));
+
+              // Delete caches that are:
+              // 1. Older than CACHE_AGE_DAYS
+              // 2. From branches that no longer exist (except main)
+              let shouldDelete = false;
+              let reason = '';
+
+              if (cacheAge > maxAge) {
+                shouldDelete = true;
+                reason = `older than ${CACHE_AGE_DAYS} days (${cacheAgeDays} days old)`;
+              } else if (cache.ref && !cache.ref.includes('refs/heads/main')) {
+                // Check if branch still exists
+                try {
+                  await github.rest.git.getRef({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    ref: cache.ref.replace('refs/', '')
+                  });
+                } catch (error) {
+                  if (error.status === 404) {
+                    shouldDelete = true;
+                    reason = `branch no longer exists (${cache.ref})`;
+                  }
+                }
+              }
+
+              if (shouldDelete) {
+                try {
+                  await github.rest.actions.deleteActionsCacheById({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    cache_id: cache.id
+                  });
+
+                  deletedCount++;
+                  deletedSize += cache.size_in_bytes || 0;
+
+                  const sizeMB = ((cache.size_in_bytes || 0) / 1024 / 1024).toFixed(2);
+                  console.log(`🗑️  Deleted cache ${cache.id} (${cache.key}): ${sizeMB} MB - ${reason}`);
+                } catch (error) {
+                  console.log(`⚠️  Failed to delete cache ${cache.id}: ${error.message}`);
+                }
+              }
+            }
+
+            const totalSizeMB = (deletedSize / 1024 / 1024).toFixed(2);
+            console.log('');
+            console.log(`✅ Cache cleanup complete`);
+            console.log(`   Deleted: ${deletedCount} caches`);
+            console.log(`   Freed: ${totalSizeMB} MB`);
+            console.log(`   Remaining: ${caches.length - deletedCount} caches`);
+
+      - name: Summary
+        run: |
+          echo "### 🧹 Cache Cleanup Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Cache cleanup completed successfully!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Check the logs above for details on deleted caches." >> $GITHUB_STEP_SUMMARY

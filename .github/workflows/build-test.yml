@@ -65,8 +65,10 @@ jobs:
           context: .
           push: false
           tags: mc-server-container:test
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: |
+            type=gha,scope=${{ github.ref }}
+            type=gha,scope=refs/heads/main
+          cache-to: type=gha,mode=max,scope=${{ github.ref }}
 
   test:
     name: Test Container
@@ -99,7 +101,9 @@ jobs:
           context: .
           load: true
           tags: mc-server-container:test
-          cache-from: type=gha
+          cache-from: |
+            type=gha,scope=${{ github.ref }}
+            type=gha,scope=refs/heads/main
 
       - name: Prepare test data
         if: steps.check_dockerfile.outputs.exists == 'true'
