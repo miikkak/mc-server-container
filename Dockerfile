@@ -34,7 +34,6 @@ FROM container-registry.oracle.com/graalvm/jdk:25
 
 LABEL maintainer="miikka"
 LABEL description="Custom Minecraft server container with GraalVM and mc-server-runner"
-LABEL version="1.0.0"
 
 # Create minecraft user and group (UID/GID 25565)
 RUN groupadd -g 25565 minecraft \
