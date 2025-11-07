@@ -46,7 +46,7 @@ permissions:
 jobs:
   update-dependencies:
     name: Update Binary Dependencies
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
 
     steps:
       - name: Checkout code

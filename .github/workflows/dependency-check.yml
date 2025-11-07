@@ -14,7 +14,7 @@ permissions:
 jobs:
   check-binary-dependencies:
     name: Check Binary Dependencies
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
 
     steps:
       - name: Checkout code
