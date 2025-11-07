@@ -21,6 +21,7 @@ jobs:
 
       - name: Install ShellCheck
         run: |
+          # Check the environment and install shellcheck if needed
           echo "🔍 Checking environment"
           if ! command -v shellcheck > /dev/null; then
             sudo DEBIAN_FRONTEND=noninteractive DEBCONF_NOWARNINGS=yes apt-get update > /dev/null
