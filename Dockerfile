@@ -44,19 +44,24 @@ RUN groupadd -g 25565 minecraft \
 RUN mkdir -p /data /opt /scripts \
   && chown -R minecraft:minecraft /data
 
-# Copy binaries from downloader stage
-COPY --from=downloader /downloads/mc-server-runner /usr/local/bin/mc-server-runner
-COPY --from=downloader /downloads/rcon-cli /usr/local/bin/rcon-cli
-COPY --from=downloader /downloads/mc-monitor /usr/local/bin/mc-monitor
-COPY --from=downloader /downloads/opentelemetry-javaagent.jar /opt/opentelemetry-javaagent.jar
+# ============================================================================
+# Copy files with explicit ownership (all system files owned by root:root)
+# ============================================================================
 
-# Copy scripts
-COPY scripts/entrypoint.sh /scripts/entrypoint.sh
-COPY scripts/mc-send-to-console /usr/local/bin/mc-send-to-console
-COPY scripts/mc-health /usr/local/bin/mc-health
+# Copy observability tools to /opt/
+COPY --from=downloader --chown=root:root /downloads/opentelemetry-javaagent.jar /opt/opentelemetry-javaagent.jar
 
-# Make scripts executable and readable
-RUN chmod 755 /scripts/entrypoint.sh /usr/local/bin/mc-send-to-console /usr/local/bin/mc-health
+# Copy binaries from downloader stage to /usr/local/bin/ (alphabetical order, with execute permissions)
+COPY --from=downloader --chown=root:root --chmod=755 /downloads/mc-monitor /usr/local/bin/mc-monitor
+COPY --from=downloader --chown=root:root --chmod=755 /downloads/mc-server-runner /usr/local/bin/mc-server-runner
+COPY --from=downloader --chown=root:root --chmod=755 /downloads/rcon-cli /usr/local/bin/rcon-cli
+
+# Copy local scripts to /usr/local/bin/ (alphabetical order, with execute permissions)
+COPY --chown=root:root --chmod=755 scripts/mc-health /usr/local/bin/mc-health
+COPY --chown=root:root --chmod=755 scripts/mc-send-to-console /usr/local/bin/mc-send-to-console
+
+# Copy entrypoint script to /scripts/ (with execute permissions)
+COPY --chown=root:root --chmod=755 scripts/entrypoint.sh /scripts/entrypoint.sh
 
 # Set working directory
 WORKDIR /data
