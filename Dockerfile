@@ -71,6 +71,9 @@ WORKDIR /data
 # 25575 - RCON (TCP)
 EXPOSE 25565/tcp 25565/udp 25575/tcp
 
+# Declare shutdown signal (SIGTERM is Docker default, declared for explicitness)
+STOPSIGNAL SIGTERM
+
 # Switch to minecraft user
 USER minecraft
 
