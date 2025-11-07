@@ -70,7 +70,7 @@ EXPOSE 25565/tcp 25565/udp 25575/tcp
 USER minecraft
 
 # Health check - verify both mc-server-runner and server are responding
-HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=15s --start-period=90s --retries=3 \
   CMD mc-health
 
 # Set entrypoint

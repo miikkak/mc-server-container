@@ -20,7 +20,7 @@ fi
 # - Query localhost:25565 by default
 # - Exit 0 if server responds
 # - Exit 1 if server is unresponsive
-if ! mc-monitor status --timeout 5s 2>/dev/null; then
+if ! mc-monitor status --timeout 5s; then
   echo "Health check failed: Server not responding to status queries" >&2
   exit 1
 fi
