@@ -1,0 +1,233 @@
+name: Auto-Update Base Image Digest
+
+on:
+  workflow_dispatch:
+    inputs:
+      digest:
+        description: 'New base image digest'
+        required: true
+        type: string
+  workflow_call:
+    inputs:
+      digest:
+        description: 'New base image digest'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  update-base-image-digest:
+    name: Update Base Image Digest
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Read current digest
+        id: current
+        run: |
+          DIGEST_FILE=".github/.docker-base-digest.txt"
+          if [ -f "$DIGEST_FILE" ]; then
+            CURRENT_DIGEST=$(cat "$DIGEST_FILE" | tr -d '[:space:]')
+          else
+            CURRENT_DIGEST="unknown"
+          fi
+
+          echo "digest=$CURRENT_DIGEST" >> $GITHUB_OUTPUT
+          echo "📦 Current stored digest: $CURRENT_DIGEST"
+
+      - name: Check if update is needed
+        id: check
+        run: |
+          CURRENT_DIGEST="${{ steps.current.outputs.digest }}"
+          NEW_DIGEST="${{ inputs.digest }}"
+
+          if [ "$CURRENT_DIGEST" = "$NEW_DIGEST" ]; then
+            echo "update_needed=false" >> $GITHUB_OUTPUT
+            echo "✅ Digest is already up to date"
+          else
+            echo "update_needed=true" >> $GITHUB_OUTPUT
+            echo "⚠️ Digest update needed: $CURRENT_DIGEST → $NEW_DIGEST"
+          fi
+
+      - name: Create PR with digest update
+        if: steps.check.outputs.update_needed == 'true'
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ secrets.PULL_REQUEST_TOKEN }}
+          script: |
+            const currentDigest = '${{ steps.current.outputs.digest }}';
+            const newDigest = '${{ inputs.digest }}';
+            const branchName = 'chore/update-base-image-digest';
+
+            // Check if a PR already exists
+            const prs = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              head: `${context.repo.owner}:${branchName}`
+            });
+
+            if (prs.data.length > 0) {
+              console.log(`PR already exists: #${prs.data[0].number}`);
+              return;
+            }
+
+            try {
+              // Get main branch reference
+              const { data: ref } = await github.rest.git.getRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: 'heads/main'
+              });
+
+              // Check if branch already exists and delete it
+              try {
+                await github.rest.git.getRef({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  ref: `heads/${branchName}`
+                });
+                console.log(`⚠️ Branch ${branchName} already exists (no active PR), deleting it...`);
+
+                await github.rest.git.deleteRef({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  ref: `heads/${branchName}`
+                });
+                console.log(`✅ Deleted existing branch: ${branchName}`);
+              } catch (error) {
+                if (error.status !== 404) {
+                  throw error;
+                }
+                // Branch doesn't exist, which is fine
+              }
+
+              // Create new branch
+              await github.rest.git.createRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `refs/heads/${branchName}`,
+                sha: ref.object.sha
+              });
+
+              console.log(`✅ Created branch: ${branchName}`);
+
+              // Read current digest file
+              const digestFile = '.github/.docker-base-digest.txt';
+              let fileSha;
+              try {
+                const { data: fileData } = await github.rest.repos.getContent({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  path: digestFile,
+                  ref: branchName
+                });
+                fileSha = fileData.sha;
+              } catch (error) {
+                // File doesn't exist, will create it
+                fileSha = null;
+              }
+
+              // Update or create digest file
+              await github.rest.repos.createOrUpdateFileContents({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                path: digestFile,
+                message: 'chore: update base image digest',
+                content: Buffer.from(newDigest + '\n').toString('base64'),
+                sha: fileSha,
+                branch: branchName
+              });
+
+              console.log('✅ Updated digest file');
+
+              // Create PR
+              const prBody = [
+                '## Update GraalVM Base Image Digest',
+                '',
+                'This PR updates the stored base image digest to track the latest version.',
+                '',
+                `**Digest Update:** \`${currentDigest}\` → \`${newDigest}\``,
+                '',
+                '### Changes Made',
+                '',
+                `- Updated \`.github/.docker-base-digest.txt\` with new digest`,
+                '',
+                '### Testing',
+                '',
+                'The CI/CD pipeline will:',
+                '1. Build the container with the latest base image',
+                '2. Run integration tests',
+                '',
+                'To test locally:',
+                '',
+                '```bash',
+                'docker build --no-cache --pull -t mc-server-container:test .',
+                'docker run -d --name mc-test -e EULA=TRUE mc-server-container:test',
+                'docker logs mc-test',
+                'docker stop mc-test && docker rm mc-test',
+                '```',
+                '',
+                '---',
+                '*This PR was automatically created by the auto-update-base-image workflow.*'
+              ].join('\n');
+
+              const { data: pr } = await github.rest.pulls.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: 'chore: update base image digest',
+                head: branchName,
+                base: 'main',
+                body: prBody
+              });
+
+              console.log(`✅ Created PR #${pr.number}`);
+
+              // Add labels
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                labels: ['dependencies', 'docker', 'automated', 'release:patch']
+              });
+
+              console.log('✅ Added labels to PR');
+
+              // Close related issues
+              const issues = await github.rest.issues.listForRepo({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                labels: 'dependencies,docker,automated',
+                state: 'open'
+              });
+
+              for (const issue of issues.data) {
+                if (issue.title.includes('GraalVM base image update available')) {
+                  await github.rest.issues.createComment({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issue.number,
+                    body: `Automated PR created: #${pr.number}\n\nClosing this issue as the update is now in progress.`
+                  });
+
+                  await github.rest.issues.update({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issue.number,
+                    state: 'closed'
+                  });
+
+                  console.log(`✅ Closed issue #${issue.number}`);
+                }
+              }
+
+            } catch (error) {
+              console.error('Error:', error);
+              throw error;
+            }

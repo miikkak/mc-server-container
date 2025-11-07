@@ -218,21 +218,31 @@ jobs:
           echo "current=$CURRENT_IMAGE" >> $GITHUB_OUTPUT
           echo "📦 Current base image: $CURRENT_IMAGE"
 
-          # Get current digest from manifest (try .digest first, fallback to .config.digest)
-          CURRENT_DIGEST=$(docker manifest inspect "$CURRENT_IMAGE" 2>/dev/null | jq -r '.digest // .config.digest' || echo "unknown")
-          echo "current_digest=$CURRENT_DIGEST" >> $GITHUB_OUTPUT
+          # Read the last known digest from stored file
+          DIGEST_FILE=".github/.docker-base-digest.txt"
+          if [ -f "$DIGEST_FILE" ]; then
+            STORED_DIGEST=$(cat "$DIGEST_FILE" | tr -d '[:space:]')
+            echo "📦 Stored digest: $STORED_DIGEST"
+          else
+            STORED_DIGEST="unknown"
+            echo "⚠️ No stored digest found"
+          fi
+          echo "current_digest=$STORED_DIGEST" >> $GITHUB_OUTPUT
 
-          # Pull latest to check for updates
-          echo "🔍 Checking for updates..."
-          docker pull "$CURRENT_IMAGE" --quiet
-
-          # Get latest digest after pulling
-          LATEST_DIGEST=$(docker inspect "$CURRENT_IMAGE" --format='{{.Id}}')
+          # Get latest manifest digest from registry using buildx imagetools
+          # This gets the digest of the manifest list/index
+          LATEST_DIGEST=$(docker buildx imagetools inspect "$CURRENT_IMAGE" --format '{{.Manifest.Digest}}' 2>&1 | grep -oP 'Digest:\s+\K\S+' || echo "unknown")
           echo "latest_digest=$LATEST_DIGEST" >> $GITHUB_OUTPUT
+          echo "📦 Latest registry digest: $LATEST_DIGEST"
 
-          if [ "$CURRENT_DIGEST" != "$LATEST_DIGEST" ]; then
+          # Compare digests to check if an update is available
+          if [ "$STORED_DIGEST" = "unknown" ] || [ "$LATEST_DIGEST" = "unknown" ]; then
+            echo "update_available=false" >> $GITHUB_OUTPUT
+            echo "⚠️ Could not determine digest(s), skipping update check"
+          elif [ "$STORED_DIGEST" != "$LATEST_DIGEST" ]; then
             echo "update_available=true" >> $GITHUB_OUTPUT
             echo "⚠️ Base image has updates available"
+            echo "   $STORED_DIGEST → $LATEST_DIGEST"
           else
             echo "update_available=false" >> $GITHUB_OUTPUT
             echo "✅ Base image is up to date"
@@ -275,19 +285,24 @@ jobs:
 
             ### Update Instructions
 
-            1. Rebuild the container to pull the latest base image:
+            1. Update the stored digest file:
+               \`\`\`bash
+               echo "${latestDigest}" > .github/.docker-base-digest.txt
+               \`\`\`
+
+            2. Rebuild the container to pull the latest base image:
                \`\`\`bash
                docker build --no-cache --pull -t mc-server-container:test .
                \`\`\`
 
-            2. Test the updated container:
+            3. Test the updated container:
                \`\`\`bash
                docker run -d --name mc-test -e EULA=TRUE mc-server-container:test
                docker logs mc-test
                docker stop mc-test && docker rm mc-test
                \`\`\`
 
-            3. If tests pass, create a PR and add the \`release:patch\` label.
+            4. If tests pass, create a PR with the digest file update and add the \`release:patch\` label.
 
             ---
             *This issue was automatically created by the dependency-check workflow.*
@@ -301,3 +316,32 @@ jobs:
               labels: ['dependencies', 'docker', 'automated', 'enhancement']
             });
             console.log(`📝 Created issue #${newIssue.data.number}`);
+
+      - name: Trigger base image auto-update workflow
+        if: steps.check_image.outputs.update_available == 'true'
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ secrets.PULL_REQUEST_TOKEN }}
+          script: |
+            const latestDigest = '${{ steps.check_image.outputs.latest_digest }}';
+
+            console.log('🤖 Triggering base image auto-update workflow...');
+            console.log(`  Latest digest: ${latestDigest}`);
+
+            try {
+              await github.rest.actions.createWorkflowDispatch({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: 'auto-update-base-image.yml',
+                ref: 'main',
+                inputs: {
+                  digest: latestDigest
+                }
+              });
+
+              console.log('✅ Auto-update workflow triggered successfully');
+            } catch (error) {
+              console.error('❌ Failed to trigger auto-update workflow:', error.message);
+              // Don't fail the job if triggering auto-update fails
+              // The issue was already created, so manual update is still possible
+            }
