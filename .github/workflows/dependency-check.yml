@@ -68,6 +68,7 @@ jobs:
         id: compare
         uses: actions/github-script@v8
         with:
+          github-token: ${{ secrets.PULL_REQUEST_TOKEN }}
           script: |
             const currentMcRunner = '${{ steps.current.outputs.mc_runner }}';
             const latestMcRunner = '${{ steps.mc_runner.outputs.latest }}';
@@ -173,7 +174,7 @@ jobs:
         if: steps.compare.outputs.updates_available == 'true'
         uses: actions/github-script@v8
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.PULL_REQUEST_TOKEN }}
           script: |
             const mcRunnerVersion = '${{ steps.mc_runner.outputs.latest }}';
             const rconCliVersion = '${{ steps.rcon_cli.outputs.latest }}';
@@ -241,6 +242,7 @@ jobs:
         if: steps.check_image.outputs.update_available == 'true'
         uses: actions/github-script@v8
         with:
+          github-token: ${{ secrets.PULL_REQUEST_TOKEN }}
           script: |
             const currentImage = '${{ steps.check_image.outputs.current }}';
             const currentDigest = '${{ steps.check_image.outputs.current_digest }}';
