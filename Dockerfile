@@ -9,12 +9,12 @@ FROM busybox:1.37 AS downloader
 WORKDIR /downloads
 
 # Download and extract mc-server-runner
-ARG MC_SERVER_RUNNER_VERSION=1.12.3
+ARG MC_SERVER_RUNNER_VERSION=1.13.4
 ADD https://github.com/itzg/mc-server-runner/releases/download/${MC_SERVER_RUNNER_VERSION}/mc-server-runner_${MC_SERVER_RUNNER_VERSION}_linux_amd64.tar.gz mc-server-runner.tar.gz
 RUN tar -xzf mc-server-runner.tar.gz && chmod +x mc-server-runner
 
 # Download and extract rcon-cli
-ARG RCON_CLI_VERSION=1.7.2
+ARG RCON_CLI_VERSION=1.7.3
 ADD https://github.com/itzg/rcon-cli/releases/download/${RCON_CLI_VERSION}/rcon-cli_${RCON_CLI_VERSION}_linux_amd64.tar.gz rcon-cli.tar.gz
 RUN tar -xzf rcon-cli.tar.gz && chmod +x rcon-cli
 
@@ -24,7 +24,7 @@ ADD https://github.com/itzg/mc-monitor/releases/download/${MC_MONITOR_VERSION}/m
 RUN tar -xzf mc-monitor.tar.gz && chmod +x mc-monitor
 
 # Download OpenTelemetry Java agent
-ARG OTEL_VERSION=2.11.0
+ARG OTEL_VERSION=2.21.0
 ADD https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v${OTEL_VERSION}/opentelemetry-javaagent.jar opentelemetry-javaagent.jar
 
 # ============================================================================
