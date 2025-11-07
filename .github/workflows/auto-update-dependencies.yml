@@ -231,6 +231,29 @@ jobs:
                 ref: 'heads/main'
               });
 
+              // Check if branch already exists and delete it (only safe because we confirmed no PR exists above)
+              try {
+                await github.rest.git.getRef({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  ref: `heads/${branchName}`
+                });
+                console.log(`⚠️ Branch ${branchName} already exists (no active PR), deleting it...`);
+
+                // Delete the existing branch
+                await github.rest.git.deleteRef({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  ref: `heads/${branchName}`
+                });
+                console.log(`✅ Deleted existing branch: ${branchName}`);
+              } catch (error) {
+                if (error.status !== 404) {
+                  throw error;
+                }
+                // Branch doesn't exist, which is fine
+              }
+
               await github.rest.git.createRef({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
