@@ -24,10 +24,14 @@ jobs:
         with:
           script: |
             const CACHE_AGE_DAYS = 7;
+            const DELETED_BRANCH_MIN_AGE_DAYS = 2;
             const now = Date.now();
             const maxAge = CACHE_AGE_DAYS * 24 * 60 * 60 * 1000;
+            const deletedBranchMinAge = DELETED_BRANCH_MIN_AGE_DAYS * 24 * 60 * 60 * 1000;
 
-            console.log(`🧹 Starting cache cleanup (removing caches older than ${CACHE_AGE_DAYS} days)`);
+            console.log(`🧹 Starting cache cleanup`);
+            console.log(`   - Removing caches older than ${CACHE_AGE_DAYS} days`);
+            console.log(`   - Removing caches from deleted branches (older than ${DELETED_BRANCH_MIN_AGE_DAYS} days)`);
 
             // Get all caches
             const caches = await github.paginate(github.rest.actions.getActionsCacheList, {
@@ -47,27 +51,29 @@ jobs:
 
               // Delete caches that are:
               // 1. Older than CACHE_AGE_DAYS
-              // 2. From branches that no longer exist (except main)
+              // 2. From deleted branches (with minimum age threshold to allow for rollbacks/reuse)
               let shouldDelete = false;
               let reason = '';
 
               if (cacheAge > maxAge) {
                 shouldDelete = true;
                 reason = `older than ${CACHE_AGE_DAYS} days (${cacheAgeDays} days old)`;
-              } else if (cache.ref && !cache.ref.includes('refs/heads/main')) {
-                // Check if branch still exists
-                try {
-                  await github.rest.git.getRef({
-                    owner: context.repo.owner,
-                    repo: context.repo.repo,
-                    ref: cache.ref.replace('refs/', '')
-                  });
-                } catch (error) {
-                  if (error.status === 404) {
-                    shouldDelete = true;
-                    reason = `branch no longer exists (${cache.ref})`;
-                  } else {
-                    console.log(`⚠️  Could not verify branch ${cache.ref}: ${error.message} (status: ${error.status ?? 'unknown'})`);
+              } else if (cache.ref && cache.ref !== 'refs/heads/main') {
+                // Check if branch still exists (only for caches older than minimum age)
+                if (cacheAge > deletedBranchMinAge) {
+                  try {
+                    await github.rest.git.getRef({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      ref: cache.ref.replace('refs/', '')
+                    });
+                  } catch (error) {
+                    if (error.status === 404) {
+                      shouldDelete = true;
+                      reason = `branch no longer exists (${cache.ref}, ${cacheAgeDays} days old)`;
+                    } else {
+                      console.log(`⚠️  Could not verify branch ${cache.ref}: ${error.message} (status: ${error.status ?? 'unknown'})`);
+                    }
                   }
                 }
               }
