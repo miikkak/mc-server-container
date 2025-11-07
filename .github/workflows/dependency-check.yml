@@ -25,12 +25,15 @@ jobs:
         run: |
           MC_RUNNER_VERSION=$(grep 'ARG MC_SERVER_RUNNER_VERSION=' Dockerfile | cut -d'=' -f2)
           RCON_CLI_VERSION=$(grep 'ARG RCON_CLI_VERSION=' Dockerfile | cut -d'=' -f2)
+          MC_MONITOR_VERSION=$(grep 'ARG MC_MONITOR_VERSION=' Dockerfile | cut -d'=' -f2)
           OTEL_VERSION=$(grep 'ARG OTEL_VERSION=' Dockerfile | cut -d'=' -f2)
           echo "mc_runner=$MC_RUNNER_VERSION" >> $GITHUB_OUTPUT
           echo "rcon_cli=$RCON_CLI_VERSION" >> $GITHUB_OUTPUT
+          echo "mc_monitor=$MC_MONITOR_VERSION" >> $GITHUB_OUTPUT
           echo "otel=$OTEL_VERSION" >> $GITHUB_OUTPUT
           echo "📦 Current mc-server-runner: $MC_RUNNER_VERSION"
           echo "📦 Current rcon-cli: $RCON_CLI_VERSION"
+          echo "📦 Current mc-monitor: $MC_MONITOR_VERSION"
           echo "📦 Current OpenTelemetry agent: $OTEL_VERSION"
 
       - name: Check mc-server-runner latest release
@@ -46,6 +49,13 @@ jobs:
           LATEST=$(curl -s https://api.github.com/repos/itzg/rcon-cli/releases/latest | jq -r .tag_name)
           echo "latest=$LATEST" >> $GITHUB_OUTPUT
           echo "🔍 Latest rcon-cli: $LATEST"
+
+      - name: Check mc-monitor latest release
+        id: mc_monitor
+        run: |
+          LATEST=$(curl -s https://api.github.com/repos/itzg/mc-monitor/releases/latest | jq -r .tag_name)
+          echo "latest=$LATEST" >> $GITHUB_OUTPUT
+          echo "🔍 Latest mc-monitor: $LATEST"
 
       - name: Check OpenTelemetry agent latest release
         id: otel
@@ -63,6 +73,8 @@ jobs:
             const latestMcRunner = '${{ steps.mc_runner.outputs.latest }}';
             const currentRconCli = '${{ steps.current.outputs.rcon_cli }}';
             const latestRconCli = '${{ steps.rcon_cli.outputs.latest }}';
+            const currentMcMonitor = '${{ steps.current.outputs.mc_monitor }}';
+            const latestMcMonitor = '${{ steps.mc_monitor.outputs.latest }}';
             const currentOtel = '${{ steps.current.outputs.otel }}';
             const latestOtel = '${{ steps.otel.outputs.latest }}';
 
@@ -74,6 +86,10 @@ jobs:
 
             if (currentRconCli !== latestRconCli) {
               updates.push(`- **rcon-cli**: ${currentRconCli} → ${latestRconCli}`);
+            }
+
+            if (currentMcMonitor !== latestMcMonitor) {
+              updates.push(`- **mc-monitor**: ${currentMcMonitor} → ${latestMcMonitor}`);
             }
 
             if (currentOtel !== latestOtel) {
@@ -110,6 +126,7 @@ jobs:
                \`\`\`dockerfile
                ARG MC_SERVER_RUNNER_VERSION=${latestMcRunner}
                ARG RCON_CLI_VERSION=${latestRconCli}
+               ARG MC_MONITOR_VERSION=${latestMcMonitor}
                ARG OTEL_VERSION=${latestOtel}
                \`\`\`
 
@@ -149,6 +166,7 @@ jobs:
             core.setOutput('updates_available', 'true');
             core.setOutput('mc_runner_latest', latestMcRunner);
             core.setOutput('rcon_cli_latest', latestRconCli);
+            core.setOutput('mc_monitor_latest', latestMcMonitor);
             core.setOutput('otel_latest', latestOtel);
 
       - name: Trigger auto-update workflow
@@ -159,11 +177,13 @@ jobs:
           script: |
             const mcRunnerVersion = '${{ steps.mc_runner.outputs.latest }}';
             const rconCliVersion = '${{ steps.rcon_cli.outputs.latest }}';
+            const mcMonitorVersion = '${{ steps.mc_monitor.outputs.latest }}';
             const otelVersion = '${{ steps.otel.outputs.latest }}';
 
             console.log('🤖 Triggering auto-update workflow...');
             console.log(`  mc-server-runner: ${mcRunnerVersion}`);
             console.log(`  rcon-cli: ${rconCliVersion}`);
+            console.log(`  mc-monitor: ${mcMonitorVersion}`);
             console.log(`  OpenTelemetry agent: ${otelVersion}`);
 
             await github.rest.actions.createWorkflowDispatch({
@@ -174,6 +194,7 @@ jobs:
               inputs: {
                 mc_runner_version: mcRunnerVersion,
                 rcon_cli_version: rconCliVersion,
+                mc_monitor_version: mcMonitorVersion,
                 otel_version: otelVersion
               }
             });
