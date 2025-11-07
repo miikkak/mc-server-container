@@ -22,8 +22,8 @@ jobs:
       - name: Install ShellCheck
         run: |
           if ! command -v shellcheck > /dev/null; then
-            sudo apt-get update > /dev/null
-            sudo apt-get install --no-install-recommends -y shellcheck > /dev/null
+            sudo DEBIAN_FRONTEND=noninteractive apt-get update > /dev/null
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y shellcheck > /dev/null
           fi
           
       - name: Run ShellCheck
