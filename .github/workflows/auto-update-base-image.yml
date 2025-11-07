@@ -65,6 +65,7 @@ jobs:
             const currentDigest = '${{ steps.current.outputs.digest }}';
             const newDigest = '${{ inputs.digest }}';
             const branchName = 'chore/update-base-image-digest';
+            const digestFile = '${{ env.DIGEST_FILE }}';
 
             // Check if a PR already exists
             const prs = await github.rest.pulls.list({
@@ -120,8 +121,6 @@ jobs:
               console.log(`✅ Created branch: ${branchName}`);
 
               // Read current digest file
-              // Note: This path must match the DIGEST_FILE env var
-              const digestFile = '.github/.docker-base-digest.txt';
               let fileSha;
               try {
                 const { data: fileData } = await github.rest.repos.getContent({
@@ -142,7 +141,7 @@ jobs:
                 repo: context.repo.repo,
                 path: digestFile,
                 message: 'chore: update base image digest',
-                content: Buffer.from(newDigest + '\n').toString('base64'),
+                content: Buffer.from(newDigest).toString('base64'),
                 sha: fileSha,
                 branch: branchName
               });
