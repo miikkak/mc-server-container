@@ -51,10 +51,10 @@ RUN mkdir -p /data /opt /scripts \
 # Copy observability tools to /opt/
 COPY --from=downloader --chown=root:root /downloads/opentelemetry-javaagent.jar /opt/opentelemetry-javaagent.jar
 
-# Copy binaries from downloader stage to /usr/local/bin/ (alphabetical order)
-COPY --from=downloader --chown=root:root /downloads/mc-monitor /usr/local/bin/mc-monitor
-COPY --from=downloader --chown=root:root /downloads/mc-server-runner /usr/local/bin/mc-server-runner
-COPY --from=downloader --chown=root:root /downloads/rcon-cli /usr/local/bin/rcon-cli
+# Copy binaries from downloader stage to /usr/local/bin/ (alphabetical order, with execute permissions)
+COPY --from=downloader --chown=root:root --chmod=755 /downloads/mc-monitor /usr/local/bin/mc-monitor
+COPY --from=downloader --chown=root:root --chmod=755 /downloads/mc-server-runner /usr/local/bin/mc-server-runner
+COPY --from=downloader --chown=root:root --chmod=755 /downloads/rcon-cli /usr/local/bin/rcon-cli
 
 # Copy local scripts to /usr/local/bin/ (alphabetical order, with execute permissions)
 COPY --chown=root:root --chmod=755 scripts/mc-health /usr/local/bin/mc-health
