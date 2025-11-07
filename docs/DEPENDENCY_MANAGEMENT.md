@@ -35,6 +35,8 @@ The repository uses multiple automated tools and workflows to monitor dependenci
 **What:**
 - `mc-server-runner` - Process supervisor
 - `rcon-cli` - RCON client
+- `mc-monitor` - Server monitoring tool
+- `opentelemetry-javaagent` - OpenTelemetry Java agent for observability
 
 **Frequency:** Weekly (Mondays at 09:00 UTC)
 **Process:**
@@ -59,7 +61,7 @@ The repository uses multiple automated tools and workflows to monitor dependenci
 **Schedule:** Weekly (Mondays at 09:00 UTC)
 
 **Jobs:**
-1. `check-binary-dependencies` - Checks mc-server-runner and rcon-cli
+1. `check-binary-dependencies` - Checks mc-server-runner, rcon-cli, mc-monitor, and OpenTelemetry Java agent
 2. `check-base-image` - Checks GraalVM Docker image for updates
 
 **Outputs:**
@@ -121,7 +123,7 @@ The repository uses multiple automated tools and workflows to monitor dependenci
 
 **Outputs:**
 - Creates/updates pinned dashboard issue
-- Shows all dependency statuses
+- Shows all dependency statuses (binary deps, Docker image, GitHub Actions, pre-commit hooks)
 - Lists active monitors and recent activity
 - Provides update instructions
 
@@ -168,6 +170,8 @@ The repository uses multiple automated tools and workflows to monitor dependenci
    ```dockerfile
    ARG MC_SERVER_RUNNER_VERSION=<new_version>
    ARG RCON_CLI_VERSION=<new_version>
+   ARG MC_MONITOR_VERSION=<new_version>
+   ARG OTEL_VERSION=<new_version>
    ```
 3. Create PR with changes and add `release:patch` label
 

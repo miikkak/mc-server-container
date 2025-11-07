@@ -25,19 +25,25 @@ jobs:
           # Get versions from Dockerfile with error handling
           MC_RUNNER=$(grep 'ARG MC_SERVER_RUNNER_VERSION=' Dockerfile | cut -d'=' -f2)
           RCON_CLI=$(grep 'ARG RCON_CLI_VERSION=' Dockerfile | cut -d'=' -f2)
+          MC_MONITOR=$(grep 'ARG MC_MONITOR_VERSION=' Dockerfile | cut -d'=' -f2)
+          OTEL=$(grep 'ARG OTEL_VERSION=' Dockerfile | cut -d'=' -f2)
           BASE_IMAGE=$(grep '^FROM container-registry.oracle.com/graalvm/jdk:' Dockerfile | head -1 | awk '{print $2}')
           
           # Verify values were extracted
-          if [ -z "$MC_RUNNER" ] || [ -z "$RCON_CLI" ] || [ -z "$BASE_IMAGE" ]; then
+          if [ -z "$MC_RUNNER" ] || [ -z "$RCON_CLI" ] || [ -z "$MC_MONITOR" ] || [ -z "$OTEL" ] || [ -z "$BASE_IMAGE" ]; then
             echo "❌ Failed to extract versions from Dockerfile"
             echo "MC_RUNNER: $MC_RUNNER"
             echo "RCON_CLI: $RCON_CLI"
+            echo "MC_MONITOR: $MC_MONITOR"
+            echo "OTEL: $OTEL"
             echo "BASE_IMAGE: $BASE_IMAGE"
             exit 1
           fi
           
           echo "mc_runner=$MC_RUNNER" >> $GITHUB_OUTPUT
           echo "rcon_cli=$RCON_CLI" >> $GITHUB_OUTPUT
+          echo "mc_monitor=$MC_MONITOR" >> $GITHUB_OUTPUT
+          echo "otel=$OTEL" >> $GITHUB_OUTPUT
           echo "base_image=$BASE_IMAGE" >> $GITHUB_OUTPUT
 
       - name: Check latest versions
@@ -50,6 +56,14 @@ jobs:
           # Check rcon-cli
           RCON_CLI_LATEST=$(curl -s https://api.github.com/repos/itzg/rcon-cli/releases/latest | jq -r .tag_name)
           echo "rcon_cli=$RCON_CLI_LATEST" >> $GITHUB_OUTPUT
+          
+          # Check mc-monitor
+          MC_MONITOR_LATEST=$(curl -s https://api.github.com/repos/itzg/mc-monitor/releases/latest | jq -r .tag_name)
+          echo "mc_monitor=$MC_MONITOR_LATEST" >> $GITHUB_OUTPUT
+          
+          # Check OpenTelemetry Java agent
+          OTEL_LATEST=$(curl -s https://api.github.com/repos/open-telemetry/opentelemetry-java-instrumentation/releases/latest | jq -r .tag_name | sed 's/^v//')
+          echo "otel=$OTEL_LATEST" >> $GITHUB_OUTPUT
 
       - name: Check GitHub Actions versions
         id: actions
@@ -64,6 +78,30 @@ jobs:
             echo "" >> actions-report.md
           done
 
+      - name: Check pre-commit hook versions
+        id: precommit
+        run: |
+          # Extract pre-commit hook versions
+          echo "### Pre-commit Hooks" > precommit-report.md
+          echo "" >> precommit-report.md
+          echo "| Hook Repository | Current Version |" >> precommit-report.md
+          echo "|----------------|----------------|" >> precommit-report.md
+          
+          # Parse .pre-commit-config.yaml for repo and rev pairs
+          grep -E "^  - repo:|^    rev:" .pre-commit-config.yaml | \
+          awk '
+            /^  - repo:/ { repo=$3 }
+            /^    rev:/ { 
+              rev=$2
+              if (repo != "local") {
+                printf "| %s | %s |\n", repo, rev
+              }
+            }
+          ' >> precommit-report.md
+          
+          echo "" >> precommit-report.md
+          echo "> **Note:** Pre-commit hooks are automatically updated weekly by the precommit-updates workflow." >> precommit-report.md
+
       - name: Create or update dashboard issue
         uses: actions/github-script@v8
         with:
@@ -74,12 +112,19 @@ jobs:
             const latestMcRunner = '${{ steps.latest.outputs.mc_runner }}';
             const currentRconCli = '${{ steps.versions.outputs.rcon_cli }}';
             const latestRconCli = '${{ steps.latest.outputs.rcon_cli }}';
+            const currentMcMonitor = '${{ steps.versions.outputs.mc_monitor }}';
+            const latestMcMonitor = '${{ steps.latest.outputs.mc_monitor }}';
+            const currentOtel = '${{ steps.versions.outputs.otel }}';
+            const latestOtel = '${{ steps.latest.outputs.otel }}';
             const baseImage = '${{ steps.versions.outputs.base_image }}';
 
             const mcRunnerStatus = currentMcRunner === latestMcRunner ? '✅' : '⚠️';
             const rconCliStatus = currentRconCli === latestRconCli ? '✅' : '⚠️';
+            const mcMonitorStatus = currentMcMonitor === latestMcMonitor ? '✅' : '⚠️';
+            const otelStatus = currentOtel === latestOtel ? '✅' : '⚠️';
 
             const actionsReport = fs.readFileSync('actions-report.md', 'utf8');
+            const precommitReport = fs.readFileSync('precommit-report.md', 'utf8');
 
             const body = `# 📊 Dependency Status Dashboard
 
@@ -95,6 +140,8 @@ jobs:
             |------------|---------|--------|--------|
             | **mc-server-runner** | ${currentMcRunner} | ${latestMcRunner} | ${mcRunnerStatus} |
             | **rcon-cli** | ${currentRconCli} | ${latestRconCli} | ${rconCliStatus} |
+            | **mc-monitor** | ${currentMcMonitor} | ${latestMcMonitor} | ${mcMonitorStatus} |
+            | **OpenTelemetry Java agent** | ${currentOtel} | ${latestOtel} | ${otelStatus} |
 
             ## Docker Base Image
 
@@ -128,6 +175,10 @@ jobs:
 
             ---
 
+            ${precommitReport}
+
+            ---
+
             ## Dependency Update Process
 
             ### Automated Updates (Managed by Dependabot)
@@ -135,7 +186,7 @@ jobs:
             - Docker base image updates are detected by Dependabot
 
             ### Semi-Automated Updates (Issue/PR Created)
-            - Binary dependencies (mc-server-runner, rcon-cli) - Issues created when updates available
+            - Binary dependencies (mc-server-runner, rcon-cli, mc-monitor, OpenTelemetry agent) - Issues created when updates available, auto-updated via PR
             - Pre-commit hooks - PRs automatically created with updates
 
             ### Manual Monitoring
@@ -146,12 +197,14 @@ jobs:
 
             ## How to Update Dependencies
 
-            ### Binary Dependencies (mc-server-runner, rcon-cli)
+            ### Binary Dependencies (mc-server-runner, rcon-cli, mc-monitor, OpenTelemetry)
 
             1. Update versions in \`Dockerfile\`:
                \`\`\`dockerfile
                ARG MC_SERVER_RUNNER_VERSION=<new_version>
                ARG RCON_CLI_VERSION=<new_version>
+               ARG MC_MONITOR_VERSION=<new_version>
+               ARG OTEL_VERSION=<new_version>
                \`\`\`
 
             2. Test locally:
