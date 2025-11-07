@@ -49,7 +49,7 @@ RUN mkdir -p /data /opt /scripts \
 # ============================================================================
 
 # Copy observability tools to /opt/
-COPY --from=downloader --chown=root:root --chmod=755 /downloads/opentelemetry-javaagent.jar /opt/opentelemetry-javaagent.jar
+COPY --from=downloader --chown=root:root --chmod=644 /downloads/opentelemetry-javaagent.jar /opt/opentelemetry-javaagent.jar
 
 # Copy binaries from downloader stage to /usr/local/bin/ (alphabetical order, with execute permissions)
 COPY --from=downloader --chown=root:root --chmod=755 /downloads/mc-monitor /usr/local/bin/mc-monitor
