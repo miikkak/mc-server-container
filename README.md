@@ -103,6 +103,31 @@ docker exec -it minecraft-server rcon-cli
 docker exec minecraft-server mc-send-to-console "say Hello players!"
 ```
 
+## Troubleshooting
+
+### Bypassing Entrypoint for Diagnostics
+
+If you need to inspect the container filesystem or debug issues without running the server entrypoint:
+
+```bash
+# Override entrypoint to get direct shell access
+docker run --rm -it --entrypoint /bin/bash ghcr.io/miikka/mc-server-container:latest
+
+# Or for a specific image ID
+docker run --rm -it --entrypoint /bin/bash <image-id>
+```
+
+This is useful for:
+- Inspecting file permissions and ownership
+- Testing commands before modifying scripts
+- Debugging when the entrypoint fails
+- Checking which files are present in the image
+
+For a running container, use:
+```bash
+docker exec -it minecraft-server bash
+```
+
 ## Development
 
 ### Prerequisites
