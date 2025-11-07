@@ -21,14 +21,16 @@ The repository uses multiple automated tools and workflows to monitor dependenci
 **Process:** Dependabot automatically creates PRs with updates
 **Action Required:** Review and merge PRs
 
-### 2. Docker Base Image (Dependabot + Custom Check)
+### 2. Docker Base Image (Dependabot + Automated Update)
 
 **What:** `container-registry.oracle.com/graalvm/jdk:25`
 **Frequency:** Weekly (Mondays at 09:00 UTC)
 **Process:** 
-- Dependabot monitors version updates
-- Custom workflow checks image digests for patches
-**Action Required:** Review PRs/issues and rebuild container
+- Dependabot monitors tag version updates (e.g., `jdk:24` → `jdk:25`)
+- Custom workflow checks manifest digest for same-tag updates (patches/rebuilds)
+- Digest stored in `.github/.docker-base-digest.txt` for change detection
+- Automatically creates PRs when digest changes
+**Action Required:** Review and merge PRs
 
 ### 3. Binary Dependencies (Automated Update)
 
@@ -62,11 +64,12 @@ The repository uses multiple automated tools and workflows to monitor dependenci
 
 **Jobs:**
 1. `check-binary-dependencies` - Checks mc-server-runner, rcon-cli, mc-monitor, and OpenTelemetry Java agent
-2. `check-base-image` - Checks GraalVM Docker image for updates
+2. `check-base-image` - Checks GraalVM Docker image manifest digest for updates
 
 **Outputs:**
 - Creates/updates issues when updates are available
 - Automatically triggers `auto-update-dependencies.yml` for binary updates
+- Automatically triggers `auto-update-base-image.yml` for base image digest updates
 - Issues are labeled: `dependencies`, `automated`, `enhancement`
 
 **Manual Trigger:** Yes (workflow_dispatch)
@@ -84,6 +87,20 @@ The repository uses multiple automated tools and workflows to monitor dependenci
 - PRs are labeled: `dependencies`, `automated`, `release:patch`
 
 **Manual Trigger:** Yes (workflow_dispatch with optional version inputs)
+
+### `auto-update-base-image.yml`
+
+**Schedule:** On-demand (triggered by dependency-check.yml or manually)
+
+**Jobs:**
+1. `update-base-image-digest` - Creates PR with updated base image digest
+
+**Outputs:**
+- Automatically creates PR updating `.github/.docker-base-digest.txt`
+- Closes related base image update issues
+- PRs are labeled: `dependencies`, `docker`, `automated`, `release:patch`
+
+**Manual Trigger:** Yes (workflow_dispatch with digest input)
 
 ### `security-scan.yml`
 
@@ -138,21 +155,35 @@ The repository uses multiple automated tools and workflows to monitor dependenci
 3. **Merge:** Approve and merge the PR
 4. **Label:** PR already has `release:patch` label if needed
 
-### Docker Base Image Update (Issue or PR)
+### Docker Base Image Update (Automated PR)
 
-1. **Review Issue/PR:** Check what changed in the new image
-2. **Rebuild Container:**
+**NEW:** Base image digest updates are now automatically updated via PR!
+
+1. **Review PR:** An automated PR will be created with digest file update
+2. **Verify Tests:** Ensure CI/CD tests pass (build will use latest image)
+3. **Merge:** Approve and merge the PR
+4. **Labels:** PR already has `dependencies`, `docker`, `automated`, `release:patch` labels
+
+**The digest file (`.github/.docker-base-digest.txt`) tracks the last known manifest digest and enables automatic change detection.**
+
+**Manual Update (if automation fails):**
+1. Trigger `auto-update-base-image.yml` workflow manually with new digest
+2. Or update manually:
    ```bash
+   # Get latest digest
+   NEW_DIGEST=$(docker buildx imagetools inspect container-registry.oracle.com/graalvm/jdk:25 \
+     --format '{{.Manifest.Digest}}' | grep -oP 'Digest:\s+\K\S+')
+   
+   # Update digest file
+   echo "$NEW_DIGEST" > .github/.docker-base-digest.txt
+   
+   # Test locally
    docker build --no-cache --pull -t mc-server-container:test .
-   ```
-3. **Test Locally:**
-   ```bash
    docker run -d --name mc-test -e EULA=TRUE mc-server-container:test
    docker logs mc-test
    docker stop mc-test && docker rm mc-test
    ```
-4. **Create PR:** If testing passes, create PR with `release:patch` label
-5. **Close Issue:** Issue is automatically closed when PR merges
+3. Create PR with changes and add `release:patch` label
 
 ### Binary Dependency Update (Automated PR)
 
