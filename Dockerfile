@@ -36,8 +36,10 @@ LABEL maintainer="miikka"
 LABEL description="Custom Minecraft server container with GraalVM and mc-server-runner"
 
 # Create minecraft user and group (UID/GID 25565)
+# -M: no home directory (not needed, server runs in /data)
+# -s /bin/bash: shell for docker exec troubleshooting
 RUN groupadd -g 25565 minecraft \
-  && useradd -u 25565 -g minecraft -m -s /bin/bash minecraft
+  && useradd -u 25565 -g minecraft -M -s /bin/bash minecraft
 
 # Create directories
 RUN mkdir -p /data /opt /scripts \
