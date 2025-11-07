@@ -231,15 +231,13 @@ jobs:
                 ref: 'heads/main'
               });
 
-              // Check if branch already exists
-              let branchExists = false;
+              // Check if branch already exists and delete it if so
               try {
                 await github.rest.git.getRef({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   ref: `heads/${branchName}`
                 });
-                branchExists = true;
                 console.log(`⚠️ Branch ${branchName} already exists, deleting it...`);
 
                 // Delete the existing branch
