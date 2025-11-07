@@ -172,10 +172,10 @@ The repository uses multiple automated tools and workflows to monitor dependenci
    ```bash
    # Get latest digest
    NEW_DIGEST=$(docker buildx imagetools inspect container-registry.oracle.com/graalvm/jdk:25 \
-     --format '{{.Manifest.Digest}}' | grep -oP 'Digest:\s+\K\S+')
+     --format '{{.Manifest.Digest}}' | awk '/^Digest:/ {print $2}')
    
-   # Update digest file
-   echo "$NEW_DIGEST" > .github/.docker-base-digest.txt
+   # Update digest file (no trailing newline)
+   echo -n "$NEW_DIGEST" > .github/.docker-base-digest.txt
    
    # Test locally
    docker build --no-cache --pull -t mc-server-container:test .
