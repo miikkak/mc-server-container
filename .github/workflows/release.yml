@@ -134,7 +134,7 @@ jobs:
           cache-from: |
             type=gha,scope=${{ github.ref }}
             type=gha,scope=refs/heads/main
-          cache-to: type=gha,mode=max,scope=refs/heads/main
+          cache-to: type=gha,mode=max,scope=${{ github.ref }}
 
       - name: Create GitHub Release
         uses: actions/github-script@v8
