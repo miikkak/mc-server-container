@@ -184,10 +184,17 @@ jobs:
             echo "✅ All dependencies are up to date"
           fi
 
+      - name: Debug authenticated user for PAT
+        if: steps.check.outputs.updates_needed == 'true'
+        run: |
+          echo "Checking authenticated user for PULL_REQUEST_TOKEN (will not reveal token)"
+          curl -fsSL -H "Authorization: token ${{ secrets.PULL_REQUEST_TOKEN }}" https://api.github.com/user | jq -r '.login, .id'
+
       - name: Create PR with updates
         if: steps.check.outputs.updates_needed == 'true'
         uses: actions/github-script@v8
         with:
+          github-token: ${{ secrets.PULL_REQUEST_TOKEN }}
           script: |
             const currentMcRunner = '${{ steps.current.outputs.mc_runner }}';
             const targetMcRunner = '${{ steps.target.outputs.mc_runner }}';
