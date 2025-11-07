@@ -56,15 +56,12 @@ COPY --from=downloader --chown=root:root /downloads/mc-monitor /usr/local/bin/mc
 COPY --from=downloader --chown=root:root /downloads/mc-server-runner /usr/local/bin/mc-server-runner
 COPY --from=downloader --chown=root:root /downloads/rcon-cli /usr/local/bin/rcon-cli
 
-# Copy local scripts to /usr/local/bin/ (alphabetical order)
-COPY --chown=root:root scripts/mc-health /usr/local/bin/mc-health
-COPY --chown=root:root scripts/mc-send-to-console /usr/local/bin/mc-send-to-console
+# Copy local scripts to /usr/local/bin/ (alphabetical order, with execute permissions)
+COPY --chown=root:root --chmod=755 scripts/mc-health /usr/local/bin/mc-health
+COPY --chown=root:root --chmod=755 scripts/mc-send-to-console /usr/local/bin/mc-send-to-console
 
-# Copy entrypoint script to /scripts/
-COPY --chown=root:root scripts/entrypoint.sh /scripts/entrypoint.sh
-
-# Make all scripts executable (755 = rwxr-xr-x)
-RUN chmod 755 /scripts/entrypoint.sh /usr/local/bin/mc-send-to-console /usr/local/bin/mc-health
+# Copy entrypoint script to /scripts/ (with execute permissions)
+COPY --chown=root:root --chmod=755 scripts/entrypoint.sh /scripts/entrypoint.sh
 
 # Set working directory
 WORKDIR /data
