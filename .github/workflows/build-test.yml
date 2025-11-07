@@ -104,6 +104,7 @@ jobs:
           cache-from: |
             type=gha,scope=${{ github.ref }}
             type=gha,scope=refs/heads/main
+          cache-to: type=gha,mode=max,scope=${{ github.ref }}
 
       - name: Prepare test data
         if: steps.check_dockerfile.outputs.exists == 'true'

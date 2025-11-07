@@ -59,20 +59,49 @@ jobs:
                 shouldDelete = true;
                 reason = `older than ${CACHE_AGE_DAYS} days (${cacheAgeDays} days old)`;
               } else if (cache.ref && cache.ref !== 'refs/heads/main') {
-                // Check if branch still exists (only for caches older than minimum age)
+                // Check if ref still exists (only for caches older than minimum age)
                 if (cacheAge > deletedBranchMinAge) {
-                  try {
-                    await github.rest.git.getRef({
-                      owner: context.repo.owner,
-                      repo: context.repo.repo,
-                      ref: cache.ref.replace('refs/', '')
-                    });
-                  } catch (error) {
-                    if (error.status === 404) {
-                      shouldDelete = true;
-                      reason = `branch no longer exists (${cache.ref}, ${cacheAgeDays} days old)`;
-                    } else {
-                      console.log(`⚠️  Could not verify branch ${cache.ref}: ${error.message} (status: ${error.status ?? 'unknown'})`);
+                  // Handle pull request refs differently
+                  if (cache.ref.startsWith('refs/pull/')) {
+                    // Extract PR number from refs/pull/123/merge
+                    const prMatch = cache.ref.match(/^refs\/pull\/(\d+)\//);
+                    if (prMatch) {
+                      const prNumber = parseInt(prMatch[1], 10);
+                      try {
+                        const pr = await github.rest.pulls.get({
+                          owner: context.repo.owner,
+                          repo: context.repo.repo,
+                          pull_number: prNumber
+                        });
+                        // Delete cache if PR is closed/merged
+                        if (pr.data.state === 'closed') {
+                          shouldDelete = true;
+                          reason = `PR #${prNumber} is closed (${cache.ref}, ${cacheAgeDays} days old)`;
+                        }
+                      } catch (error) {
+                        if (error.status === 404) {
+                          shouldDelete = true;
+                          reason = `PR no longer exists (${cache.ref}, ${cacheAgeDays} days old)`;
+                        } else {
+                          console.log(`⚠️  Could not verify PR ${cache.ref}: ${error.message} (status: ${error.status ?? 'unknown'})`);
+                        }
+                      }
+                    }
+                  } else {
+                    // Handle branch refs
+                    try {
+                      await github.rest.git.getRef({
+                        owner: context.repo.owner,
+                        repo: context.repo.repo,
+                        ref: cache.ref.replace('refs/', '')
+                      });
+                    } catch (error) {
+                      if (error.status === 404) {
+                        shouldDelete = true;
+                        reason = `branch no longer exists (${cache.ref}, ${cacheAgeDays} days old)`;
+                      } else {
+                        console.log(`⚠️  Could not verify branch ${cache.ref}: ${error.message} (status: ${error.status ?? 'unknown'})`);
+                      }
                     }
                   }
                 }
