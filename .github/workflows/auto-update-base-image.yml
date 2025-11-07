@@ -23,6 +23,8 @@ jobs:
   update-base-image-digest:
     name: Update Base Image Digest
     runs-on: ubuntu-latest
+    env:
+      DIGEST_FILE: .github/.docker-base-digest.txt
 
     steps:
       - name: Checkout code
@@ -31,7 +33,6 @@ jobs:
       - name: Read current digest
         id: current
         run: |
-          DIGEST_FILE=".github/.docker-base-digest.txt"
           if [ -f "$DIGEST_FILE" ]; then
             CURRENT_DIGEST=$(cat "$DIGEST_FILE" | tr -d '[:space:]')
           else
@@ -119,6 +120,7 @@ jobs:
               console.log(`✅ Created branch: ${branchName}`);
 
               // Read current digest file
+              // Note: This path must match the DIGEST_FILE env var
               const digestFile = '.github/.docker-base-digest.txt';
               let fileSha;
               try {

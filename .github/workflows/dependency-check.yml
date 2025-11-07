@@ -205,6 +205,8 @@ jobs:
   check-base-image:
     name: Check Base Image Updates
     runs-on: ubuntu-latest
+    env:
+      DIGEST_FILE: .github/.docker-base-digest.txt
 
     steps:
       - name: Checkout code
@@ -219,7 +221,6 @@ jobs:
           echo "📦 Current base image: $CURRENT_IMAGE"
 
           # Read the last known digest from stored file
-          DIGEST_FILE=".github/.docker-base-digest.txt"
           if [ -f "$DIGEST_FILE" ]; then
             STORED_DIGEST=$(cat "$DIGEST_FILE" | tr -d '[:space:]')
             echo "📦 Stored digest: $STORED_DIGEST"
@@ -231,7 +232,7 @@ jobs:
 
           # Get latest manifest digest from registry using buildx imagetools
           # This gets the digest of the manifest list/index
-          LATEST_DIGEST=$(docker buildx imagetools inspect "$CURRENT_IMAGE" --format '{{.Manifest.Digest}}' 2>&1 | grep -oP 'Digest:\s+\K\S+' || echo "unknown")
+          LATEST_DIGEST=$(docker buildx imagetools inspect "$CURRENT_IMAGE" --format '{{.Manifest.Digest}}' 2>&1 | awk '/^Digest:/ {print $2}' || echo "unknown")
           echo "latest_digest=$LATEST_DIGEST" >> $GITHUB_OUTPUT
           echo "📦 Latest registry digest: $LATEST_DIGEST"
 
