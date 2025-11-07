@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# mc-health - Health check wrapper for Minecraft server container
+#
+# Verifies both mc-server-runner and Minecraft server are functioning:
+# 1. Checks if named pipe exists (mc-server-runner is running)
+# 2. Uses mc-monitor to verify server is responding to queries
+
+set -euo pipefail
+
+PIPE_PATH="/tmp/minecraft-console"
+
+# Check if mc-server-runner is running by verifying named pipe exists
+if [ ! -p "$PIPE_PATH" ]; then
+  echo "Health check failed: Named pipe not found at $PIPE_PATH (mc-server-runner not running)" >&2
+  exit 1
+fi
+
+# Check if Minecraft server is responding using mc-monitor
+# mc-monitor will:
+# - Query localhost:25565 by default
+# - Exit 0 if server responds
+# - Exit 1 if server is unresponsive
+if ! mc-monitor status --timeout 5s; then
+  echo "Health check failed: Server not responding to status queries" >&2
+  exit 1
+fi
+
+# Both checks passed
+exit 0

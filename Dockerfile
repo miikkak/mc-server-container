@@ -18,6 +18,11 @@ ARG RCON_CLI_VERSION=1.7.2
 ADD https://github.com/itzg/rcon-cli/releases/download/${RCON_CLI_VERSION}/rcon-cli_${RCON_CLI_VERSION}_linux_amd64.tar.gz rcon-cli.tar.gz
 RUN tar -xzf rcon-cli.tar.gz && chmod +x rcon-cli
 
+# Download and extract mc-monitor
+ARG MC_MONITOR_VERSION=0.15.8
+ADD https://github.com/itzg/mc-monitor/releases/download/${MC_MONITOR_VERSION}/mc-monitor_${MC_MONITOR_VERSION}_linux_amd64.tar.gz mc-monitor.tar.gz
+RUN tar -xzf mc-monitor.tar.gz && chmod +x mc-monitor
+
 # Download OpenTelemetry Java agent
 ARG OTEL_VERSION=2.11.0
 ADD https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v${OTEL_VERSION}/opentelemetry-javaagent.jar opentelemetry-javaagent.jar
@@ -42,14 +47,16 @@ RUN mkdir -p /data /opt /scripts \
 # Copy binaries from downloader stage
 COPY --from=downloader /downloads/mc-server-runner /usr/local/bin/mc-server-runner
 COPY --from=downloader /downloads/rcon-cli /usr/local/bin/rcon-cli
+COPY --from=downloader /downloads/mc-monitor /usr/local/bin/mc-monitor
 COPY --from=downloader /downloads/opentelemetry-javaagent.jar /opt/opentelemetry-javaagent.jar
 
 # Copy scripts
 COPY scripts/entrypoint.sh /scripts/entrypoint.sh
 COPY scripts/mc-send-to-console /usr/local/bin/mc-send-to-console
+COPY scripts/mc-health /usr/local/bin/mc-health
 
 # Make scripts executable and readable
-RUN chmod 755 /scripts/entrypoint.sh /usr/local/bin/mc-send-to-console
+RUN chmod 755 /scripts/entrypoint.sh /usr/local/bin/mc-send-to-console /usr/local/bin/mc-health
 
 # Set working directory
 WORKDIR /data
@@ -61,6 +68,10 @@ EXPOSE 25565/tcp 25565/udp 25575/tcp
 
 # Switch to minecraft user
 USER minecraft
+
+# Health check - verify both mc-server-runner and server are responding
+HEALTHCHECK --interval=30s --timeout=15s --start-period=90s --retries=3 \
+  CMD mc-health
 
 # Set entrypoint
 ENTRYPOINT ["/scripts/entrypoint.sh"]
