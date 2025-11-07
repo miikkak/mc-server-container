@@ -62,5 +62,9 @@ EXPOSE 25565/tcp 25565/udp 25575/tcp
 # Switch to minecraft user
 USER minecraft
 
+# Health check - verify named pipe exists (indicates mc-server-runner is running)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5m --retries=3 \
+  CMD test -p /tmp/minecraft-console || exit 1
+
 # Set entrypoint
 ENTRYPOINT ["/scripts/entrypoint.sh"]
