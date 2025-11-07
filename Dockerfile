@@ -62,7 +62,7 @@ COPY --chown=root:root --chmod=755 scripts/mc-send-to-console /usr/local/bin/mc-
 # Copy entrypoint script to /scripts/ (with execute permissions)
 COPY --chown=root:root --chmod=755 scripts/entrypoint.sh /scripts/entrypoint.sh
 
-# Set working directory
+# Set working directory (overrides base image's /app WORKDIR which we don't use)
 WORKDIR /data
 
 # Expose ports
