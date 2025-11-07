@@ -66,6 +66,8 @@ jobs:
                   if (error.status === 404) {
                     shouldDelete = true;
                     reason = `branch no longer exists (${cache.ref})`;
+                  } else {
+                    console.log(`⚠️  Could not verify branch ${cache.ref}: ${error.message} (status: ${error.status})`);
                   }
                 }
               }
