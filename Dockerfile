@@ -41,7 +41,7 @@ LABEL description="Custom Minecraft server container with GraalVM and mc-server-
 #   - For interactive shell, use: docker exec -it container /bin/bash
 # --no-create-home: /data directory created explicitly below with proper ownership
 RUN groupadd --gid 25565 minecraft \
-  && useradd --shell /bin/false --uid 25565 --gid minecraft --no-create-home minecraft
+  && useradd --shell /bin/false --uid 25565 --gid 25565 --no-create-home minecraft
 
 # Create directories
 RUN mkdir -p /data /opt /scripts \
