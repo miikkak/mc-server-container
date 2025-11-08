@@ -156,9 +156,13 @@ on:
 ```
 
 **Note:**
-- The `**.sh` glob pattern matches all `.sh` files including `.shellcheck-wrapper.sh`
+- The `**.sh` glob pattern should match all `.sh` files including `.shellcheck-wrapper.sh`
+  - GitHub Actions uses minimatch library where `**` matches zero or more directories
+  - This includes root-level files (zero directories)
 - The workflow file itself is intentionally excluded to avoid self-referencing triggers
 - GitHub validates workflow syntax on commit
+
+**Verification:** The first PR using this pattern will confirm that `.shellcheck-wrapper.sh` changes trigger the workflow as expected.
 
 **Benefit:** Saves ~1-2 minutes on doc-only changes.
 
@@ -382,6 +386,32 @@ git push origin test/dockerfile-change
 # Expected: build-test.yml (all 3 builds) and security-scan.yml should run
 # Expected: shellcheck.yml should skip (no .sh files changed)
 # Check: Create PR and verify correct workflows execute
+```
+
+**Test 6: Shellcheck wrapper change (verify glob pattern)**
+```bash
+# Create a test branch
+git checkout -b test/shellcheck-wrapper-change
+
+# Make a change to .shellcheck-wrapper.sh (root-level hidden .sh file)
+echo "# Test comment" >> .shellcheck-wrapper.sh
+git add .shellcheck-wrapper.sh
+git commit -m "test: shellcheck wrapper change"
+git push origin test/shellcheck-wrapper-change
+
+# Expected: shellcheck.yml SHOULD run (verifies **.sh matches root-level files)
+# Expected: build-test.yml should skip (no container-affecting changes)
+# Expected: security-scan.yml should skip (no container-affecting changes)
+# Check: Create PR and verify shellcheck.yml runs
+# IMPORTANT: If shellcheck.yml does NOT run, the **.sh pattern needs adjustment
+```
+
+**Fallback if Test 6 Fails:**
+If `.shellcheck-wrapper.sh` changes don't trigger shellcheck.yml, update the pattern to:
+```yaml
+paths:
+  - '*.sh'      # Root-level .sh files (explicit)
+  - '**/*.sh'   # Nested .sh files
 ```
 
 ### Monitoring
