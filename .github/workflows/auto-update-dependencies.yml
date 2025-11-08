@@ -113,7 +113,7 @@ jobs:
           if [ -n "${{ inputs.otel_version }}" ]; then
             OTEL_LATEST="${{ inputs.otel_version }}"
           else
-            # Get first non-prerelease, non-draft release (more reliable than /releases/latest)
+            # Get the first non-prerelease, non-draft release (more reliable than /releases/latest)
             OTEL_LATEST=$(curl -sf 'https://api.github.com/repos/open-telemetry/opentelemetry-java-instrumentation/releases?per_page=10' | jq -r '[.[] | select(.prerelease == false and .draft == false)][0].tag_name' | sed 's/^v//')
             if [ -z "$OTEL_LATEST" ] || [ "$OTEL_LATEST" = "null" ]; then
               echo "❌ Failed to fetch OpenTelemetry agent latest version"
