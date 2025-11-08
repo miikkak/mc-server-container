@@ -3,8 +3,24 @@ name: Build and Test
 on:
   push:
     branches: [ main ]
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
+      - '.pre-commit-config.yaml'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/labels.yml'
+      - '.github/dependabot.yml'
+      - '.github/workflows/**'
   pull_request:
     branches: [ main ]
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
+      - '.pre-commit-config.yaml'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/labels.yml'
+      - '.github/dependabot.yml'
+      - '.github/workflows/**'
 
 jobs:
   hadolint:
