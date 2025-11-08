@@ -118,17 +118,22 @@ jobs:
 
           # Download Paper JAR
           echo "⬇️  Downloading Paper JAR..."
-          PAPER_VERSION="1.21.3"
+          USER_AGENT="GitHub Actions for container build (miikka@iki.fi)"
+          MINECRAFT_VERSION=$(curl -s -H "User-Agent: $USER_AGENT" "https://fill.papermc.io/v3/projects/paper" | \
+            jq -r '.versions | to_entries[0] | .value[0]')
 
           # Get latest build number
-          BUILD_NUMBER=$(curl -s "https://api.papermc.io/v2/projects/paper/versions/${PAPER_VERSION}" | \
-            jq -r '.builds[-1]')
+          #BUILD_NUMBER=$(curl -s "https://api.papermc.io/v2/projects/paper/versions/${PAPER_VERSION}" | \
+          #  jq -r '.builds[-1]')
+          BUILD_NUMBER=$(curl -s -H "User-Agent: $USER_AGENT" "https://fill.papermc.io/v3/projects/paper/versions/${MINECRAFT_VERSION}" | \
+            jq -r '.builds[0]')
+          DOWNLOAD_URL=$(curl -s -H "User-Agent: $USER_AGENT" "https://fill.papermc.io/v3/projects/paper/versions/${MINECRAFT_VERSION}/builds" | \
+            jq -r 'max_by(.id) | .downloads["server:default"].url)
 
           echo "📋 Downloading Paper ${PAPER_VERSION} build ${BUILD_NUMBER}"
 
           # Download Paper JAR
-          curl -s -o test-data/paper.jar \
-            "https://api.papermc.io/v2/projects/paper/versions/${PAPER_VERSION}/builds/${BUILD_NUMBER}/downloads/paper-${PAPER_VERSION}-${BUILD_NUMBER}.jar"
+          curl -s -o test-data/paper.jar "${DOWNLOAD_URL}"
 
           # Verify download
           if [ ! -f test-data/paper.jar ]; then
@@ -267,17 +272,22 @@ jobs:
 
           # Download Paper JAR
           echo "⬇️  Downloading Paper JAR..."
-          PAPER_VERSION="1.21.3"
+          USER_AGENT="GitHub Actions for container build (miikka@iki.fi)"
+          MINECRAFT_VERSION=$(curl -s -H "User-Agent: $USER_AGENT" "https://fill.papermc.io/v3/projects/paper" | \
+            jq -r '.versions | to_entries[0] | .value[0]')
 
           # Get latest build number
-          BUILD_NUMBER=$(curl -s "https://api.papermc.io/v2/projects/paper/versions/${PAPER_VERSION}" | \
-            jq -r '.builds[-1]')
+          #BUILD_NUMBER=$(curl -s "https://api.papermc.io/v2/projects/paper/versions/${PAPER_VERSION}" | \
+          #  jq -r '.builds[-1]')
+          BUILD_NUMBER=$(curl -s -H "User-Agent: $USER_AGENT" "https://fill.papermc.io/v3/projects/paper/versions/${MINECRAFT_VERSION}" | \
+            jq -r '.builds[0]')
+          DOWNLOAD_URL=$(curl -s -H "User-Agent: $USER_AGENT" "https://fill.papermc.io/v3/projects/paper/versions/${MINECRAFT_VERSION}/builds" | \
+            jq -r 'max_by(.id) | .downloads["server:default"].url)
 
           echo "📋 Downloading Paper ${PAPER_VERSION} build ${BUILD_NUMBER}"
 
           # Download Paper JAR
-          curl -s -o test-data-podman/paper.jar \
-            "https://api.papermc.io/v2/projects/paper/versions/${PAPER_VERSION}/builds/${BUILD_NUMBER}/downloads/paper-${PAPER_VERSION}-${BUILD_NUMBER}.jar"
+          curl -s -o test-data/paper.jar "${DOWNLOAD_URL}"
 
           # Verify download
           if [ ! -f test-data-podman/paper.jar ]; then
