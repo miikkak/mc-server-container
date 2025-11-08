@@ -35,11 +35,12 @@ FROM container-registry.oracle.com/graalvm/jdk:25
 LABEL maintainer="miikka"
 LABEL description="Custom Minecraft server container with GraalVM and mc-server-runner"
 
-# Create minecraft user and group (UID/GID 25565)
-# -M: no home directory (not needed, server runs in /data)
-# -s /bin/bash: shell for docker exec troubleshooting
-RUN groupadd -g 25565 minecraft \
-  && useradd -u 25565 -g minecraft -M -s /bin/bash minecraft
+# Create minecraft user and group (UID/GID 25565 matches default server port)
+# --system: mark as system account for better security context
+# --shell /bin/false: prevent interactive login attempts (docker exec still works)
+# --home /data: set home directory to server data directory
+RUN groupadd --gid 25565 minecraft \
+  && useradd --system --shell /bin/false --uid 25565 -g minecraft --home /data minecraft
 
 # Create directories
 RUN mkdir -p /data /opt /scripts \
