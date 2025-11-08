@@ -280,7 +280,7 @@ jobs:
           BUILD_NUMBER=$(curl -s -H "User-Agent: $USER_AGENT" "https://fill.papermc.io/v3/projects/paper/versions/${PAPER_VERSION}" | \
             jq -r '.builds[0]')
 
-          # Get download URL for $MINECRAFT_VERSION-$BUILD_NUMBER
+          # Get download URL for $PAPER_VERSION-$BUILD_NUMBER
           DOWNLOAD_URL=$(curl -s -H "User-Agent: $USER_AGENT" "https://fill.papermc.io/v3/projects/paper/versions/${PAPER_VERSION}/builds" | \
             jq -r 'max_by(.id) | .downloads["server:default"].url')
 
