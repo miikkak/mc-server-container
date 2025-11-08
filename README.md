@@ -29,7 +29,7 @@ This custom container eliminates Java helper tool dependencies and compatibility
 
 ```bash
 # Pull the latest image from GHCR
-docker pull ghcr.io/miikka/mc-server-container:latest
+docker pull ghcr.io/miikkak/mc-server-container:latest
 
 # Run the container
 docker run -d \
@@ -38,7 +38,7 @@ docker run -d \
   -e EULA=TRUE \
   -e MEMORY=16G \
   --name minecraft-server \
-  ghcr.io/miikka/mc-server-container:latest
+  ghcr.io/miikkak/mc-server-container:latest
 ```
 
 ### Using Podman
@@ -47,7 +47,7 @@ This container is **fully OCI-compliant** and works seamlessly with Podman:
 
 ```bash
 # Pull the latest image from GHCR
-podman pull ghcr.io/miikka/mc-server-container:latest
+podman pull ghcr.io/miikkak/mc-server-container:latest
 
 # Run the container
 podman run -d \
@@ -56,7 +56,7 @@ podman run -d \
   -e EULA=TRUE \
   -e MEMORY=16G \
   --name minecraft-server \
-  ghcr.io/miikka/mc-server-container:latest
+  ghcr.io/miikkak/mc-server-container:latest
 ```
 
 **Note about `:Z` flag**: This flag relabels the volume content for SELinux, required on SELinux-enabled systems (like Fedora, RHEL, CentOS). The `:Z` flag makes the volume **private** to this container. If you need to share the volume between multiple containers, use `:z` (lowercase) instead, which allows sharing. On non-SELinux systems (like Ubuntu, Debian), this flag is safe to use but has no effect.
@@ -75,7 +75,7 @@ metadata:
 spec:
   containers:
   - name: minecraft
-    image: ghcr.io/miikka/mc-server-container:latest
+    image: ghcr.io/miikkak/mc-server-container:latest
     env:
     - name: EULA
       value: "TRUE"
@@ -253,7 +253,7 @@ This project uses semantic versioning with automated releases:
 4. GitHub Actions automatically:
    - Builds the container
    - Tags with semantic version
-   - Pushes to `ghcr.io/miikka/mc-server-container`
+   - Pushes to `ghcr.io/miikkak/mc-server-container`
    - Creates a GitHub release
 
 ## Project Structure
