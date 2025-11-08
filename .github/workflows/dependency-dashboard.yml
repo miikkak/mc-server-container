@@ -230,8 +230,8 @@ jobs:
             ## Security
 
             - **Container Scanning:** Daily Trivy scans check for vulnerabilities
-            - **SARIF Upload:** Results uploaded to GitHub Security tab
-            - **Automated Issues:** High/critical vulnerabilities trigger issue creation
+            - **Scan Reports:** Table and JSON reports available in workflow logs
+            - **Automated Issues:** High/critical vulnerabilities trigger issue creation (scheduled runs only)
 
             Check [Security Advisories](https://github.com/${context.repo.owner}/${context.repo.repo}/security/advisories) for details.
 

@@ -111,9 +111,8 @@ The repository uses multiple automated tools and workflows to monitor dependenci
 2. `dockerfile-scan` - Checks Dockerfile for security issues
 
 **Outputs:**
-- Uploads SARIF results to GitHub Security tab
-- Creates issues for CRITICAL/HIGH vulnerabilities
 - Table and JSON reports in workflow logs
+- Creates issues for CRITICAL/HIGH vulnerabilities (scheduled runs only)
 
 **Manual Trigger:** Yes (workflow_dispatch)
 
@@ -288,12 +287,12 @@ Check for updates:
 
 ### OpenTelemetry Java Agent
 
-**Not included in container** - Optional, user-provided
+**Included in container but optional to use** - Agent JAR is at `/opt/opentelemetry-javaagent.jar`
 
-If using OpenTelemetry:
-1. Check [opentelemetry-java-instrumentation releases](https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases)
-2. Update agent JAR in your volume mount
-3. Restart container
+The OpenTelemetry Java agent is automatically updated by the binary dependency workflow. To use it:
+1. Set environment variables: `OTEL_SERVICE_NAME`, `OTEL_EXPORTER_OTLP_ENDPOINT`, etc.
+2. The entrypoint script will automatically attach the agent if configured
+3. No manual updates needed - the agent version is managed in the Dockerfile
 
 ## Troubleshooting
 

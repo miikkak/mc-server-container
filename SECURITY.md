@@ -20,8 +20,8 @@ This repository implements comprehensive automated security scanning:
 - **Tool:** [Trivy](https://github.com/aquasecurity/trivy)
 - **Frequency:** Daily (03:00 UTC) + on every push/PR
 - **Severity Levels Monitored:** CRITICAL, HIGH, MEDIUM
-- **Results:** Uploaded to GitHub Security tab (SARIF format)
-- **Alerts:** Automated issues created for CRITICAL/HIGH vulnerabilities
+- **Results:** Table and JSON reports in workflow logs
+- **Alerts:** Automated issues created for CRITICAL/HIGH vulnerabilities (scheduled runs only)
 
 ### Dockerfile Security Analysis
 
@@ -140,7 +140,7 @@ Our CI/CD pipeline includes:
 - ✅ Dockerfile best practice checks (Hadolint)
 - ✅ Shell script security linting (ShellCheck)
 - ✅ Automated dependency version checking
-- ✅ SARIF results uploaded to GitHub Security
+- ✅ Scan results in workflow logs (table and JSON formats)
 
 ### Issue Automation
 

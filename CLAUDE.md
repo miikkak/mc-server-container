@@ -204,7 +204,7 @@ The repository includes automated dependency monitoring and security scanning:
 #### Security Scan (`.github/workflows/security-scan.yml`)
 - **Schedule**: Daily (03:00 UTC) + on push/PR
 - **Tool**: Trivy vulnerability scanner
-- **Output**: SARIF to Security tab, issues for CRITICAL/HIGH vulnerabilities
+- **Output**: Table and JSON reports in logs, issues for CRITICAL/HIGH vulnerabilities (scheduled runs only)
 
 #### Pre-commit Updates (`.github/workflows/precommit-updates.yml`)
 - **Schedule**: Weekly (Mondays at 09:30 UTC)

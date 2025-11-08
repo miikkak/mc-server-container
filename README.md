@@ -306,7 +306,7 @@ For detailed information, see [Dependency Management Guide](docs/DEPENDENCY_MANA
 Security vulnerabilities are automatically detected and reported:
 - View alerts in the [Security tab](../../security)
 - Critical/high vulnerabilities trigger automatic issue creation
-- SARIF results are uploaded for detailed analysis
+- Table and JSON scan results available in workflow logs
 
 See [Security Policy](SECURITY.md) for detailed security information.
 

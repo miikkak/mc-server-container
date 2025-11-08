@@ -31,8 +31,8 @@ This document provides a visual overview of the automated dependency monitoring 
 ┌─────────────────────────────────────────────────────────────────────┐
 │                          Output Actions                              │
 ├──────────────┬──────────────┬──────────────┬──────────────┬─────────┤
-│ Auto PRs     │ Issues       │ Security     │ Dashboard    │ Alerts  │
-│              │              │ Tab (SARIF)  │ Issue        │         │
+│ Auto PRs     │ Issues       │ Scan Reports │ Dashboard    │ Alerts  │
+│              │              │ (Logs)       │ Issue        │         │
 └──────────────┴──────────────┴──────────────┴──────────────┴─────────┘
 ```
 
@@ -120,11 +120,8 @@ Workflow Trigger (Daily/Push/PR)
        │
        ├─► Run Trivy vulnerability scan
        │        │
-       │        ├─► Generate SARIF report
        │        ├─► Generate JSON report
        │        └─► Generate table report
-       │
-       ├─► Upload SARIF to Security tab
        │
        └─► Count vulnerabilities
                 │
@@ -181,9 +178,9 @@ Workflow Trigger (Weekly)
 ├─────────────────────────────────────────────┤
 │                                             │
 │  ┌──────────────┐  ┌──────────────┐       │
-│  │   Security   │  │    Issues    │       │
-│  │     Tab      │  │              │       │
-│  │   (SARIF)    │  │  - Updates   │       │
+│  │   Workflow   │  │    Issues    │       │
+│  │    Logs      │  │              │       │
+│  │  (Reports)   │  │  - Updates   │       │
 │  │              │  │  - Security  │       │
 │  └──────────────┘  │  - Dashboard │       │
 │                    └──────────────┘        │
@@ -212,8 +209,7 @@ Event Occurs
      │
      ├─► Security Issue
      │        │
-     │        ├─► Trivy finds vuln → Issue created → Email
-     │        └─► SARIF uploaded → Security alert → Email
+     │        └─► Trivy finds vuln → Issue created → Email
      │
      └─► Dashboard Update
               │
@@ -286,7 +282,6 @@ Event Occurs
 │                        issues: write       │
 │                                            │
 │  security-scan         contents: read      │
-│                        security: write     │
 │                        issues: write       │
 │                                            │
 │  precommit-updates     contents: read      │
@@ -324,7 +319,7 @@ Event Occurs
 1. **Check last workflow runs** - Actions tab
 2. **Review dashboard issue** - Should update weekly
 3. **Check for stale PRs** - Dependencies label
-4. **Security tab activity** - Should see daily uploads
+4. **Workflow logs** - Review scan results in security-scan workflow
 5. **Issue creation** - Automated issues being created
 
 ### Signs of problems:
