@@ -10,14 +10,12 @@ on:
       - 'Dockerfile'
       - 'scripts/**'
       - 'docker-compose.yml'
-      - '.github/workflows/security-scan.yml'
   pull_request:
     branches: [ main ]
     paths:
       - 'Dockerfile'
       - 'scripts/**'
       - 'docker-compose.yml'
-      - '.github/workflows/security-scan.yml'
   workflow_dispatch: # Allow manual trigger
 
 permissions:

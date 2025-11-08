@@ -141,14 +141,14 @@ on:
     paths:
       - '**.sh'
       - '.shellcheck-wrapper.sh'
-      - '.github/workflows/shellcheck.yml'
   pull_request:
     branches: [ main ]
     paths:
       - '**.sh'
       - '.shellcheck-wrapper.sh'
-      - '.github/workflows/shellcheck.yml'
 ```
+
+**Note:** The workflow file itself is intentionally excluded to avoid self-referencing triggers. GitHub validates workflow syntax on commit.
 
 **Benefit:** Saves ~1-2 minutes on doc-only changes.
 
