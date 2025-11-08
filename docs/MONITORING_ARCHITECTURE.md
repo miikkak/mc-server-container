@@ -284,7 +284,6 @@ Event Occurs
 │  security-scan         contents: read      │
 │                        issues: write       │
 │                                            │
-│                                            │
 │  precommit-updates     contents: read      │
 │                        issues: write       │
 │                        pull-requests:write │
