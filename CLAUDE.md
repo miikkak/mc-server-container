@@ -465,8 +465,8 @@ docker exec container-name cat /data/eula.txt
 # Check Java version
 docker exec container-name java -version
 
-# Interactive shell
-docker exec -it container-name bash
+# Interactive shell (explicit /bin/bash required due to /bin/false user shell)
+docker exec -it container-name /bin/bash
 ```
 
 ## Integration with Other Repositories
