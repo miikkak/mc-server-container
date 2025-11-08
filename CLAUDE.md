@@ -179,6 +179,12 @@ Four-stage pipeline:
 
 Note: Both test jobs build independently (using shared cache from build job) to ensure isolation. The test-podman job exports the Docker-built image to a tar file and loads it into Podman's storage to verify cross-runtime compatibility.
 
+**Paper JAR Caching**: Both test jobs use GitHub Actions cache to avoid re-downloading the Paper JAR on every run:
+- Cache key is based on Paper version and build number (e.g., `paper-jar-1.21.4-123`)
+- Paper JAR is only downloaded on cache miss
+- Cached JARs are retained for 7 days (managed by cache-cleanup workflow)
+- Each test job maintains its own cache entry to avoid conflicts
+
 Runs on every push and PR.
 
 ### 3. Release Workflow (`.github/workflows/release.yml`)
