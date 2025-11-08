@@ -106,6 +106,59 @@ jobs:
             type=gha,scope=refs/heads/main
           cache-to: type=gha,mode=max,scope=${{ github.ref }}
 
+      - name: Get Paper version info
+        if: steps.check_dockerfile.outputs.exists == 'true'
+        id: paper_version
+        run: |
+          echo "🔍 Querying Paper API for latest version..."
+          USER_AGENT="GitHub Actions for container build (miikka@iki.fi)"
+          
+          # Get latest Paper version
+          PAPER_VERSION=$(curl -s -H "User-Agent: $USER_AGENT" "https://fill.papermc.io/v3/projects/paper" | \
+            jq -r '.versions | to_entries[0] | .value[0]')
+          
+          # Get latest build number for that version
+          BUILD_NUMBER=$(curl -s -H "User-Agent: $USER_AGENT" "https://fill.papermc.io/v3/projects/paper/versions/${PAPER_VERSION}" | \
+            jq -r '.builds[0]')
+          
+          echo "version=${PAPER_VERSION}" >> $GITHUB_OUTPUT
+          echo "build=${BUILD_NUMBER}" >> $GITHUB_OUTPUT
+          echo "📋 Paper ${PAPER_VERSION} build ${BUILD_NUMBER}"
+
+      - name: Cache Paper JAR
+        if: steps.check_dockerfile.outputs.exists == 'true'
+        id: cache_paper
+        uses: actions/cache@v4
+        with:
+          path: paper.jar
+          key: paper-jar-${{ steps.paper_version.outputs.version }}-${{ steps.paper_version.outputs.build }}
+
+      - name: Download Paper JAR
+        if: steps.check_dockerfile.outputs.exists == 'true' && steps.cache_paper.outputs.cache-hit != 'true'
+        run: |
+          echo "⬇️  Downloading Paper JAR (cache miss)..."
+          USER_AGENT="GitHub Actions for container build (miikka@iki.fi)"
+          PAPER_VERSION="${{ steps.paper_version.outputs.version }}"
+          BUILD_NUMBER="${{ steps.paper_version.outputs.build }}"
+          
+          # Get download URL
+          DOWNLOAD_URL=$(curl -s -H "User-Agent: $USER_AGENT" "https://fill.papermc.io/v3/projects/paper/versions/${PAPER_VERSION}/builds" | \
+            jq -r 'max_by(.id) | .downloads["server:default"].url')
+          
+          echo "📋 Downloading Paper ${PAPER_VERSION} build ${BUILD_NUMBER}"
+          
+          # Download Paper JAR
+          curl -s -o paper.jar "${DOWNLOAD_URL}"
+          
+          # Verify download
+          if [ ! -f paper.jar ]; then
+            echo "❌ Failed to download Paper JAR"
+            exit 1
+          fi
+          
+          JAR_SIZE=$(stat -c%s paper.jar 2>/dev/null || stat -f%z paper.jar)
+          echo "✅ Downloaded Paper JAR (${JAR_SIZE} bytes)"
+
       - name: Prepare test data
         if: steps.check_dockerfile.outputs.exists == 'true'
         run: |
@@ -116,33 +169,14 @@ jobs:
           echo "eula=true" > test-data/eula.txt
           echo "✅ Created eula.txt"
 
-          # Download Paper JAR
-          echo "⬇️  Downloading Paper JAR..."
-          USER_AGENT="GitHub Actions for container build (miikka@iki.fi)"
-          PAPER_VERSION=$(curl -s -H "User-Agent: $USER_AGENT" "https://fill.papermc.io/v3/projects/paper" | \
-            jq -r '.versions | to_entries[0] | .value[0]')
-
-          # Get latest build number
-          BUILD_NUMBER=$(curl -s -H "User-Agent: $USER_AGENT" "https://fill.papermc.io/v3/projects/paper/versions/${PAPER_VERSION}" | \
-            jq -r '.builds[0]')
-
-          # Get download URL for $PAPER_VERSION-$BUILD_NUMBER
-          DOWNLOAD_URL=$(curl -s -H "User-Agent: $USER_AGENT" "https://fill.papermc.io/v3/projects/paper/versions/${PAPER_VERSION}/builds" | \
-            jq -r 'max_by(.id) | .downloads["server:default"].url')
-
-          echo "📋 Downloading Paper ${PAPER_VERSION} build ${BUILD_NUMBER}"
-
-          # Download Paper JAR
-          curl -s -o test-data/paper.jar "${DOWNLOAD_URL}"
-
-          # Verify download
-          if [ ! -f test-data/paper.jar ]; then
-            echo "❌ Failed to download Paper JAR"
-            exit 1
+          # Copy Paper JAR from cache or download
+          if [ "${{ steps.cache_paper.outputs.cache-hit }}" == "true" ]; then
+            echo "📦 Using cached Paper JAR"
           fi
-
+          cp paper.jar test-data/paper.jar
+          
           JAR_SIZE=$(stat -c%s test-data/paper.jar 2>/dev/null || stat -f%z test-data/paper.jar)
-          echo "✅ Downloaded Paper JAR (${JAR_SIZE} bytes)"
+          echo "✅ Paper JAR ready (${JAR_SIZE} bytes)"
 
           # Change ownership to minecraft user (UID 25565)
           # This allows the container's minecraft user to write to /data
@@ -260,6 +294,59 @@ jobs:
           sudo podman load -i /tmp/mc-server-container.tar
           sudo podman images
 
+      - name: Get Paper version info for Podman test
+        if: steps.check_dockerfile.outputs.exists == 'true'
+        id: paper_version_podman
+        run: |
+          echo "🔍 Querying Paper API for latest version..."
+          USER_AGENT="GitHub Actions for container build (miikka@iki.fi)"
+          
+          # Get latest Paper version
+          PAPER_VERSION=$(curl -s -H "User-Agent: $USER_AGENT" "https://fill.papermc.io/v3/projects/paper" | \
+            jq -r '.versions | to_entries[0] | .value[0]')
+          
+          # Get latest build number for that version
+          BUILD_NUMBER=$(curl -s -H "User-Agent: $USER_AGENT" "https://fill.papermc.io/v3/projects/paper/versions/${PAPER_VERSION}" | \
+            jq -r '.builds[0]')
+          
+          echo "version=${PAPER_VERSION}" >> $GITHUB_OUTPUT
+          echo "build=${BUILD_NUMBER}" >> $GITHUB_OUTPUT
+          echo "📋 Paper ${PAPER_VERSION} build ${BUILD_NUMBER}"
+
+      - name: Cache Paper JAR for Podman test
+        if: steps.check_dockerfile.outputs.exists == 'true'
+        id: cache_paper_podman
+        uses: actions/cache@v4
+        with:
+          path: paper-podman.jar
+          key: paper-jar-${{ steps.paper_version_podman.outputs.version }}-${{ steps.paper_version_podman.outputs.build }}
+
+      - name: Download Paper JAR for Podman test
+        if: steps.check_dockerfile.outputs.exists == 'true' && steps.cache_paper_podman.outputs.cache-hit != 'true'
+        run: |
+          echo "⬇️  Downloading Paper JAR (cache miss)..."
+          USER_AGENT="GitHub Actions for container build (miikka@iki.fi)"
+          PAPER_VERSION="${{ steps.paper_version_podman.outputs.version }}"
+          BUILD_NUMBER="${{ steps.paper_version_podman.outputs.build }}"
+          
+          # Get download URL
+          DOWNLOAD_URL=$(curl -s -H "User-Agent: $USER_AGENT" "https://fill.papermc.io/v3/projects/paper/versions/${PAPER_VERSION}/builds" | \
+            jq -r 'max_by(.id) | .downloads["server:default"].url')
+          
+          echo "📋 Downloading Paper ${PAPER_VERSION} build ${BUILD_NUMBER}"
+          
+          # Download Paper JAR
+          curl -s -o paper-podman.jar "${DOWNLOAD_URL}"
+          
+          # Verify download
+          if [ ! -f paper-podman.jar ]; then
+            echo "❌ Failed to download Paper JAR"
+            exit 1
+          fi
+          
+          JAR_SIZE=$(stat -c%s paper-podman.jar 2>/dev/null || stat -f%z paper-podman.jar)
+          echo "✅ Downloaded Paper JAR (${JAR_SIZE} bytes)"
+
       - name: Prepare test data for Podman
         if: steps.check_dockerfile.outputs.exists == 'true'
         run: |
@@ -270,33 +357,14 @@ jobs:
           echo "eula=true" > test-data-podman/eula.txt
           echo "✅ Created eula.txt"
 
-          # Download Paper JAR
-          echo "⬇️  Downloading Paper JAR..."
-          USER_AGENT="GitHub Actions for container build (miikka@iki.fi)"
-          PAPER_VERSION=$(curl -s -H "User-Agent: $USER_AGENT" "https://fill.papermc.io/v3/projects/paper" | \
-            jq -r '.versions | to_entries[0] | .value[0]')
-
-          # Get latest build number
-          BUILD_NUMBER=$(curl -s -H "User-Agent: $USER_AGENT" "https://fill.papermc.io/v3/projects/paper/versions/${PAPER_VERSION}" | \
-            jq -r '.builds[0]')
-
-          # Get download URL for $PAPER_VERSION-$BUILD_NUMBER
-          DOWNLOAD_URL=$(curl -s -H "User-Agent: $USER_AGENT" "https://fill.papermc.io/v3/projects/paper/versions/${PAPER_VERSION}/builds" | \
-            jq -r 'max_by(.id) | .downloads["server:default"].url')
-
-          echo "📋 Downloading Paper ${PAPER_VERSION} build ${BUILD_NUMBER}"
-
-          # Download Paper JAR
-          curl -s -o test-data-podman/paper.jar "${DOWNLOAD_URL}"
-
-          # Verify download
-          if [ ! -f test-data-podman/paper.jar ]; then
-            echo "❌ Failed to download Paper JAR"
-            exit 1
+          # Copy Paper JAR from cache or download
+          if [ "${{ steps.cache_paper_podman.outputs.cache-hit }}" == "true" ]; then
+            echo "📦 Using cached Paper JAR"
           fi
-
+          cp paper-podman.jar test-data-podman/paper.jar
+          
           JAR_SIZE=$(stat -c%s test-data-podman/paper.jar 2>/dev/null || stat -f%z test-data-podman/paper.jar)
-          echo "✅ Downloaded Paper JAR (${JAR_SIZE} bytes)"
+          echo "✅ Paper JAR ready (${JAR_SIZE} bytes)"
 
           # Change ownership to minecraft user (UID 25565)
           # This allows the container's minecraft user to write to /data
