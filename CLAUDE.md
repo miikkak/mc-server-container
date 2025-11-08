@@ -174,8 +174,8 @@ Four-stage pipeline:
 
 1. **Hadolint**: Lints Dockerfile for best practices
 2. **Build**: Builds container with Docker Buildx and caches layers
-3. **Test**: Loads container with Docker, runs integration tests with Paper server
-4. **Test-Podman**: Verifies OCI compliance by running container with Podman
+3. **Test**: Builds container with Docker (using cache), runs integration tests with Paper server
+4. **Test-Podman**: Loads Docker-built image into Podman, runs same integration tests to verify OCI compliance
 
 The Podman test ensures cross-runtime compatibility and validates that images work with Docker, Podman, Kubernetes, and other OCI-compliant runtimes.
 

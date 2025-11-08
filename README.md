@@ -52,12 +52,14 @@ podman pull ghcr.io/miikka/mc-server-container:latest
 # Run the container
 podman run -d \
   -p 25565:25565 \
-  -v /srv/minecraft:/data \
+  -v /srv/minecraft:/data:Z \
   -e EULA=TRUE \
   -e MEMORY=16G \
   --name minecraft-server \
   ghcr.io/miikka/mc-server-container:latest
 ```
+
+**Note**: The `:Z` flag on the volume mount relabels the content for SELinux, required on SELinux-enabled systems (like Fedora, RHEL, CentOS).
 
 **Rootless mode**: Podman can run this container rootless. The container already runs as non-root user (UID 25565), making it ideal for rootless deployments.
 
@@ -211,7 +213,7 @@ podman build -t mc-server-container:local .
 
 # Run the container
 podman run -d --name mc-local \
-  -v /srv/minecraft:/data \
+  -v /srv/minecraft:/data:Z \
   -e EULA=TRUE \
   mc-server-container:local
 ```

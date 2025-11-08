@@ -287,10 +287,11 @@ jobs:
           JAR_SIZE=$(stat -c%s test-data-podman/paper.jar 2>/dev/null || stat -f%z test-data-podman/paper.jar)
           echo "✅ Downloaded Paper JAR (${JAR_SIZE} bytes)"
 
-          # Set permissions for Podman rootless
-          # Podman in rootless mode maps container UID 25565 to host user
-          chmod -R 777 test-data-podman
-          echo "✅ Permissions set for Podman rootless mode"
+          # Change ownership to minecraft user (UID 25565)
+          # This allows the container's minecraft user to write to /data
+          echo "🔧 Setting permissions for minecraft user"
+          sudo chown -R 25565:25565 test-data-podman
+          echo "✅ Permissions set"
 
       - name: Run Podman integration tests
         if: steps.check_dockerfile.outputs.exists == 'true'
@@ -298,10 +299,11 @@ jobs:
           echo "🧪 Starting Podman integration test (OCI compliance verification)"
 
           # Start container with Podman
+          # Note: After podman load, the image is tagged as mc-server-container:test (without localhost prefix)
           podman run -d --name mc-test-podman \
             -v $(pwd)/test-data-podman:/data:Z \
             -e MEMORY=2G \
-            localhost/mc-server-container:test
+            mc-server-container:test
 
           echo "⏳ Waiting for Paper server to start with Podman (this may take 30-60 seconds)..."
 
