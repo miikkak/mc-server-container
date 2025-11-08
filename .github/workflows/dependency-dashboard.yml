@@ -49,20 +49,21 @@ jobs:
       - name: Check latest versions
         id: latest
         run: |
+          # Get first non-prerelease, non-draft release (more reliable than /releases/latest)
           # Check mc-server-runner
-          MC_RUNNER_LATEST=$(curl -s https://api.github.com/repos/itzg/mc-server-runner/releases/latest | jq -r .tag_name)
+          MC_RUNNER_LATEST=$(curl -s https://api.github.com/repos/itzg/mc-server-runner/releases | jq -r '[.[] | select(.prerelease == false and .draft == false)][0].tag_name')
           echo "mc_runner=$MC_RUNNER_LATEST" >> $GITHUB_OUTPUT
-          
+
           # Check rcon-cli
-          RCON_CLI_LATEST=$(curl -s https://api.github.com/repos/itzg/rcon-cli/releases/latest | jq -r .tag_name)
+          RCON_CLI_LATEST=$(curl -s https://api.github.com/repos/itzg/rcon-cli/releases | jq -r '[.[] | select(.prerelease == false and .draft == false)][0].tag_name')
           echo "rcon_cli=$RCON_CLI_LATEST" >> $GITHUB_OUTPUT
-          
+
           # Check mc-monitor
-          MC_MONITOR_LATEST=$(curl -s https://api.github.com/repos/itzg/mc-monitor/releases/latest | jq -r .tag_name)
+          MC_MONITOR_LATEST=$(curl -s https://api.github.com/repos/itzg/mc-monitor/releases | jq -r '[.[] | select(.prerelease == false and .draft == false)][0].tag_name')
           echo "mc_monitor=$MC_MONITOR_LATEST" >> $GITHUB_OUTPUT
-          
+
           # Check OpenTelemetry Java agent
-          OTEL_LATEST=$(curl -s https://api.github.com/repos/open-telemetry/opentelemetry-java-instrumentation/releases/latest | jq -r .tag_name | sed 's/^v//')
+          OTEL_LATEST=$(curl -s https://api.github.com/repos/open-telemetry/opentelemetry-java-instrumentation/releases | jq -r '[.[] | select(.prerelease == false and .draft == false)][0].tag_name' | sed 's/^v//')
           echo "otel=$OTEL_LATEST" >> $GITHUB_OUTPUT
 
       - name: Check GitHub Actions versions
