@@ -49,20 +49,37 @@ jobs:
       - name: Check latest versions
         id: latest
         run: |
+          # Get the first non-prerelease, non-draft release (more reliable than /releases/latest)
           # Check mc-server-runner
-          MC_RUNNER_LATEST=$(curl -s https://api.github.com/repos/itzg/mc-server-runner/releases/latest | jq -r .tag_name)
+          MC_RUNNER_LATEST=$(curl -sf 'https://api.github.com/repos/itzg/mc-server-runner/releases?per_page=10' | jq -r '[.[] | select(.prerelease == false and .draft == false)][0].tag_name')
+          if [ -z "$MC_RUNNER_LATEST" ] || [ "$MC_RUNNER_LATEST" = "null" ]; then
+            echo "❌ Failed to fetch mc-server-runner latest version"
+            exit 1
+          fi
           echo "mc_runner=$MC_RUNNER_LATEST" >> $GITHUB_OUTPUT
-          
+
           # Check rcon-cli
-          RCON_CLI_LATEST=$(curl -s https://api.github.com/repos/itzg/rcon-cli/releases/latest | jq -r .tag_name)
+          RCON_CLI_LATEST=$(curl -sf 'https://api.github.com/repos/itzg/rcon-cli/releases?per_page=10' | jq -r '[.[] | select(.prerelease == false and .draft == false)][0].tag_name')
+          if [ -z "$RCON_CLI_LATEST" ] || [ "$RCON_CLI_LATEST" = "null" ]; then
+            echo "❌ Failed to fetch rcon-cli latest version"
+            exit 1
+          fi
           echo "rcon_cli=$RCON_CLI_LATEST" >> $GITHUB_OUTPUT
-          
+
           # Check mc-monitor
-          MC_MONITOR_LATEST=$(curl -s https://api.github.com/repos/itzg/mc-monitor/releases/latest | jq -r .tag_name)
+          MC_MONITOR_LATEST=$(curl -sf 'https://api.github.com/repos/itzg/mc-monitor/releases?per_page=10' | jq -r '[.[] | select(.prerelease == false and .draft == false)][0].tag_name')
+          if [ -z "$MC_MONITOR_LATEST" ] || [ "$MC_MONITOR_LATEST" = "null" ]; then
+            echo "❌ Failed to fetch mc-monitor latest version"
+            exit 1
+          fi
           echo "mc_monitor=$MC_MONITOR_LATEST" >> $GITHUB_OUTPUT
-          
+
           # Check OpenTelemetry Java agent
-          OTEL_LATEST=$(curl -s https://api.github.com/repos/open-telemetry/opentelemetry-java-instrumentation/releases/latest | jq -r .tag_name | sed 's/^v//')
+          OTEL_LATEST=$(curl -sf 'https://api.github.com/repos/open-telemetry/opentelemetry-java-instrumentation/releases?per_page=10' | jq -r '[.[] | select(.prerelease == false and .draft == false)][0].tag_name' | sed 's/^v//')
+          if [ -z "$OTEL_LATEST" ] || [ "$OTEL_LATEST" = "null" ]; then
+            echo "❌ Failed to fetch OpenTelemetry agent latest version"
+            exit 1
+          fi
           echo "otel=$OTEL_LATEST" >> $GITHUB_OUTPUT
 
       - name: Check GitHub Actions versions
