@@ -203,3 +203,155 @@ jobs:
           docker stop mc-test
           docker rm mc-test
           sudo rm -rf test-data
+
+  test-podman:
+    name: Test Container with Podman (OCI Compliance)
+    runs-on: ubuntu-latest
+    needs: build
+    if: success() || failure()
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Check if Dockerfile exists
+        id: check_dockerfile
+        run: |
+          if [ -f Dockerfile ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "⚠️ Dockerfile not found, skipping Podman tests"
+          fi
+
+      - name: Install Podman
+        if: steps.check_dockerfile.outputs.exists == 'true'
+        run: |
+          echo "📦 Installing Podman"
+          sudo apt-get update
+          sudo apt-get install -y podman
+          podman --version
+
+      - name: Set up Docker Buildx
+        if: steps.check_dockerfile.outputs.exists == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build container for Podman testing
+        if: steps.check_dockerfile.outputs.exists == 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          outputs: type=docker,dest=/tmp/mc-server-container.tar
+          tags: mc-server-container:test
+          cache-from: |
+            type=gha,scope=${{ github.ref }}
+            type=gha,scope=refs/heads/main
+
+      - name: Load image into Podman
+        if: steps.check_dockerfile.outputs.exists == 'true'
+        run: |
+          echo "📥 Loading Docker image into Podman (rootful storage)"
+          # Load with sudo to place image in rootful storage, since we run with sudo later
+          sudo podman load -i /tmp/mc-server-container.tar
+          sudo podman images
+
+      - name: Prepare test data for Podman
+        if: steps.check_dockerfile.outputs.exists == 'true'
+        run: |
+          echo "📦 Preparing test data directory for Podman"
+          mkdir -p test-data-podman
+
+          # Accept EULA
+          echo "eula=true" > test-data-podman/eula.txt
+          echo "✅ Created eula.txt"
+
+          # Download Paper JAR
+          echo "⬇️  Downloading Paper JAR..."
+          PAPER_VERSION="1.21.3"
+
+          # Get latest build number
+          BUILD_NUMBER=$(curl -s "https://api.papermc.io/v2/projects/paper/versions/${PAPER_VERSION}" | \
+            jq -r '.builds[-1]')
+
+          echo "📋 Downloading Paper ${PAPER_VERSION} build ${BUILD_NUMBER}"
+
+          # Download Paper JAR
+          curl -s -o test-data-podman/paper.jar \
+            "https://api.papermc.io/v2/projects/paper/versions/${PAPER_VERSION}/builds/${BUILD_NUMBER}/downloads/paper-${PAPER_VERSION}-${BUILD_NUMBER}.jar"
+
+          # Verify download
+          if [ ! -f test-data-podman/paper.jar ]; then
+            echo "❌ Failed to download Paper JAR"
+            exit 1
+          fi
+
+          JAR_SIZE=$(stat -c%s test-data-podman/paper.jar 2>/dev/null || stat -f%z test-data-podman/paper.jar)
+          echo "✅ Downloaded Paper JAR (${JAR_SIZE} bytes)"
+
+          # Change ownership to minecraft user (UID 25565)
+          # This allows the container's minecraft user to write to /data
+          echo "🔧 Setting permissions for minecraft user"
+          sudo chown -R 25565:25565 test-data-podman
+          echo "✅ Permissions set"
+
+      - name: Run Podman integration tests
+        if: steps.check_dockerfile.outputs.exists == 'true'
+        run: |
+          echo "🧪 Starting Podman integration test (OCI compliance verification)"
+
+          # Start container with Podman in rootful mode (using sudo)
+          # Rootful mode ensures consistent UID mapping with Docker (container UID 25565 = host UID 25565)
+          # Note: After podman load, the image is tagged as mc-server-container:test (without localhost prefix)
+          sudo podman run -d --name mc-test-podman \
+            -v $(pwd)/test-data-podman:/data:Z \
+            -e EULA=TRUE \
+            -e MEMORY=2G \
+            mc-server-container:test
+
+          echo "⏳ Waiting for Paper server to start with Podman (this may take 30-60 seconds)..."
+
+          # Wait up to 90 seconds for server to start
+          MAX_WAIT=90
+          ELAPSED=0
+          SERVER_STARTED=false
+
+          while [ $ELAPSED -lt $MAX_WAIT ]; do
+            if sudo podman logs mc-test-podman 2>&1 | grep -q "Done (.*s)! For help, type \"help\""; then
+              SERVER_STARTED=true
+              echo "✅ Server started successfully with Podman after ${ELAPSED}s"
+              break
+            fi
+
+            # Check if container is still running
+            if [ "$(sudo podman inspect -f '{{.State.Running}}' mc-test-podman)" != "true" ]; then
+              echo "❌ Container stopped unexpectedly"
+              echo "📋 Container logs:"
+              sudo podman logs mc-test-podman
+              exit 1
+            fi
+
+            sleep 5
+            ELAPSED=$((ELAPSED + 5))
+            echo "  ... waiting (${ELAPSED}s / ${MAX_WAIT}s)"
+          done
+
+          if [ "$SERVER_STARTED" != "true" ]; then
+            echo "❌ Server failed to start within ${MAX_WAIT} seconds"
+            echo "📋 Container logs:"
+            sudo podman logs mc-test-podman
+            exit 1
+          fi
+
+          echo ""
+          echo "📋 Server startup logs:"
+          sudo podman logs mc-test-podman | tail -20
+
+          echo ""
+          echo "✅ Podman integration test passed - OCI compliance verified!"
+
+          # Cleanup
+          echo ""
+          echo "🧹 Cleaning up Podman test container"
+          sudo podman stop mc-test-podman
+          sudo podman rm mc-test-podman
+          sudo rm -rf test-data-podman

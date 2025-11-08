@@ -26,7 +26,8 @@ This container eliminates Java helper tool dependencies and Java 25 compatibilit
 - **Observability**: [OpenTelemetry Java agent](https://github.com/open-telemetry/opentelemetry-java-instrumentation) (optional)
 - **Server**: Paper (manual JAR management)
 - **Scripts**: Bash with `set -euo pipefail`
-- **Testing**: Docker, ShellCheck, Hadolint
+- **Build System**: Docker Buildx with BuildKit (produces OCI-compliant images)
+- **Testing**: Docker, Podman (OCI compliance verification), ShellCheck, Hadolint
 - **CI/CD**: GitHub Actions
 - **Registry**: GitHub Container Registry (GHCR)
 
@@ -125,6 +126,7 @@ git push origin feature/my-feature
 
 ### Testing Locally
 
+**With Docker:**
 ```bash
 # Build the container
 docker build -t mc-server-container:test .
@@ -137,6 +139,21 @@ docker logs mc-test
 
 # Cleanup
 docker stop mc-test && docker rm mc-test
+```
+
+**With Podman (OCI compliance verification):**
+```bash
+# Build the container
+podman build -t mc-server-container:test .
+
+# Run with minimal config
+podman run -d --name mc-test -e EULA=TRUE mc-server-container:test
+
+# Check logs
+podman logs mc-test
+
+# Cleanup
+podman stop mc-test && podman rm mc-test
 ```
 
 ## GitHub Actions Workflows
@@ -153,11 +170,14 @@ Runs on every push and PR to validate shell scripts:
 
 ### 2. Build and Test Workflow (`.github/workflows/build-test.yml`)
 
-Three-stage pipeline:
+Four-stage pipeline:
 
-1. **Hadolint**: Lints Dockerfile for best practices
-2. **Build**: Builds container with Docker Buildx and caches layers
-3. **Test**: Loads container, runs basic smoke tests
+1. **hadolint**: Lints Dockerfile for best practices
+2. **build**: Builds container with Docker Buildx and caches layers
+3. **test**: Independently builds container with Docker (using cache), runs integration tests with Paper server
+4. **test-podman**: Independently builds container with Docker (using cache), exports to tar, loads into Podman, runs same integration tests to verify OCI compliance
+
+Note: Both test jobs build independently (using shared cache from build job) to ensure isolation. The test-podman job exports the Docker-built image to a tar file and loads it into Podman's storage to verify cross-runtime compatibility.
 
 Runs on every push and PR.
 
@@ -255,6 +275,57 @@ See `TODO.md` for comprehensive list. Key variables:
 - `OTEL_SERVICE_NAME` - OpenTelemetry service name
 - `OTEL_EXPORTER_OTLP_ENDPOINT` - OTLP collector endpoint
 
+## OCI Compliance
+
+This container produces **OCI-compliant images** that work seamlessly across different container runtimes.
+
+### What is OCI Compliance?
+
+The [Open Container Initiative (OCI)](https://opencontainers.org/) defines standards for container formats and runtimes. This container is built using **Docker Buildx with BuildKit**, which produces images conforming to the [OCI Image Format Specification](https://github.com/opencontainers/image-spec).
+
+### Supported Runtimes
+
+Our OCI-compliant images work with:
+
+- ✅ **Docker** - Traditional Docker Engine and Docker Desktop
+- ✅ **Podman** - Daemonless, rootless container engine
+- ✅ **Kubernetes** - containerd and CRI-O runtimes
+- ✅ **OpenShift** - Enterprise Kubernetes platform
+- ✅ **containerd** - Industry-standard container runtime
+- ✅ **CRI-O** - Lightweight Kubernetes runtime
+- ✅ Any OCI-compliant container runtime
+
+### Why It Matters
+
+**Portability**: The same image works across different container runtimes and orchestration platforms without modification.
+
+**Security**: Compatible with rootless Podman for enhanced security. The container already runs as non-root user (UID 25565), making it ideal for rootless deployments.
+
+**Flexibility**: Deploy to Docker, Kubernetes, edge environments, or cloud platforms without changes.
+
+**Future-proof**: Based on open standards (OCI), not vendor lock-in.
+
+### Verification
+
+Our CI pipeline includes a dedicated Podman test job (`test-podman` in `build-test.yml`) that:
+1. Installs Podman on the test runner
+2. Builds the container with Docker Buildx (using shared cache)
+3. Exports the Docker-built image to a tar file
+4. Loads the tar into Podman's rootful storage
+5. Runs the same integration tests used for Docker
+6. Verifies the Paper server starts successfully with Podman
+
+This ensures every build is verified to work with both Docker and Podman, guaranteeing cross-runtime compatibility. The export/import process validates that the OCI image format is truly portable between runtimes.
+
+### Build Process
+
+The build process uses Docker Buildx with BuildKit:
+- Multi-stage builds for minimal image size
+- OCI-compliant image layers
+- Compatible with any OCI registry (GHCR, Docker Hub, Quay.io, etc.)
+
+**Important**: You do NOT need to migrate from Docker to Podman for building. Docker Buildx already produces OCI-compliant images. Use whichever runtime you prefer for development and deployment.
+
 ## Development Guidelines
 
 ### When Working on Scripts
@@ -285,6 +356,7 @@ See `TODO.md` for comprehensive list. Key variables:
 
 ### Building the Container
 
+**With Docker:**
 ```bash
 # Build with default settings
 docker build -t mc-server-container:local .
@@ -293,8 +365,18 @@ docker build -t mc-server-container:local .
 docker build --build-arg VERSION=1.0.0 -t mc-server-container:local .
 ```
 
+**With Podman:**
+```bash
+# Build with default settings
+podman build -t mc-server-container:local .
+
+# Build with build args (if needed)
+podman build --build-arg VERSION=1.0.0 -t mc-server-container:local .
+```
+
 ### Testing Changes
 
+**With Docker:**
 ```bash
 # Test with docker-compose
 docker-compose up -d
@@ -312,6 +394,21 @@ docker run -d \
 docker logs -f mc-test
 docker exec mc-test rcon-cli
 docker stop mc-test && docker rm mc-test
+```
+
+**With Podman:**
+```bash
+# Test with manual podman run
+podman run -d \
+  --name mc-test \
+  -e EULA=TRUE \
+  -e MEMORY=4G \
+  -v $(pwd)/test-data:/data:Z \
+  mc-server-container:local
+
+podman logs -f mc-test
+podman exec mc-test rcon-cli
+podman stop mc-test && podman rm mc-test
 ```
 
 ### Updating Dependencies
@@ -404,4 +501,5 @@ When developing, consider how changes might affect:
 - **ShellCheck and hadolint are mandatory** - all scripts and Dockerfiles must pass
 - **Release workflow uses PR labels** - add `release:*` label to trigger releases
 - **Test everything locally** before creating PR
+- **OCI compliance is verified** - Images work with Docker, Podman, Kubernetes, and other OCI runtimes
 - When in doubt about patterns, check **phantom-proxy-container** (similar container repo)

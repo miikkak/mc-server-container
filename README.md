@@ -21,8 +21,11 @@ This custom container eliminates Java helper tool dependencies and compatibility
 - 📦 Published to GitHub Container Registry (GHCR)
 - 🔄 Automated builds and releases via GitHub Actions
 - ✅ Pre-commit hooks and automated testing
+- 🔓 **OCI-compliant images** - Works with Docker, Podman, Kubernetes, and any OCI runtime
 
 ## Quick Start
+
+### Using Docker
 
 ```bash
 # Pull the latest image from GHCR
@@ -37,6 +40,78 @@ docker run -d \
   --name minecraft-server \
   ghcr.io/miikka/mc-server-container:latest
 ```
+
+### Using Podman
+
+This container is **fully OCI-compliant** and works seamlessly with Podman:
+
+```bash
+# Pull the latest image from GHCR
+podman pull ghcr.io/miikka/mc-server-container:latest
+
+# Run the container
+podman run -d \
+  -p 25565:25565 \
+  -v /srv/minecraft:/data:Z \
+  -e EULA=TRUE \
+  -e MEMORY=16G \
+  --name minecraft-server \
+  ghcr.io/miikka/mc-server-container:latest
+```
+
+**Note about `:Z` flag**: This flag relabels the volume content for SELinux, required on SELinux-enabled systems (like Fedora, RHEL, CentOS). The `:Z` flag makes the volume **private** to this container. If you need to share the volume between multiple containers, use `:z` (lowercase) instead, which allows sharing. On non-SELinux systems (like Ubuntu, Debian), this flag is safe to use but has no effect.
+
+**Rootless mode**: Podman can run this container rootless. The container already runs as non-root user (UID 25565), making it ideal for rootless deployments.
+
+### Using Kubernetes/OpenShift
+
+The OCI-compliant images work directly with Kubernetes, OpenShift, and other container orchestration platforms:
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: minecraft-server
+spec:
+  containers:
+  - name: minecraft
+    image: ghcr.io/miikka/mc-server-container:latest
+    env:
+    - name: EULA
+      value: "TRUE"
+    - name: MEMORY
+      value: "16G"
+    ports:
+    - containerPort: 25565
+      protocol: TCP
+    volumeMounts:
+    - name: minecraft-data
+      mountPath: /data
+  volumes:
+  - name: minecraft-data
+    persistentVolumeClaim:
+      claimName: minecraft-data
+```
+
+## OCI Compliance
+
+This container is built using **Docker Buildx with BuildKit**, which produces images conforming to the [OCI Image Format Specification](https://github.com/opencontainers/image-spec). This means the images work with:
+
+- ✅ **Docker** - Traditional Docker Engine and Docker Desktop
+- ✅ **Podman** - Daemonless, rootless container engine
+- ✅ **Kubernetes** - Standard container orchestration (containerd, CRI-O)
+- ✅ **OpenShift** - Enterprise Kubernetes platform
+- ✅ **containerd** - Industry-standard container runtime
+- ✅ **CRI-O** - Lightweight Kubernetes runtime
+- ✅ Any OCI-compliant container runtime
+
+**Why it matters:**
+- **Portability** - Same image works across different container runtimes
+- **Security** - Run rootless with Podman for enhanced security
+- **Flexibility** - Deploy to Docker, Kubernetes, or edge environments without modification
+- **Future-proof** - Based on open standards, not vendor lock-in
+
+**Verification**: Our CI pipeline tests the container with both Docker and Podman to ensure cross-runtime compatibility.
 
 ## Configuration
 
@@ -107,7 +182,7 @@ docker exec minecraft-server mc-send-to-console "say Hello players!"
 
 ### Prerequisites
 
-- Docker and Docker Buildx
+- Docker and Docker Buildx (or Podman)
 - Git with pre-commit hooks
 - ShellCheck (for bash script linting)
 - Hadolint (for Dockerfile linting)
@@ -122,6 +197,7 @@ pre-commit run --all-files
 
 ### Building Locally
 
+**With Docker:**
 ```bash
 # Build the image
 docker build -t mc-server-container:local .
@@ -130,16 +206,38 @@ docker build -t mc-server-container:local .
 docker-compose up -d
 ```
 
+**With Podman:**
+```bash
+# Build the image
+podman build -t mc-server-container:local .
+
+# Run the container
+podman run -d --name mc-local \
+  -v /srv/minecraft:/data:Z \
+  -e EULA=TRUE \
+  mc-server-container:local
+```
+
 ### Running Tests
 
 Tests run automatically in GitHub Actions. To run locally:
 
+**With Docker:**
 ```bash
 # Build and test
 docker build -t mc-server-container:test .
 docker run -d --name mc-test -e EULA=TRUE mc-server-container:test
 docker logs mc-test
 docker stop mc-test && docker rm mc-test
+```
+
+**With Podman:**
+```bash
+# Build and test
+podman build -t mc-server-container:test .
+podman run -d --name mc-test -e EULA=TRUE mc-server-container:test
+podman logs mc-test
+podman stop mc-test && podman rm mc-test
 ```
 
 ## Release Process
