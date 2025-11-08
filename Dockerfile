@@ -39,9 +39,9 @@ LABEL description="Custom Minecraft server container with GraalVM and mc-server-
 # --shell /bin/false: prevents direct login attempts for security
 #   - Non-interactive commands work: docker exec container java -version
 #   - For interactive shell, use: docker exec -it container /bin/bash
-# --home /data: set home directory to server data directory
+# --no-create-home: /data directory created explicitly below with proper ownership
 RUN groupadd --gid 25565 minecraft \
-  && useradd --shell /bin/false --uid 25565 -g minecraft --home /data minecraft
+  && useradd --shell /bin/false --uid 25565 --gid minecraft --no-create-home minecraft
 
 # Create directories
 RUN mkdir -p /data /opt /scripts \
