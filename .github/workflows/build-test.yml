@@ -287,7 +287,7 @@ jobs:
           echo "📋 Downloading Paper ${PAPER_VERSION} build ${BUILD_NUMBER}"
 
           # Download Paper JAR
-          curl -s -o test-data/paper.jar "${DOWNLOAD_URL}"
+          curl -s -o test-data-podman/paper.jar "${DOWNLOAD_URL}"
 
           # Verify download
           if [ ! -f test-data-podman/paper.jar ]; then
