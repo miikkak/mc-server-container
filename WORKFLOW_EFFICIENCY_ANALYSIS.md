@@ -39,6 +39,15 @@
 
 **Impact:** Workflow changes don't affect the container, so building is wasteful.
 
+**Important Note on Self-Reference:**
+Excluding workflows from triggering themselves is safe because:
+- None of these workflows validate workflow syntax (they build containers, run shellcheck, etc.)
+- GitHub automatically validates workflow syntax on every push
+- Running builds on workflow changes provides zero validation value
+- Self-referencing wastes CI minutes without any benefit
+
+For explicit PR feedback on workflow changes, see Priority 4 (future enhancement).
+
 ---
 
 ### 3. Configuration File Changes ⚠️
@@ -184,11 +193,24 @@ on:
 
 ---
 
-### Priority 4 (Optional): Conditional Workflow for Workflow Changes
+### Priority 4 (Future Enhancement): Workflow Validation
 
-**Problem:** When `.github/workflows/*.yml` changes, we want to validate the workflow syntax, but not build containers.
+**Current State:**
+- `build-test.yml` excludes `.github/workflows/**` in `paths-ignore`
+- Workflow changes skip all builds (container builds don't validate workflows)
+- GitHub automatically validates workflow syntax on push
 
-**Solution:** Create a separate workflow validator:
+**Trade-off:**
+- ✅ **Benefit**: Saves ~10 min per workflow change (no unnecessary container builds)
+- ✅ **Safety**: GitHub validates syntax automatically on commit
+- ⚠️ **Limitation**: No explicit CI feedback on PRs for workflow changes
+
+**Why This Is Safe:**
+- `build-test.yml` doesn't validate workflow files - it builds containers
+- Running container builds on workflow changes provides zero value
+- GitHub's built-in validation catches syntax errors immediately
+
+**Future Enhancement:** Add dedicated workflow validator for PR feedback:
 
 ```yaml
 # .github/workflows/validate-workflows.yml
@@ -204,13 +226,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - name: Validate workflow syntax
+
+      - name: Install actionlint
         run: |
-          # Use actionlint or similar tool
-          echo "Workflow validation would go here"
+          bash <(curl https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
+          sudo mv actionlint /usr/local/bin/
+
+      - name: Validate workflow syntax
+        run: actionlint -color
 ```
 
-**Benefit:** Fast feedback on workflow changes without building containers.
+**Benefit:** Fast explicit feedback (~30 sec) on workflow PRs without building containers (~10 min).
 
 ---
 
@@ -273,36 +299,107 @@ jobs:
 
 ---
 
-## Implementation Plan
+## Implementation Status
 
-### Step 1: Update `build-test.yml`
+### ✅ Completed
+All optimizations have been implemented in this PR.
+
+### Verification Steps
+
+**Test 1: Documentation-only change (should skip builds)**
 ```bash
-# Add paths-ignore to build-test.yml
+# Create a test branch
+git checkout -b test/doc-only-change
+
+# Make a doc change
+echo "Test change" >> README.md
+git add README.md
+git commit -m "test: doc-only change"
+git push origin test/doc-only-change
+
+# Expected: build-test.yml, shellcheck.yml, security-scan.yml should all be skipped
+# Check: Create PR and verify no workflows run (except maybe release check)
 ```
 
-### Step 2: Update `shellcheck.yml`
+**Test 2: Script change (should trigger builds and shellcheck)**
 ```bash
-# Add paths filter to shellcheck.yml
+# Create a test branch
+git checkout -b test/script-change
+
+# Make a script change
+echo "# Test comment" >> scripts/entrypoint.sh
+git add scripts/entrypoint.sh
+git commit -m "test: script change"
+git push origin test/script-change
+
+# Expected: build-test.yml (all 3 builds), shellcheck.yml, security-scan.yml should run
+# Check: Create PR and verify all workflows execute
 ```
 
-### Step 3: Update `security-scan.yml`
+**Test 3: Workflow change (should skip builds)**
 ```bash
-# Add paths filter to security-scan.yml
+# Create a test branch
+git checkout -b test/workflow-change
+
+# Make a workflow change (e.g., add a comment)
+echo "# Test comment" >> .github/workflows/build-test.yml
+git add .github/workflows/build-test.yml
+git commit -m "test: workflow comment"
+git push origin test/workflow-change
+
+# Expected: All workflows should be skipped
+# Check: Create PR and verify no workflows run
+# Note: GitHub will still validate workflow syntax automatically
 ```
 
-### Step 4: Test
+**Test 4: Config change (should skip builds)**
 ```bash
-# Create test PRs for each change type:
-# 1. Doc-only change (should skip builds)
-# 2. Script change (should run builds)
-# 3. Workflow change (should skip builds)
+# Create a test branch
+git checkout -b test/config-change
+
+# Make a config change
+echo "*.backup" >> .gitignore
+git add .gitignore
+git commit -m "test: gitignore change"
+git push origin test/config-change
+
+# Expected: build-test.yml, shellcheck.yml, security-scan.yml should all be skipped
+# Check: Create PR and verify no workflows run
 ```
 
-### Step 5: Monitor
+**Test 5: Dockerfile change (should trigger all)**
 ```bash
-# Track CI minutes usage before/after
-# Verify no false negatives (missed builds)
+# Create a test branch
+git checkout -b test/dockerfile-change
+
+# Make a Dockerfile change
+echo "# Test comment" >> Dockerfile
+git add Dockerfile
+git commit -m "test: dockerfile comment"
+git push origin test/dockerfile-change
+
+# Expected: build-test.yml (all 3 builds) and security-scan.yml should run
+# Expected: shellcheck.yml should skip (no .sh files changed)
+# Check: Create PR and verify correct workflows execute
 ```
+
+### Monitoring
+
+**CI Minutes Tracking:**
+```bash
+# Before optimization (baseline week):
+# Track total GitHub Actions minutes used
+
+# After optimization (comparison week):
+# Track total GitHub Actions minutes used
+# Expected reduction: 50-70% depending on PR mix
+```
+
+**Verify No False Negatives:**
+- Monitor for any builds that should have run but didn't
+- Check that Dockerfile changes always trigger builds
+- Check that script changes always trigger shellcheck
+- Ensure scheduled scans still run daily
 
 ---
 
