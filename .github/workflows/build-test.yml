@@ -298,9 +298,10 @@ jobs:
         run: |
           echo "🧪 Starting Podman integration test (OCI compliance verification)"
 
-          # Start container with Podman
+          # Start container with Podman in rootful mode (using sudo)
+          # Rootful mode ensures consistent UID mapping with Docker (container UID 25565 = host UID 25565)
           # Note: After podman load, the image is tagged as mc-server-container:test (without localhost prefix)
-          podman run -d --name mc-test-podman \
+          sudo podman run -d --name mc-test-podman \
             -v $(pwd)/test-data-podman:/data:Z \
             -e MEMORY=2G \
             mc-server-container:test
@@ -313,17 +314,17 @@ jobs:
           SERVER_STARTED=false
 
           while [ $ELAPSED -lt $MAX_WAIT ]; do
-            if podman logs mc-test-podman 2>&1 | grep -q "Done (.*s)! For help, type \"help\""; then
+            if sudo podman logs mc-test-podman 2>&1 | grep -q "Done (.*s)! For help, type \"help\""; then
               SERVER_STARTED=true
               echo "✅ Server started successfully with Podman after ${ELAPSED}s"
               break
             fi
 
             # Check if container is still running
-            if [ "$(podman inspect -f '{{.State.Running}}' mc-test-podman)" != "true" ]; then
+            if [ "$(sudo podman inspect -f '{{.State.Running}}' mc-test-podman)" != "true" ]; then
               echo "❌ Container stopped unexpectedly"
               echo "📋 Container logs:"
-              podman logs mc-test-podman
+              sudo podman logs mc-test-podman
               exit 1
             fi
 
@@ -335,13 +336,13 @@ jobs:
           if [ "$SERVER_STARTED" != "true" ]; then
             echo "❌ Server failed to start within ${MAX_WAIT} seconds"
             echo "📋 Container logs:"
-            podman logs mc-test-podman
+            sudo podman logs mc-test-podman
             exit 1
           fi
 
           echo ""
           echo "📋 Server startup logs:"
-          podman logs mc-test-podman | tail -20
+          sudo podman logs mc-test-podman | tail -20
 
           echo ""
           echo "✅ Podman integration test passed - OCI compliance verified!"
@@ -349,6 +350,6 @@ jobs:
           # Cleanup
           echo ""
           echo "🧹 Cleaning up Podman test container"
-          podman stop mc-test-podman
-          podman rm mc-test-podman
-          rm -rf test-data-podman
+          sudo podman stop mc-test-podman
+          sudo podman rm mc-test-podman
+          sudo rm -rf test-data-podman

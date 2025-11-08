@@ -172,10 +172,10 @@ Runs on every push and PR to validate shell scripts:
 
 Four-stage pipeline:
 
-1. **Hadolint**: Lints Dockerfile for best practices
-2. **Build**: Builds container with Docker Buildx and caches layers
-3. **Test**: Builds container with Docker (using cache), runs integration tests with Paper server
-4. **Test-Podman**: Loads Docker-built image into Podman, runs same integration tests to verify OCI compliance
+1. **hadolint**: Lints Dockerfile for best practices
+2. **build**: Builds container with Docker Buildx and caches layers
+3. **test**: Builds container with Docker (using cache), runs integration tests with Paper server
+4. **test-podman**: Loads Docker-built image into Podman, runs same integration tests to verify OCI compliance
 
 The Podman test ensures cross-runtime compatibility and validates that images work with Docker, Podman, Kubernetes, and other OCI-compliant runtimes.
 

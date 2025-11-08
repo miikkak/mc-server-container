@@ -59,7 +59,7 @@ podman run -d \
   ghcr.io/miikka/mc-server-container:latest
 ```
 
-**Note**: The `:Z` flag on the volume mount relabels the content for SELinux, required on SELinux-enabled systems (like Fedora, RHEL, CentOS).
+**Note about `:Z` flag**: This flag relabels the volume content for SELinux, required on SELinux-enabled systems (like Fedora, RHEL, CentOS). The `:Z` flag makes the volume **private** to this container. If you need to share the volume between multiple containers, use `:z` (lowercase) instead, which allows sharing. On non-SELinux systems (like Ubuntu, Debian), this flag is safe to use but has no effect.
 
 **Rootless mode**: Podman can run this container rootless. The container already runs as non-root user (UID 25565), making it ideal for rootless deployments.
 
