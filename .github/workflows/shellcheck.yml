@@ -5,12 +5,10 @@ on:
     branches: [ main ]
     paths:
       - '**.sh'
-      - '.shellcheck-wrapper.sh'
   pull_request:
     branches: [ main ]
     paths:
       - '**.sh'
-      - '.shellcheck-wrapper.sh'
 
 jobs:
   shellcheck:
