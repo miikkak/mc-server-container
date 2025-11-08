@@ -44,3 +44,6 @@ dist/
 build/
 *.tar.gz
 *.zip
+
+# Tools
+actionlint
