@@ -250,9 +250,10 @@ jobs:
       - name: Load image into Podman
         if: steps.check_dockerfile.outputs.exists == 'true'
         run: |
-          echo "📥 Loading Docker image into Podman"
-          podman load -i /tmp/mc-server-container.tar
-          podman images
+          echo "📥 Loading Docker image into Podman (rootful storage)"
+          # Load with sudo to place image in rootful storage, since we run with sudo later
+          sudo podman load -i /tmp/mc-server-container.tar
+          sudo podman images
 
       - name: Prepare test data for Podman
         if: steps.check_dockerfile.outputs.exists == 'true'
@@ -303,6 +304,7 @@ jobs:
           # Note: After podman load, the image is tagged as mc-server-container:test (without localhost prefix)
           sudo podman run -d --name mc-test-podman \
             -v $(pwd)/test-data-podman:/data:Z \
+            -e EULA=TRUE \
             -e MEMORY=2G \
             mc-server-container:test
 

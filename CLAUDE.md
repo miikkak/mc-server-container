@@ -174,10 +174,10 @@ Four-stage pipeline:
 
 1. **hadolint**: Lints Dockerfile for best practices
 2. **build**: Builds container with Docker Buildx and caches layers
-3. **test**: Builds container with Docker (using cache), runs integration tests with Paper server
-4. **test-podman**: Loads Docker-built image into Podman, runs same integration tests to verify OCI compliance
+3. **test**: Independently builds container with Docker (using cache), runs integration tests with Paper server
+4. **test-podman**: Independently builds container with Docker (using cache), exports to tar, loads into Podman, runs same integration tests to verify OCI compliance
 
-The Podman test ensures cross-runtime compatibility and validates that images work with Docker, Podman, Kubernetes, and other OCI-compliant runtimes.
+Note: Both test jobs build independently (using shared cache from build job) to ensure isolation. The test-podman job exports the Docker-built image to a tar file and loads it into Podman's storage to verify cross-runtime compatibility.
 
 Runs on every push and PR.
 
@@ -309,11 +309,13 @@ Our OCI-compliant images work with:
 
 Our CI pipeline includes a dedicated Podman test job (`test-podman` in `build-test.yml`) that:
 1. Installs Podman on the test runner
-2. Loads the Docker-built image into Podman
-3. Runs the same integration tests used for Docker
-4. Verifies the Paper server starts successfully with Podman
+2. Builds the container with Docker Buildx (using shared cache)
+3. Exports the Docker-built image to a tar file
+4. Loads the tar into Podman's rootful storage
+5. Runs the same integration tests used for Docker
+6. Verifies the Paper server starts successfully with Podman
 
-This ensures every build is verified to work with both Docker and Podman, guaranteeing cross-runtime compatibility.
+This ensures every build is verified to work with both Docker and Podman, guaranteeing cross-runtime compatibility. The export/import process validates that the OCI image format is truly portable between runtimes.
 
 ### Build Process
 
