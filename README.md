@@ -1,17 +1,17 @@
 # Custom Minecraft Server Container
 
-A minimal, controlled Minecraft server Docker container built to replace [itzg/minecraft-server](https://github.com/itzg/docker-minecraft-server) with a custom solution using [mc-server-runner](https://github.com/itzg/mc-server-runner).
+A minimal, controlled Minecraft server container with a custom solution using [mc-server-runner](https://github.com/itzg/mc-server-runner).
 
 ## Why This Container?
 
-This custom container eliminates Java helper tool dependencies and compatibility issues while maintaining professional process management:
+This custom container focuses on the minimum requirements while maintaining professional process management:
 
-- ✅ **No Java 25 compatibility warnings** (eliminates mc-image-helper and OpenTelemetry agent warnings)
-- ✅ **Fast boot times** (< 10 seconds, no API calls during startup)
-- ✅ **Clean architecture** (no complex init process, no Java helper tools)
-- ✅ **Manual JAR management** (predictable, no auto-download surprises)
+- ✅ **Java 25 compatibility**
+- ✅ **Fast boot times**
+- ✅ **Clean architecture** (no complex init process, no additional helper tools)
+- ✅ **Manual JAR management** (predictable)
 - ✅ **Professional process supervision** (mc-server-runner for graceful shutdown)
-- ✅ **Offline-capable** (boots even when Paper/Modrinth APIs are down)
+- ✅ **Offline-capable** (no dependencies to other services during the start)
 
 ## Features
 
@@ -115,36 +115,7 @@ This container is built using **Docker Buildx with BuildKit**, which produces im
 
 ## Configuration
 
-### Core Settings
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `EULA` | `FALSE` | Must be `TRUE` to accept Minecraft EULA |
-| `MEMORY` | `4G` | Server memory allocation (e.g., `16G`) |
-| `SERVER_PORT` | `25565` | Minecraft server port |
-| `DIFFICULTY` | `normal` | Difficulty level: `peaceful`, `easy`, `normal`, `hard` |
-| `MAX_PLAYERS` | `20` | Maximum concurrent players |
-| `ONLINE_MODE` | `true` | Enable Mojang authentication |
-| `ENABLE_WHITELIST` | `false` | Enable whitelist |
-| `MOTD` | `A Minecraft Server` | Server description |
-
-### Advanced Settings
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `USE_MEOWICE_FLAGS` | `false` | Enable [Meowice JVM optimization flags](https://github.com/Meowice/Minecraft-Server-Startup-Flags) |
-| `USE_MEOWICE_GRAALVM_FLAGS` | `false` | Enable GraalVM-specific Meowice flags |
-| `ENABLE_COMMAND_BLOCK` | `false` | Enable command blocks |
-| `ALLOW_FLIGHT` | `false` | Allow flight in survival mode |
-| `SEED` | _(random)_ | World generation seed |
-
-### OpenTelemetry Monitoring (Optional)
-
-| Variable | Description |
-|----------|-------------|
-| `OTEL_SERVICE_NAME` | Service name for telemetry |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP collector endpoint |
-| `OTEL_RESOURCE_ATTRIBUTES` | Custom resource attributes |
+Currently to be implemented.
 
 See TODO.md for complete environment variable documentation.
 
