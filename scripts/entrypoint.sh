@@ -278,7 +278,9 @@ setup_rcon_password() {
   # Container policy: we do NOT modify files in /data, user must configure them
   if [ "$rcon_enabled" = "true" ] && [ -z "$rcon_password" ]; then
     # Restore xtrace state before erroring
-    [ "$xtrace_state" = "1" ] && set -x
+    if [ "$xtrace_state" = "1" ]; then
+      set -x
+    fi
     echo "❌ ERROR: RCON is enabled but no password is set in server.properties"
     echo ""
     echo "This container does NOT modify your server.properties file."
@@ -309,7 +311,12 @@ EOF
   fi
 
   # Restore xtrace state if it was enabled
-  [ "$xtrace_state" = "1" ] && set -x
+  if [ "$xtrace_state" = "1" ]; then
+    set -x
+  fi
+
+  # Ensure function returns 0 (needed for set -e)
+  return 0
 }
 
 setup_rcon_password
