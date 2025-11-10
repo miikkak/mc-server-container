@@ -229,10 +229,10 @@ echo "📋 Configuration Summary"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "Memory:       ${MEMORY}"
 echo "Java:         $(java -version 2>&1 | head -n1)"
-# Follow symlinks (-L) to get actual JAR size, show modification date
+# Follow symlinks (-L) to get actual JAR size and modification date
 if [ -f paper.jar ] || [ -L paper.jar ]; then
   PAPER_SIZE=$(du -Lh paper.jar 2>/dev/null | cut -f1)
-  PAPER_DATE=$(stat -c '%y' paper.jar 2>/dev/null | cut -d' ' -f1)
+  PAPER_DATE=$(stat -L -c '%y' paper.jar 2>/dev/null | cut -d' ' -f1)
   echo "Paper JAR:    ${PAPER_SIZE} (modified: ${PAPER_DATE})"
 else
   echo "Paper JAR:    not found"
