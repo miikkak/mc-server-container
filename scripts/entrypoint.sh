@@ -35,12 +35,10 @@ if ! grep -q "eula=true" /data/eula.txt; then
 fi
 
 # Try to find latest paper.jar
-latest=$(find /data -maxdepth 1 -type f -name 'paper-*.jar' |
+if ! latest=$(find /data -maxdepth 1 -type f -name 'paper-*.jar' |
   grep -E 'paper-[0-9]+\.[0-9]+\.[0-9]+-[0-9]+\.jar$' |
   sort -V |
-  tail -n 1)
-
-if [ ! -f "${latest:-}" ]; then
+  tail -n 1); then
   # Check Paper JAR
   if [ ! -f /data/paper.jar ]; then
     echo "❌ ERROR: /data/paper.jar not found"
