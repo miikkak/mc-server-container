@@ -177,9 +177,21 @@ See `docker-compose.yml` for a complete example.
 
 ### RCON Console
 
+The container automatically configures RCON for graceful shutdown:
+
+- If `server.properties` has RCON enabled, the password is read and exported to `RCON_PASSWORD`
+- If RCON is enabled but no password exists, one is generated automatically
+- The password is written to `/data/.rcon-cli.env` for convenient rcon-cli usage
+
 ```bash
+# Connect to RCON (password automatically loaded from .rcon-cli.env)
 docker exec -it minecraft-server rcon-cli
+
+# Or specify password manually
+docker exec -it minecraft-server rcon-cli --password <your-password>
 ```
+
+**Note**: RCON must be enabled in `server.properties` for this to work. Set `enable-rcon=true` and optionally set a custom `rcon.password`.
 
 ### Send Console Commands
 

@@ -233,6 +233,70 @@ if [ -f /data/log4j2.xml ]; then
 fi
 
 # ============================================================================
+# RCON Password Configuration
+# ============================================================================
+# mc-server-runner needs RCON_PASSWORD environment variable for graceful
+# shutdown via rcon-cli. We handle this by:
+# 1. Reading existing password from server.properties if it exists
+# 2. Generating a password if RCON is enabled but no password is set
+# 3. Exporting RCON_PASSWORD for mc-server-runner
+# 4. Writing ~/.rcon-cli.env for manual rcon-cli usage
+
+setup_rcon_password() {
+  local rcon_password=""
+  local rcon_enabled="false"
+  local rcon_port="25575"
+
+  # Check if server.properties exists
+  if [ -f server.properties ]; then
+    # Read RCON settings from server.properties
+    if grep -q "^enable-rcon=true" server.properties 2>/dev/null; then
+      rcon_enabled="true"
+      rcon_password=$(grep "^rcon.password=" server.properties 2>/dev/null | cut -d'=' -f2)
+      rcon_port=$(grep "^rcon.port=" server.properties 2>/dev/null | cut -d'=' -f2)
+      # Use default port if not found
+      rcon_port="${rcon_port:-25575}"
+    fi
+  fi
+
+  # If RCON is enabled but no password is set, generate one
+  if [ "$rcon_enabled" = "true" ] && [ -z "$rcon_password" ]; then
+    echo "⚙️  RCON enabled but no password found, generating..."
+    rcon_password=$(openssl rand -hex 12)
+
+    # Update server.properties with the generated password
+    if [ -f server.properties ]; then
+      # Use a temp file to avoid sed issues with special characters
+      if grep -q "^rcon.password=" server.properties; then
+        sed "s|^rcon.password=.*|rcon.password=${rcon_password}|" server.properties >server.properties.tmp
+        mv server.properties.tmp server.properties
+      else
+        echo "rcon.password=${rcon_password}" >>server.properties
+      fi
+      echo "✅ Generated RCON password and updated server.properties"
+    fi
+  fi
+
+  # Export RCON configuration for mc-server-runner
+  if [ "$rcon_enabled" = "true" ] && [ -n "$rcon_password" ]; then
+    export RCON_PASSWORD="$rcon_password"
+    export RCON_PORT="$rcon_port"
+
+    # Write .rcon-cli.env for convenience (rcon-cli auto-loads this)
+    cat >/data/.rcon-cli.env <<EOF
+password=${rcon_password}
+port=${rcon_port}
+EOF
+
+    echo "✅ RCON configured (port: ${rcon_port})"
+  else
+    echo "ℹ️  RCON not enabled in server.properties"
+  fi
+}
+
+setup_rcon_password
+
+# ============================================================================
 # Startup Information
 # ============================================================================
 
