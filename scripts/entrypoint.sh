@@ -252,8 +252,9 @@ setup_rcon_password() {
     # Read RCON settings from server.properties
     if grep -q "^enable-rcon=true" server.properties 2>/dev/null; then
       rcon_enabled="true"
-      rcon_password=$(grep "^rcon.password=" server.properties 2>/dev/null | cut -d'=' -f2)
-      rcon_port=$(grep "^rcon.port=" server.properties 2>/dev/null | cut -d'=' -f2)
+      # Use cut -d'=' -f2- to handle passwords/ports containing '=' character
+      rcon_password=$(grep "^rcon.password=" server.properties 2>/dev/null | cut -d'=' -f2-)
+      rcon_port=$(grep "^rcon.port=" server.properties 2>/dev/null | cut -d'=' -f2-)
       # Use default port if not found
       rcon_port="${rcon_port:-25575}"
     fi
@@ -283,10 +284,12 @@ setup_rcon_password() {
     export RCON_PORT="$rcon_port"
 
     # Write .rcon-cli.env for convenience (rcon-cli auto-loads this)
+    # Use restrictive permissions to protect sensitive RCON credentials
     cat >/data/.rcon-cli.env <<EOF
 password=${rcon_password}
 port=${rcon_port}
 EOF
+    chmod 600 /data/.rcon-cli.env
 
     echo "✅ RCON configured (port: ${rcon_port})"
   else
