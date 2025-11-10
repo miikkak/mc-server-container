@@ -238,7 +238,11 @@ else
   echo "Paper JAR:    not found"
 fi
 # Count only JAR files in plugins/ directory (not in subdirectories)
-PLUGIN_COUNT=$(find plugins -maxdepth 1 -name '*.jar' -type f 2>/dev/null | wc -l)
+if [ -d plugins ]; then
+  PLUGIN_COUNT=$(find plugins -maxdepth 1 -name '*.jar' -type f 2>/dev/null | wc -l)
+else
+  PLUGIN_COUNT=0
+fi
 echo "Plugins:      ${PLUGIN_COUNT} found"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
