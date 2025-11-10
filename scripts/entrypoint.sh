@@ -47,6 +47,37 @@ echo "✅ EULA accepted"
 echo "✅ Paper JAR found"
 
 # ============================================================================
+# RCON Configuration (Required for mc-server-runner shutdown)
+# ============================================================================
+# mc-server-runner uses rcon-cli to send the stop command during graceful shutdown.
+# Read RCON configuration from server.properties if it exists
+
+if [ -f server.properties ]; then
+  # Extract RCON password from server.properties if available
+  RCON_PASSWORD_FROM_FILE=$(grep "^rcon.password=" server.properties 2>/dev/null | cut -d'=' -f2)
+  if [ -n "$RCON_PASSWORD_FROM_FILE" ]; then
+    export RCON_PASSWORD="$RCON_PASSWORD_FROM_FILE"
+    echo "✅ RCON password loaded from server.properties"
+  fi
+
+  # Extract RCON port from server.properties if available
+  RCON_PORT_FROM_FILE=$(grep "^rcon.port=" server.properties 2>/dev/null | cut -d'=' -f2)
+  if [ -n "$RCON_PORT_FROM_FILE" ]; then
+    export RCON_PORT="$RCON_PORT_FROM_FILE"
+  fi
+fi
+
+# Set default RCON port if not already set
+export RCON_PORT="${RCON_PORT:-25575}"
+
+# If RCON password is still not set, warn but continue (server will run but shutdown may not work)
+if [ -z "${RCON_PASSWORD:-}" ]; then
+  echo "⚠️  Warning: RCON password not found in server.properties"
+  echo "   Graceful shutdown via mc-server-runner may not work without RCON configured"
+  echo "   To fix: Add 'enable-rcon=true' and 'rcon.password=yourpassword' to server.properties"
+fi
+
+# ============================================================================
 # Build Java Command
 # ============================================================================
 
