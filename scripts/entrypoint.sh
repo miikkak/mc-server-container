@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# shellcheck shell=bash
 # Custom Minecraft Server Container Entrypoint
 # Runs Paper server with GraalVM and optimized MeowIce flags
 
@@ -10,9 +11,9 @@ cd /data
 # Validation
 # ============================================================================
 
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "🎮 Custom Minecraft Server Container"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # Check EULA
 if [ ! -f eula.txt ]; then
@@ -326,11 +327,12 @@ setup_rcon_password
 # ============================================================================
 
 echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "📋 Configuration Summary"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "Memory:       ${MEMORY}"
 echo "Java:         $(java -version 2>&1 | head -n1)"
+
 # Follow symlinks (-L) to get actual JAR size and modification date
 if [ -f paper.jar ] || [ -L paper.jar ]; then
   PAPER_SIZE=$(du -Lh paper.jar 2>/dev/null | cut -f1)
@@ -345,8 +347,9 @@ if [ -d plugins ]; then
 else
   PLUGIN_COUNT=0
 fi
+
 echo "Plugins:      ${PLUGIN_COUNT} found"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 echo "🚀 Starting Minecraft server..."
 echo ""
@@ -355,8 +358,7 @@ echo ""
 # Start Server with mc-server-runner
 # ============================================================================
 
-# shellcheck disable=SC2086
 exec mc-server-runner \
   --named-pipe /tmp/minecraft-console \
   --stop-server-announce-delay 30s \
-  java $JAVA_OPTS -jar paper.jar --nogui
+  java "${JAVA_OPTS}" -jar paper.jar --nogui
