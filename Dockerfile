@@ -36,9 +36,7 @@ LABEL maintainer="miikka"
 LABEL description="Custom Minecraft server container with GraalVM and mc-server-runner"
 
 # Create minecraft user and group (UID/GID 25565 matches default server port)
-# --shell /bin/false: prevents direct login attempts for security
-#   - Non-interactive commands work: docker exec container java -version
-#   - For interactive shell, use: docker exec -it container /bin/bash
+# --shell /bin/false: security best practice for service accounts (prevents interactive login)
 # --no-create-home: /data directory created explicitly below with proper ownership
 RUN groupadd --gid 25565 minecraft \
   && useradd --shell /bin/false --uid 25565 --gid 25565 --no-create-home minecraft
@@ -76,6 +74,10 @@ EXPOSE 25565/tcp 25565/udp 25575/tcp
 
 # Declare shutdown signal (SIGTERM is Docker default, declared for explicitness)
 STOPSIGNAL SIGTERM
+
+# Set terminal type to enable Paper's colored console output and terminal features
+# xterm-256color provides full color support and terminal capabilities
+ENV TERM=xterm-256color
 
 # Switch to minecraft user
 USER minecraft

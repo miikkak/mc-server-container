@@ -86,7 +86,7 @@ if [ "${DISABLE_MEOWICE_FLAGS:-false}" != "true" ]; then
   JAVA_OPTS="$JAVA_OPTS -XX:G1SATBBufferEnqueueingThresholdPercent=30"
   JAVA_OPTS="$JAVA_OPTS -XX:G1ConcMarkStepDurationMillis=5"
   JAVA_OPTS="$JAVA_OPTS -XX:G1RSetUpdatingPauseTimePercent=0"
-  JAVA_OPTS="$JAVA_OPTS -XX:+UseNUMA"
+  # Note: -XX:+UseNUMA removed - not beneficial/available in containers
 
   # Compiler optimizations
   JAVA_OPTS="$JAVA_OPTS -XX:-DontCompileHugeMethods"
@@ -229,8 +229,21 @@ echo "📋 Configuration Summary"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "Memory:       ${MEMORY}"
 echo "Java:         $(java -version 2>&1 | head -n1)"
-echo "Paper JAR:    $(find . -maxdepth 1 -name 'paper.jar' -exec du -h {} \; | cut -f1)"
-echo "Plugins:      $(find plugins -name '*.jar' 2>/dev/null | wc -l) found"
+# Follow symlinks (-L) to get actual JAR size and modification date
+if [ -f paper.jar ] || [ -L paper.jar ]; then
+  PAPER_SIZE=$(du -Lh paper.jar 2>/dev/null | cut -f1)
+  PAPER_DATE=$(stat -L -c '%y' paper.jar 2>/dev/null | cut -d' ' -f1)
+  echo "Paper JAR:    ${PAPER_SIZE} (modified: ${PAPER_DATE})"
+else
+  echo "Paper JAR:    not found"
+fi
+# Count only JAR files in plugins/ directory (not in subdirectories)
+if [ -d plugins ]; then
+  PLUGIN_COUNT=$(find plugins -maxdepth 1 -name '*.jar' -type f 2>/dev/null | wc -l)
+else
+  PLUGIN_COUNT=0
+fi
+echo "Plugins:      ${PLUGIN_COUNT} found"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 echo "🚀 Starting Minecraft server..."
