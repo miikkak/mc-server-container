@@ -220,6 +220,12 @@ if [ -n "${JAVA_OPTS_CUSTOM:-}" ]; then
 fi
 
 # ============================================================================
+# Log4j Configuration
+# ============================================================================
+# Enable JLine's TerminalConsole appender for advanced terminal features
+JAVA_OPTS="$JAVA_OPTS -Dlog4j.configurationFile=log4j2.xml"
+
+# ============================================================================
 # Startup Information
 # ============================================================================
 
