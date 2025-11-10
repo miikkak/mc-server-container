@@ -1,4 +1,4 @@
-#!/usb/bin/env bash
+#!/usr/bin/env bash
 # shellcheck shell=bash
 # Custom Minecraft Server Container Entrypoint
 # Runs Paper server with GraalVM and optimized MeowIce flags
