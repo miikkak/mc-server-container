@@ -360,4 +360,5 @@ echo ""
 exec mc-server-runner \
   --named-pipe /tmp/minecraft-console \
   --stop-server-announce-delay 30s \
+  --stop-duration 60s \
   java $JAVA_OPTS -jar paper.jar --nogui
