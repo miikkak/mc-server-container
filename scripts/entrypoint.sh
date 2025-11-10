@@ -34,18 +34,28 @@ if ! grep -q "eula=true" /data/eula.txt; then
   exit 1
 fi
 
-# Check Paper JAR
-if [ ! -f /data/paper.jar ]; then
-  echo "❌ ERROR: /data/paper.jar not found"
-  echo ""
-  echo "Download Paper JAR to /data/paper.jar before starting the server"
-  echo "Visit: https://papermc.io/downloads"
-  echo ""
-  exit 1
+# Try to find latest paper.jar
+if ! latest=$(find /data -maxdepth 1 -type f -name 'paper-*.jar' |
+  grep -E 'paper-[0-9]+\.[0-9]+(\.[0-9]+)?-[0-9]+\.jar$' |
+  sort -V |
+  tail -n 1); then
+  # Check Paper JAR
+  if [ ! -f /data/paper.jar ]; then
+    echo "❌ ERROR: /data/paper.jar not found"
+    echo ""
+    echo "Download Paper JAR to /data/paper.jar before starting the server"
+    echo "Visit: https://papermc.io/downloads"
+    echo ""
+    exit 1
+  else
+    JAR="/data/paper.jar"
+  fi
+else
+  JAR="${latest}"
 fi
 
 echo "✅ EULA accepted"
-echo "✅ Paper JAR found"
+echo "✅ Paper JAR found: ${JAR}"
 
 # ============================================================================
 # Build Java Command
@@ -335,9 +345,9 @@ echo "Memory:       ${MEMORY}"
 echo "Java:         $(java -version 2>&1 | head -n1)"
 
 # Follow symlinks (-L) to get actual JAR size and modification date
-if [ -f /data/paper.jar ] || [ -L /data/paper.jar ]; then
-  PAPER_SIZE=$(du -Lh /data/paper.jar 2>/dev/null | cut -f1)
-  PAPER_DATE=$(stat -L -c '%y' /data/paper.jar 2>/dev/null | cut -d' ' -f1)
+if [ -f "${JAR}" ] || [ -L "${JAR}" ]; then
+  PAPER_SIZE=$(du -Lh "${JAR}" 2>/dev/null | cut -f1)
+  PAPER_DATE=$(stat -L -c '%y' "${JAR}" 2>/dev/null | cut -d' ' -f1)
   echo "Paper JAR:    ${PAPER_SIZE} (modified: ${PAPER_DATE})"
 else
   echo "Paper JAR:    not found"
@@ -384,4 +394,4 @@ exec mc-server-runner \
   "${MC_SERVER_RUNNER_ARGS[@]}" \
   java \
   "${JAVA_OPTS[@]}" \
-  -jar /data/paper.jar --nogui
+  -jar "${JAR}" --nogui
