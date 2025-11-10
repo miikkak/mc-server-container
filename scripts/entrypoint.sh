@@ -233,6 +233,95 @@ if [ -f /data/log4j2.xml ]; then
 fi
 
 # ============================================================================
+# RCON Password Configuration
+# ============================================================================
+# mc-server-runner needs RCON_PASSWORD environment variable for graceful
+# shutdown via rcon-cli. We handle this by:
+# 1. Reading existing password from server.properties if it exists
+# 2. Exporting RCON_PASSWORD for mc-server-runner
+# 3. Writing /data/.rcon-cli.env for manual rcon-cli usage
+#
+# IMPORTANT: This container does NOT modify files in /data. If RCON is
+# enabled but no password is set, the container will error out. User must
+# configure server.properties before starting the container.
+
+setup_rcon_password() {
+  # Disable shell tracing for password handling (defense-in-depth)
+  local xtrace_state
+  case $- in
+    *x*) xtrace_state=1 ;;
+    *) xtrace_state=0 ;;
+  esac
+  set +x
+  local rcon_password=""
+  local rcon_enabled="false"
+  local rcon_port="25575"
+
+  # Check if server.properties exists
+  if [ -f server.properties ]; then
+    # Read RCON settings from server.properties
+    if grep -q "^enable-rcon=true" server.properties 2>/dev/null; then
+      rcon_enabled="true"
+      # Use cut -d'=' -f2- to handle passwords/ports containing '=' character
+      # Trim whitespace with tr to handle trailing spaces in server.properties
+      rcon_password=$(grep "^rcon.password=" server.properties 2>/dev/null | cut -d'=' -f2- | tr -d ' \t')
+      rcon_port=$(grep "^rcon.port=" server.properties 2>/dev/null | cut -d'=' -f2- | tr -d ' \t')
+
+      # Validate port is numeric and in valid range (1-65535)
+      if ! [[ "$rcon_port" =~ ^[0-9]+$ ]] || [ "$rcon_port" -lt 1 ] || [ "$rcon_port" -gt 65535 ]; then
+        rcon_port="25575"
+      fi
+    fi
+  fi
+
+  # If RCON is enabled but no password is set, error out
+  # Container policy: we do NOT modify files in /data, user must configure them
+  if [ "$rcon_enabled" = "true" ] && [ -z "$rcon_password" ]; then
+    # Restore xtrace state before erroring
+    if [ "$xtrace_state" = "1" ]; then
+      set -x
+    fi
+    echo "❌ ERROR: RCON is enabled but no password is set in server.properties"
+    echo ""
+    echo "This container does NOT modify your server.properties file."
+    echo "Please add an RCON password to /data/server.properties:"
+    echo "  rcon.password=<your-secure-password>"
+    echo ""
+    echo "Tip: Generate a secure password with: openssl rand -hex 12"
+    echo ""
+    exit 1
+  fi
+
+  # Export RCON configuration for mc-server-runner
+  if [ "$rcon_enabled" = "true" ] && [ -n "$rcon_password" ]; then
+    export RCON_PASSWORD="$rcon_password"
+    export RCON_PORT="$rcon_port"
+
+    # Write .rcon-cli.env for convenience (rcon-cli auto-loads this)
+    # Use restrictive permissions to protect sensitive RCON credentials
+    cat >/data/.rcon-cli.env <<EOF
+password=${rcon_password}
+port=${rcon_port}
+EOF
+    chmod 600 /data/.rcon-cli.env
+
+    echo "✅ RCON configured (port: ${rcon_port})"
+  else
+    echo "ℹ️  RCON not enabled in server.properties"
+  fi
+
+  # Restore xtrace state if it was enabled
+  if [ "$xtrace_state" = "1" ]; then
+    set -x
+  fi
+
+  # Ensure function returns 0 (needed for set -e)
+  return 0
+}
+
+setup_rcon_password
+
+# ============================================================================
 # Startup Information
 # ============================================================================
 
