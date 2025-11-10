@@ -54,6 +54,7 @@ jobs:
           exit-code: '0'  # Don't fail the workflow, just report
 
       - name: Check for vulnerabilities and create issue
+        if: github.event_name == 'schedule'
         uses: actions/github-script@v8
         with:
           script: |
