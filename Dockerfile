@@ -35,6 +35,11 @@ FROM container-registry.oracle.com/graalvm/jdk:25
 LABEL maintainer="miikka"
 LABEL description="Custom Minecraft server container with GraalVM and mc-server-runner"
 
+# Install system utilities needed for operations and debugging
+# procps-ng: provides ps command (required by backup scripts to find container PID 1 UID)
+# hadolint ignore=DL3041
+RUN microdnf install -y procps-ng && microdnf clean all
+
 # Create minecraft user and group (UID/GID 25565 matches default server port)
 # --shell /bin/sh: allows docker exec commands and backup/maintenance hooks to work
 # --no-create-home: /data directory created explicitly below with proper ownership
