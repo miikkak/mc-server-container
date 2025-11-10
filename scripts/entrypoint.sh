@@ -356,15 +356,24 @@ echo ""
 # Start Server with mc-server-runner
 # ============================================================================
 
-# Configurable shutdown delays
-# STOP_SERVER_ANNOUNCE_DELAY: Time to wait after announcing shutdown (default: 5s)
+# Configurable shutdown delays (matching itzg behavior)
+# STOP_SERVER_ANNOUNCE_DELAY: Optional delay after announcing shutdown (default: none)
+#   - If set, announces "Server shutting down in X seconds" and waits
+#   - If unset, stops immediately without announcement (like itzg)
 # STOP_DURATION: Max time to wait for graceful shutdown after stop command (default: 60s)
-STOP_SERVER_ANNOUNCE_DELAY="${STOP_SERVER_ANNOUNCE_DELAY:-5s}"
-STOP_DURATION="${STOP_DURATION:-60s}"
+
+# Build mc-server-runner arguments
+MC_SERVER_RUNNER_ARGS="--named-pipe /tmp/minecraft-console"
+
+# Only add announce delay if explicitly configured
+if [ -n "${STOP_SERVER_ANNOUNCE_DELAY:-}" ]; then
+  MC_SERVER_RUNNER_ARGS="$MC_SERVER_RUNNER_ARGS --stop-server-announce-delay $STOP_SERVER_ANNOUNCE_DELAY"
+fi
+
+# Always include stop duration
+MC_SERVER_RUNNER_ARGS="$MC_SERVER_RUNNER_ARGS --stop-duration ${STOP_DURATION:-60s}"
 
 # shellcheck disable=SC2086
 exec mc-server-runner \
-  --named-pipe /tmp/minecraft-console \
-  --stop-server-announce-delay "$STOP_SERVER_ANNOUNCE_DELAY" \
-  --stop-duration "$STOP_DURATION" \
+  $MC_SERVER_RUNNER_ARGS \
   java $JAVA_OPTS -jar paper.jar --nogui
