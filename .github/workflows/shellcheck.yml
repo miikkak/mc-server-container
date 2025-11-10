@@ -31,7 +31,7 @@ jobs:
             sudo DEBIAN_FRONTEND=noninteractive DEBCONF_NOWARNINGS=yes apt-get update > /dev/null
             sudo DEBIAN_FRONTEND=noninteractive DEBCONF_NOWARNINGS=yes apt-get install --no-install-recommends -y shellcheck > /dev/null
           fi
-          
+
       - name: Run ShellCheck
         run: |
           set +e

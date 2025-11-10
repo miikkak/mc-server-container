@@ -28,7 +28,7 @@ jobs:
           MC_MONITOR=$(grep 'ARG MC_MONITOR_VERSION=' Dockerfile | cut -d'=' -f2)
           OTEL=$(grep 'ARG OTEL_VERSION=' Dockerfile | cut -d'=' -f2)
           BASE_IMAGE=$(grep '^FROM container-registry.oracle.com/graalvm/jdk:' Dockerfile | head -1 | awk '{print $2}')
-          
+
           # Verify values were extracted
           if [ -z "$MC_RUNNER" ] || [ -z "$RCON_CLI" ] || [ -z "$MC_MONITOR" ] || [ -z "$OTEL" ] || [ -z "$BASE_IMAGE" ]; then
             echo "❌ Failed to extract versions from Dockerfile"
@@ -39,7 +39,7 @@ jobs:
             echo "BASE_IMAGE: $BASE_IMAGE"
             exit 1
           fi
-          
+
           echo "mc_runner=$MC_RUNNER" >> $GITHUB_OUTPUT
           echo "rcon_cli=$RCON_CLI" >> $GITHUB_OUTPUT
           echo "mc_monitor=$MC_MONITOR" >> $GITHUB_OUTPUT
@@ -88,7 +88,7 @@ jobs:
           # Extract action versions from workflows
           echo "### GitHub Actions" > actions-report.md
           echo "" >> actions-report.md
-          
+
           for workflow in .github/workflows/*.yml; do
             echo "**$(basename $workflow)**:" >> actions-report.md
             grep -E "uses: .+@v[0-9]+" "$workflow" | sed 's/.*uses: /- /' | sort -u >> actions-report.md
@@ -103,19 +103,19 @@ jobs:
           echo "" >> precommit-report.md
           echo "| Hook Repository | Current Version |" >> precommit-report.md
           echo "|----------------|----------------|" >> precommit-report.md
-          
+
           # Parse .pre-commit-config.yaml for repo and rev pairs
           grep -E "^  - repo:|^    rev:" .pre-commit-config.yaml | \
           awk '
             /^  - repo:/ { repo=$3 }
-            /^    rev:/ { 
+            /^    rev:/ {
               rev=$2
               if (repo != "local") {
                 printf "| %s | %s |\n", repo, rev
               }
             }
           ' >> precommit-report.md
-          
+
           echo "" >> precommit-report.md
           echo "> **Note:** Pre-commit hooks are automatically updated weekly by the precommit-updates workflow." >> precommit-report.md
 
@@ -265,7 +265,7 @@ jobs:
               state: 'open'
             });
 
-            const existingDashboard = issues.data.find(issue => 
+            const existingDashboard = issues.data.find(issue =>
               issue.title.includes('Dependency Status Dashboard')
             );
 
@@ -287,7 +287,7 @@ jobs:
                 body: body,
                 labels: ['dashboard', 'documentation']
               });
-              
+
               // Pin the issue
               await github.rest.issues.update({
                 owner: context.repo.owner,
@@ -295,6 +295,6 @@ jobs:
                 issue_number: newIssue.data.number,
                 state: 'open'
               });
-              
+
               console.log(`📊 Created dashboard issue #${newIssue.data.number}`);
             }

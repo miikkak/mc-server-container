@@ -34,10 +34,10 @@ jobs:
         id: check
         run: |
           echo "Checking for pre-commit hook updates..."
-          
+
           # Run autoupdate to check for updates (dry-run)
           pre-commit autoupdate > update-output.txt 2>&1 || true
-          
+
           # Check if there are updates
           if grep -q "updating" update-output.txt; then
             echo "updates_available=true" >> $GITHUB_OUTPUT
@@ -46,7 +46,7 @@ jobs:
             echo "updates_available=false" >> $GITHUB_OUTPUT
             echo "✅ All pre-commit hooks are up to date"
           fi
-          
+
           # Save the output for later use
           cat update-output.txt
           echo "---" >> update-output.txt
@@ -167,10 +167,10 @@ jobs:
 
             } catch (error) {
               console.error('Error creating PR:', error);
-              
+
               // Create an issue instead if PR creation fails
               const updateOutput = fs.readFileSync('update-output.txt', 'utf8');
-              
+
               await github.rest.issues.create({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
