@@ -223,7 +223,9 @@ fi
 # Log4j Configuration
 # ============================================================================
 # Specify Log4j2 configuration file location
-JAVA_OPTS="$JAVA_OPTS -Dlog4j.configurationFile=log4j2.xml"
+if [ -f /data/log4j2.xml ]; then
+  JAVA_OPTS="$JAVA_OPTS -Dlog4j.configurationFile=log4j2.xml"
+fi
 
 # ============================================================================
 # Startup Information
