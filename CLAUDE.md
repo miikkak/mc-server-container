@@ -262,24 +262,31 @@ The container uses **mc-server-runner** for professional process supervision:
 
 ### Environment Variables
 
-See `TODO.md` for comprehensive list. Key variables:
+This container focuses on **JVM configuration only**. Minecraft-specific configuration (server.properties, plugins, etc.) should be managed manually or via helper scripts.
 
-**Required:**
-- `EULA=TRUE` - Must accept Minecraft EULA
+**Philosophy: Performance-First with Troubleshooting Options**
+- All performance optimizations are **ENABLED by default**
+- Use `DISABLE_*` variables only for troubleshooting
+- OpenTelemetry agent is **ENABLED by default** with sensible defaults
+- Users only need to set minimal configuration
 
-**Common:**
-- `MEMORY=16G` - Server memory allocation
-- `SERVER_PORT=25565` - Minecraft server port
-- `DIFFICULTY=normal` - Game difficulty
-- `MAX_PLAYERS=20` - Player limit
+**JVM Memory:**
+- `MEMORY` - Server memory allocation (default: `16G`)
 
-**Performance:**
-- `USE_MEOWICE_FLAGS=true` - Enable Meowice JVM flags
-- `USE_MEOWICE_GRAALVM_FLAGS=true` - Enable GraalVM-specific flags
+**JVM Performance Tuning (for troubleshooting only):**
+- `DISABLE_MEOWICE_FLAGS` - Disable MeowIce G1GC optimizations (default: enabled)
+- `DISABLE_MEOWICE_GRAALVM_FLAGS` - Disable GraalVM-specific optimizations (default: enabled)
+- `JAVA_OPTS_CUSTOM` - Add custom JVM options (appended to generated flags)
 
-**Monitoring:**
-- `OTEL_SERVICE_NAME` - OpenTelemetry service name
-- `OTEL_EXPORTER_OTLP_ENDPOINT` - OTLP collector endpoint
+**OpenTelemetry (enabled by default with sensible defaults):**
+- `OTEL_SERVICE_NAME` - Service name (default: `minecraft-server`)
+- `OTEL_EXPORTER_OTLP_ENDPOINT` - OTLP collector endpoint (required for export)
+- `OTEL_EXPORTER_OTLP_PROTOCOL` - Protocol (default: `grpc`)
+- `OTEL_RESOURCE_ATTRIBUTES` - Resource attributes (optional)
+- `DISABLE_OTEL_AGENT` - Disable OpenTelemetry agent (default: enabled)
+- All standard `OTEL_*` variables can be set to override defaults
+
+**Note:** The container does NOT handle Minecraft-specific configuration via environment variables. Use `/data/server.properties` and other Minecraft config files for server settings, or use helper scripts from the `check-minecraft-versions` repository.
 
 ## OCI Compliance
 

@@ -25,7 +25,7 @@ The repository uses multiple automated tools and workflows to monitor dependenci
 
 **What:** `container-registry.oracle.com/graalvm/jdk:25`
 **Frequency:** Weekly (Mondays at 09:00 UTC)
-**Process:** 
+**Process:**
 - Dependabot monitors tag version updates (e.g., `jdk:24` → `jdk:25`)
 - Custom workflow checks manifest digest for same-tag updates (patches/rebuilds)
 - Digest stored in `.github/.docker-base-digest.txt` for change detection
@@ -51,7 +51,7 @@ The repository uses multiple automated tools and workflows to monitor dependenci
 
 **What:** All pre-commit hooks in `.pre-commit-config.yaml`
 **Frequency:** Weekly (Mondays at 09:30 UTC)
-**Process:** 
+**Process:**
 - Workflow runs `pre-commit autoupdate`
 - PR automatically created with updates
 **Action Required:** Review and merge PR
@@ -172,10 +172,10 @@ The repository uses multiple automated tools and workflows to monitor dependenci
    # Get latest digest
    NEW_DIGEST=$(docker buildx imagetools inspect container-registry.oracle.com/graalvm/jdk:25 \
      --format '{{.Manifest.Digest}}' | awk '/^Digest:/ {print $2}')
-   
+
    # Update digest file (no trailing newline)
    echo -n "$NEW_DIGEST" > .github/.docker-base-digest.txt
-   
+
    # Test locally
    docker build --no-cache --pull -t mc-server-container:test .
    docker run -d --name mc-test -e EULA=TRUE mc-server-container:test

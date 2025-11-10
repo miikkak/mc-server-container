@@ -41,7 +41,7 @@ This document provides a visual overview of the automated dependency monitoring 
 ```
 Monday         Tuesday - Sunday    Daily
 09:00 UTC      (No scheduled       03:00 UTC
-               workflows)          
+               workflows)
 ┌──────────┐                      ┌──────────┐
 │Dependabot│                      │ Security │
 │  Check   │                      │   Scan   │

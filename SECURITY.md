@@ -75,7 +75,7 @@ When a security issue is identified:
 1. **Assessment:** We evaluate the severity and impact
 2. **Fix Development:** A fix is developed and tested
 3. **Release:** A new version is released with security patches
-4. **Notification:** 
+4. **Notification:**
    - GitHub Security Advisory is published
    - Release notes include security fix details
    - Affected users are notified through GitHub

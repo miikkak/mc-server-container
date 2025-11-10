@@ -115,9 +115,47 @@ This container is built using **Docker Buildx with BuildKit**, which produces im
 
 ## Configuration
 
-Currently to be implemented.
+This container focuses on **JVM configuration only**. Minecraft-specific settings (difficulty, max-players, whitelist, etc.) should be configured in `/data/server.properties` and other standard Minecraft configuration files.
 
-See TODO.md for complete environment variable documentation.
+### Philosophy: Performance-First with Troubleshooting Options
+
+- ✅ **All optimizations ENABLED by default** - MeowIce G1GC flags, GraalVM optimizations, OpenTelemetry agent
+- 🔧 **Use `DISABLE_*` variables only for troubleshooting** - Not for normal operation
+- 📊 **OpenTelemetry with sensible defaults** - Just set endpoint and service name
+- 🎯 **Minimal configuration required** - Only specify what you need to change
+
+### Environment Variables
+
+**JVM Memory:**
+```yaml
+MEMORY: "16G"  # Default: 16G
+```
+
+**OpenTelemetry (enabled by default):**
+```yaml
+OTEL_SERVICE_NAME: "minecraft-server"              # Default: "minecraft-server"
+OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel:4317"    # Required for metrics export
+OTEL_RESOURCE_ATTRIBUTES: "env=production"         # Optional
+# All other OTEL_* variables have sensible defaults but can be overridden
+```
+
+**Troubleshooting JVM Performance (for debugging only):**
+```yaml
+DISABLE_MEOWICE_FLAGS: "true"          # Disable MeowIce G1GC optimizations
+DISABLE_MEOWICE_GRAALVM_FLAGS: "true"  # Disable GraalVM-specific optimizations
+DISABLE_OTEL_AGENT: "true"             # Disable OpenTelemetry Java agent
+JAVA_OPTS_CUSTOM: "-Xlog:gc*"         # Add custom JVM options
+```
+
+**Example: Minimal Configuration**
+```yaml
+environment:
+  MEMORY: "16G"
+  OTEL_SERVICE_NAME: "my-minecraft-server"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://172.18.0.1:4317"
+```
+
+See `docker-compose.yml` for a complete example.
 
 ## Volumes
 
@@ -132,8 +170,8 @@ See TODO.md for complete environment variable documentation.
 
 | Port | Protocol | Purpose |
 |------|----------|---------|
-| `25565` | TCP | Minecraft server (configurable via `SERVER_PORT`) |
-| `9000` | TCP | Management server (if `MANAGEMENT_SERVER_ENABLED=true`) |
+| `25565` | TCP/UDP | Minecraft server (configure in `server.properties`) |
+| `25575` | TCP | RCON (configure in `server.properties`) |
 
 ## Management Tools
 

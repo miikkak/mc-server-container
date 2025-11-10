@@ -110,7 +110,7 @@ jobs:
               state: 'open'
             });
 
-            const existingIssue = issues.data.find(issue => 
+            const existingIssue = issues.data.find(issue =>
               issue.title.includes('Security vulnerabilities detected')
             );
 
