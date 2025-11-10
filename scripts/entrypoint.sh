@@ -253,10 +253,13 @@ setup_rcon_password() {
     if grep -q "^enable-rcon=true" server.properties 2>/dev/null; then
       rcon_enabled="true"
       # Use cut -d'=' -f2- to handle passwords/ports containing '=' character
-      rcon_password=$(grep "^rcon.password=" server.properties 2>/dev/null | cut -d'=' -f2-)
-      rcon_port=$(grep "^rcon.port=" server.properties 2>/dev/null | cut -d'=' -f2-)
-      # Use default port if not found
-      rcon_port="${rcon_port:-25575}"
+      # Trim whitespace with tr to handle trailing spaces in server.properties
+      rcon_password=$(grep "^rcon.password=" server.properties 2>/dev/null | cut -d'=' -f2- | tr -d ' \t')
+      rcon_port=$(grep "^rcon.port=" server.properties 2>/dev/null | cut -d'=' -f2- | tr -d ' \t')
+      # Validate port is numeric, otherwise use default
+      if ! [[ "$rcon_port" =~ ^[0-9]+$ ]]; then
+        rcon_port="25575"
+      fi
     fi
   fi
 
@@ -267,9 +270,10 @@ setup_rcon_password() {
 
     # Update server.properties with the generated password
     if [ -f server.properties ]; then
-      # Use a temp file to avoid sed issues with special characters
+      # Use # delimiter instead of | for safer sed operation
+      # Password is hex (0-9a-f) so no special escaping needed, but # is safer than |
       if grep -q "^rcon.password=" server.properties; then
-        sed "s|^rcon.password=.*|rcon.password=${rcon_password}|" server.properties >server.properties.tmp
+        sed "s#^rcon.password=.*#rcon.password=${rcon_password}#" server.properties >server.properties.tmp
         mv server.properties.tmp server.properties
       else
         echo "rcon.password=${rcon_password}" >>server.properties
