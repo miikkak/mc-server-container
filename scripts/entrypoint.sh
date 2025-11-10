@@ -16,7 +16,7 @@ echo "🎮 Custom Minecraft Server Container"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # Check EULA
-if [ ! -f eula.txt ]; then
+if [ ! -f /data/eula.txt ]; then
   echo "❌ ERROR: /data/eula.txt not found"
   echo ""
   echo "Create /data/eula.txt with:"
@@ -25,7 +25,7 @@ if [ ! -f eula.txt ]; then
   exit 1
 fi
 
-if ! grep -q "eula=true" eula.txt; then
+if ! grep -q "eula=true" /data/eula.txt; then
   echo "❌ ERROR: EULA not accepted in /data/eula.txt"
   echo ""
   echo "Edit /data/eula.txt and set:"
@@ -35,7 +35,7 @@ if ! grep -q "eula=true" eula.txt; then
 fi
 
 # Check Paper JAR
-if [ ! -f paper.jar ]; then
+if [ ! -f /data/paper.jar ]; then
   echo "❌ ERROR: /data/paper.jar not found"
   echo ""
   echo "Download Paper JAR to /data/paper.jar before starting the server"
@@ -335,9 +335,9 @@ echo "Memory:       ${MEMORY}"
 echo "Java:         $(java -version 2>&1 | head -n1)"
 
 # Follow symlinks (-L) to get actual JAR size and modification date
-if [ -f paper.jar ] || [ -L paper.jar ]; then
-  PAPER_SIZE=$(du -Lh paper.jar 2>/dev/null | cut -f1)
-  PAPER_DATE=$(stat -L -c '%y' paper.jar 2>/dev/null | cut -d' ' -f1)
+if [ -f /data/paper.jar ] || [ -L /data/paper.jar ]; then
+  PAPER_SIZE=$(du -Lh /data/paper.jar 2>/dev/null | cut -f1)
+  PAPER_DATE=$(stat -L -c '%y' /data/paper.jar 2>/dev/null | cut -d' ' -f1)
   echo "Paper JAR:    ${PAPER_SIZE} (modified: ${PAPER_DATE})"
 else
   echo "Paper JAR:    not found"
@@ -358,7 +358,6 @@ echo ""
 # ============================================================================
 # Start Server with mc-server-runner
 # ============================================================================
-read -r -a JAVA_OPTS <<<"${JAVA_OPTS}"
 
 # Configurable shutdown delays (matching itzg behavior)
 # STOP_SERVER_ANNOUNCE_DELAY: Optional delay after announcing shutdown (default: none)
@@ -377,6 +376,12 @@ fi
 # Always include stop duration
 MC_SERVER_RUNNER_ARGS="$MC_SERVER_RUNNER_ARGS --stop-duration ${STOP_DURATION:-60s}"
 
+# Turn all argument lists to arrays
+read -r -a JAVA_OPTS <<<"${JAVA_OPTS}"
+read -r -a MC_SERVER_RUNNER_ARGS <<<"${MC_SERVER_RUNNER_ARGS}"
+
 exec mc-server-runner \
-  $MC_SERVER_RUNNER_ARGS \
-  java "${JAVA_OPTS[@]}" -jar paper.jar --nogui
+  "${MC_SERVER_RUNNER_ARGS[@]}" \
+  java \
+  "${JAVA_OPTS[@]}" \
+  -jar /data/paper.jar --nogui
