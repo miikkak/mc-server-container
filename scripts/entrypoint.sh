@@ -55,7 +55,7 @@ else
 fi
 
 echo "✅ EULA accepted"
-echo "✅ Paper JAR found"
+echo "✅ Paper JAR found: ${JAR}"
 
 # ============================================================================
 # Build Java Command
