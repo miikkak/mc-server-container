@@ -76,7 +76,7 @@ jobs:
 
       - name: Build container
         if: steps.check_dockerfile.outputs.exists == 'true'
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           push: false
@@ -112,7 +112,7 @@ jobs:
 
       - name: Build container for testing
         if: steps.check_dockerfile.outputs.exists == 'true'
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           load: true
@@ -293,7 +293,7 @@ jobs:
 
       - name: Build container for Podman testing
         if: steps.check_dockerfile.outputs.exists == 'true'
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           outputs: type=docker,dest=/tmp/mc-server-container.tar
