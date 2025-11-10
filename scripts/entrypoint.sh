@@ -270,4 +270,5 @@ echo ""
 exec mc-server-runner \
   --named-pipe /tmp/minecraft-console \
   --stop-server-announce-delay 30s \
+  --stop-server-rcon-cmd stop \
   java $JAVA_OPTS -jar paper.jar --nogui
