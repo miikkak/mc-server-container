@@ -44,11 +44,10 @@ mc-server-container/
 │   └── mc-send-to-console         # Console command wrapper
 ├── .github/
 │   ├── workflows/
-│   │   ├── build-test.yml         # Build, lint, and test workflow
+│   │   ├── ci-cd.yml              # Unified CI/CD pipeline (build, scan, test, release)
 │   │   ├── shellcheck.yml         # ShellCheck linting
-│   │   ├── release.yml            # Automated semantic versioning release
+│   │   ├── security-scan.yml      # Scheduled security scanning
 │   │   ├── dependency-check.yml   # Binary dependency monitoring
-│   │   ├── security-scan.yml      # Trivy security scanning
 │   │   ├── precommit-updates.yml  # Pre-commit hook updates
 │   │   └── dependency-dashboard.yml # Dependency status dashboard
 │   ├── dependabot.yml             # Dependabot configuration
@@ -168,16 +167,23 @@ Runs on every push and PR to validate shell scripts:
 - Labels PRs with `shellcheck` on success
 - Fails build if any warnings/errors found
 
-### 2. Build and Test Workflow (`.github/workflows/build-test.yml`)
+### 2. CI/CD Pipeline (`.github/workflows/ci-cd.yml`)
 
-Four-stage pipeline:
+Unified pipeline with proper job dependencies:
 
 1. **hadolint**: Lints Dockerfile for best practices
-2. **build**: Builds container with Docker Buildx and caches layers
-3. **test**: Independently builds container with Docker (using cache), runs integration tests with Paper server
-4. **test-podman**: Independently builds container with Docker (using cache), exports to tar, loads into Podman, runs same integration tests to verify OCI compliance
+2. **build**: Builds container once and saves as artifact
+3. **security-scan**: Scans the built artifact with Trivy (depends on build)
+4. **test**: Loads artifact and runs Docker integration tests (depends on security-scan)
+5. **test-podman**: Loads artifact and runs Podman integration tests for OCI compliance (depends on security-scan)
+6. **check-release**: Checks for release labels on main branch pushes (depends on both test jobs)
+7. **release**: Tags and pushes tested artifact to GHCR, creates GitHub release (depends on check-release, conditional)
 
-Note: Both test jobs build independently (using shared cache from build job) to ensure isolation. The test-podman job exports the Docker-built image to a tar file and loads it into Podman's storage to verify cross-runtime compatibility.
+**Key improvements:**
+- Container is built once and reused across all jobs via artifacts
+- Security scanning happens before testing
+- Released images are identical to tested images
+- Proper job dependencies ensure pipeline flow
 
 **Paper JAR Caching**: Both test jobs use GitHub Actions cache to avoid re-downloading the Paper JAR on every run:
 - Cache key is based on Paper version and build number (e.g., `paper-jar-1.21.4-123`)
@@ -185,32 +191,31 @@ Note: Both test jobs build independently (using shared cache from build job) to 
 - Cached JARs are retained for 7 days (managed by cache-cleanup workflow)
 - Each test job maintains its own cache entry to avoid conflicts
 
+**Release Process**: 
+- Only runs on main branch when a PR with `release:major`, `release:minor`, or `release:patch` label is merged
+- Uses semantic versioning based on label
+- Pushes tested container to GHCR with version tag and latest tag
+- Creates GitHub release with tag and notes
+
 Runs on every push and PR.
 
-### 3. Release Workflow (`.github/workflows/release.yml`)
+### 3. Scheduled Security Scan (`.github/workflows/security-scan.yml`)
 
-Automated semantic versioning based on PR labels:
+Daily scheduled security scanning (separate from CI/CD pipeline):
 
-1. **Check Release Labels**: Scans merged PR for `release:major`, `release:minor`, or `release:patch`
-2. **Calculate Version**: Bumps version from latest git tag
-3. **Build and Push**: Builds container and pushes to GHCR with version tag
-4. **Create Release**: Tags commit and creates GitHub release
-
-**Only runs on main branch** when a PR with a release label is merged.
+- **Schedule**: Daily (03:00 UTC)
+- **Tool**: Trivy vulnerability scanner
+- **Output**: Table and JSON reports in logs, creates/updates issues for CRITICAL/HIGH vulnerabilities
+- Also runs on manual trigger (workflow_dispatch)
 
 ### 4. Dependency Monitoring Workflows
 
-The repository includes automated dependency monitoring and security scanning:
+The repository includes automated dependency monitoring:
 
 #### Dependency Check (`.github/workflows/dependency-check.yml`)
 - **Schedule**: Weekly (Mondays at 09:00 UTC)
 - **Checks**: mc-server-runner, rcon-cli, OpenTelemetry Java agent, Docker base image
 - **Output**: Creates/updates issues when updates available
-
-#### Security Scan (`.github/workflows/security-scan.yml`)
-- **Schedule**: Daily (03:00 UTC) + on push/PR
-- **Tool**: Trivy vulnerability scanner
-- **Output**: Table and JSON reports in logs, issues for CRITICAL/HIGH vulnerabilities (scheduled runs only)
 
 #### Pre-commit Updates (`.github/workflows/precommit-updates.yml`)
 - **Schedule**: Weekly (Mondays at 09:30 UTC)
@@ -320,13 +325,11 @@ Our OCI-compliant images work with:
 
 ### Verification
 
-Our CI pipeline includes a dedicated Podman test job (`test-podman` in `build-test.yml`) that:
+Our CI pipeline includes a dedicated Podman test job (`test-podman` in `ci-cd.yml`) that:
 1. Installs Podman on the test runner
-2. Builds the container with Docker Buildx (using shared cache)
-3. Exports the Docker-built image to a tar file
-4. Loads the tar into Podman's rootful storage
-5. Runs the same integration tests used for Docker
-6. Verifies the Paper server starts successfully with Podman
+2. Loads the pre-built container artifact (from the build job)
+3. Runs the same integration tests used for Docker
+4. Verifies the Paper server starts successfully with Podman
 
 This ensures every build is verified to work with both Docker and Podman, guaranteeing cross-runtime compatibility. The export/import process validates that the OCI image format is truly portable between runtimes.
 
@@ -361,7 +364,7 @@ The build process uses Docker Buildx with BuildKit:
 
 1. **Update TODO.md** - Document the feature requirements
 2. **Update README.md** - Add user-facing documentation
-3. **Add tests** - Update `.github/workflows/build-test.yml` if needed
+3. **Add tests** - Update `.github/workflows/ci-cd.yml` if needed
 4. **Test locally** - Build and run container with new feature
 5. **Create PR** - Use feature branch and add appropriate release label
 

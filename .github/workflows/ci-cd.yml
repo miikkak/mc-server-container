@@ -1,4 +1,4 @@
-name: Build and Test
+name: CI/CD Pipeline
 
 on:
   push:
@@ -54,7 +54,6 @@ jobs:
     name: Build Container
     runs-on: ubuntu-latest
     needs: hadolint
-    if: success() || failure()
 
     steps:
       - name: Checkout code
@@ -79,51 +78,89 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          push: false
+          outputs: type=docker,dest=/tmp/mc-server-container.tar
           tags: mc-server-container:test
           cache-from: |
             type=gha,scope=${{ github.ref }}
             type=gha,scope=refs/heads/main
           cache-to: type=gha,mode=max,scope=${{ github.ref }}
 
-  test:
-    name: Test Container with Docker
+      - name: Upload container artifact
+        if: steps.check_dockerfile.outputs.exists == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: container-image
+          path: /tmp/mc-server-container.tar
+          retention-days: 1
+
+  security-scan:
+    name: Security Scan
     runs-on: ubuntu-latest
     needs: build
-    if: success() || failure()
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
 
-      - name: Check if Dockerfile exists
-        id: check_dockerfile
-        run: |
-          if [ -f Dockerfile ]; then
-            echo "exists=true" >> $GITHUB_OUTPUT
-          else
-            echo "exists=false" >> $GITHUB_OUTPUT
-            echo "⚠️ Dockerfile not found, skipping tests"
-          fi
-
-      - name: Set up Docker Buildx
-        if: steps.check_dockerfile.outputs.exists == 'true'
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build container for testing
-        if: steps.check_dockerfile.outputs.exists == 'true'
-        uses: docker/build-push-action@v6
+      - name: Download container artifact
+        uses: actions/download-artifact@v4
         with:
-          context: .
-          load: true
-          tags: mc-server-container:test
-          cache-from: |
-            type=gha,scope=${{ github.ref }}
-            type=gha,scope=refs/heads/main
-          cache-to: type=gha,mode=max,scope=${{ github.ref }}
+          name: container-image
+          path: /tmp
+
+      - name: Load container image
+        run: |
+          docker load -i /tmp/mc-server-container.tar
+          docker images
+
+      - name: Run Trivy vulnerability scanner (table output)
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          image-ref: 'mc-server-container:test'
+          format: 'table'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+          exit-code: '0'  # Don't fail the workflow, just report
+
+      - name: Run Trivy vulnerability scanner (JSON output)
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          image-ref: 'mc-server-container:test'
+          format: 'json'
+          output: 'trivy-results.json'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0'  # Don't fail the workflow, just report
+
+      - name: Run Trivy config scanner (Dockerfile)
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          scan-type: 'config'
+          scan-ref: '.'
+          format: 'table'
+          exit-code: '0'  # Don't fail the workflow, just report
+
+  test:
+    name: Test Container with Docker
+    runs-on: ubuntu-latest
+    needs: security-scan
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Download container artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: container-image
+          path: /tmp
+
+      - name: Load container image
+        run: |
+          docker load -i /tmp/mc-server-container.tar
+          docker images
 
       - name: Get Paper version info
-        if: steps.check_dockerfile.outputs.exists == 'true'
         id: paper_version
         run: |
           echo "🔍 Querying Paper API for latest version..."
@@ -142,7 +179,6 @@ jobs:
           echo "📋 Paper ${PAPER_VERSION} build ${BUILD_NUMBER}"
 
       - name: Cache Paper JAR
-        if: steps.check_dockerfile.outputs.exists == 'true'
         id: cache_paper
         uses: actions/cache@v4
         with:
@@ -150,7 +186,7 @@ jobs:
           key: paper-jar-${{ steps.paper_version.outputs.version }}-${{ steps.paper_version.outputs.build }}
 
       - name: Download Paper JAR
-        if: steps.check_dockerfile.outputs.exists == 'true' && steps.cache_paper.outputs.cache-hit != 'true'
+        if: steps.cache_paper.outputs.cache-hit != 'true'
         run: |
           echo "⬇️  Downloading Paper JAR (cache miss)..."
           USER_AGENT="GitHub Actions for container build (miikka@iki.fi)"
@@ -176,7 +212,6 @@ jobs:
           echo "✅ Downloaded Paper JAR (${JAR_SIZE} bytes)"
 
       - name: Prepare test data
-        if: steps.check_dockerfile.outputs.exists == 'true'
         run: |
           echo "📦 Preparing test data directory"
           mkdir -p test-data
@@ -201,7 +236,6 @@ jobs:
           echo "✅ Permissions set"
 
       - name: Run integration tests
-        if: steps.check_dockerfile.outputs.exists == 'true'
         run: |
           echo "🧪 Starting integration test with real Paper server"
 
@@ -262,48 +296,26 @@ jobs:
   test-podman:
     name: Test Container with Podman (OCI Compliance)
     runs-on: ubuntu-latest
-    needs: build
-    if: success() || failure()
+    needs: security-scan
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
 
-      - name: Check if Dockerfile exists
-        id: check_dockerfile
-        run: |
-          if [ -f Dockerfile ]; then
-            echo "exists=true" >> $GITHUB_OUTPUT
-          else
-            echo "exists=false" >> $GITHUB_OUTPUT
-            echo "⚠️ Dockerfile not found, skipping Podman tests"
-          fi
+      - name: Download container artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: container-image
+          path: /tmp
 
       - name: Install Podman
-        if: steps.check_dockerfile.outputs.exists == 'true'
         run: |
           echo "📦 Installing Podman"
           sudo apt-get update
           sudo apt-get install -y podman
           podman --version
 
-      - name: Set up Docker Buildx
-        if: steps.check_dockerfile.outputs.exists == 'true'
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build container for Podman testing
-        if: steps.check_dockerfile.outputs.exists == 'true'
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          outputs: type=docker,dest=/tmp/mc-server-container.tar
-          tags: mc-server-container:test
-          cache-from: |
-            type=gha,scope=${{ github.ref }}
-            type=gha,scope=refs/heads/main
-
       - name: Load image into Podman
-        if: steps.check_dockerfile.outputs.exists == 'true'
         run: |
           echo "📥 Loading Docker image into Podman (rootful storage)"
           # Load with sudo to place image in rootful storage, since we run with sudo later
@@ -311,7 +323,6 @@ jobs:
           sudo podman images
 
       - name: Get Paper version info for Podman test
-        if: steps.check_dockerfile.outputs.exists == 'true'
         id: paper_version_podman
         run: |
           echo "🔍 Querying Paper API for latest version..."
@@ -330,7 +341,6 @@ jobs:
           echo "📋 Paper ${PAPER_VERSION} build ${BUILD_NUMBER}"
 
       - name: Cache Paper JAR for Podman test
-        if: steps.check_dockerfile.outputs.exists == 'true'
         id: cache_paper_podman
         uses: actions/cache@v4
         with:
@@ -338,7 +348,7 @@ jobs:
           key: paper-jar-${{ steps.paper_version_podman.outputs.version }}-${{ steps.paper_version_podman.outputs.build }}
 
       - name: Download Paper JAR for Podman test
-        if: steps.check_dockerfile.outputs.exists == 'true' && steps.cache_paper_podman.outputs.cache-hit != 'true'
+        if: steps.cache_paper_podman.outputs.cache-hit != 'true'
         run: |
           echo "⬇️  Downloading Paper JAR (cache miss)..."
           USER_AGENT="GitHub Actions for container build (miikka@iki.fi)"
@@ -364,7 +374,6 @@ jobs:
           echo "✅ Downloaded Paper JAR (${JAR_SIZE} bytes)"
 
       - name: Prepare test data for Podman
-        if: steps.check_dockerfile.outputs.exists == 'true'
         run: |
           echo "📦 Preparing test data directory for Podman"
           mkdir -p test-data-podman
@@ -389,7 +398,6 @@ jobs:
           echo "✅ Permissions set"
 
       - name: Run Podman integration tests
-        if: steps.check_dockerfile.outputs.exists == 'true'
         run: |
           echo "🧪 Starting Podman integration test (OCI compliance verification)"
 
@@ -449,3 +457,164 @@ jobs:
           sudo podman stop mc-test-podman
           sudo podman rm mc-test-podman
           sudo rm -rf test-data-podman
+
+  check-release:
+    name: Check Release Labels
+    runs-on: ubuntu-slim
+    # Only run on main branch pushes, after tests pass
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [test, test-podman]
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      should_release: ${{ steps.check.outputs.should_release }}
+      version_bump: ${{ steps.check.outputs.version_bump }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Check for release labels in recent commit
+        id: check
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const commit = context.sha;
+
+            // Get PRs associated with this commit
+            const prs = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: commit
+            });
+
+            if (prs.data.length === 0) {
+              console.log('No PR associated with this commit');
+              core.setOutput('should_release', 'false');
+              return;
+            }
+
+            const pr = prs.data[0];
+            const labels = pr.labels.map(l => l.name);
+
+            console.log('PR labels:', labels);
+
+            if (labels.includes('release:major')) {
+              core.setOutput('should_release', 'true');
+              core.setOutput('version_bump', 'major');
+            } else if (labels.includes('release:minor')) {
+              core.setOutput('should_release', 'true');
+              core.setOutput('version_bump', 'minor');
+            } else if (labels.includes('release:patch')) {
+              core.setOutput('should_release', 'true');
+              core.setOutput('version_bump', 'patch');
+            } else {
+              console.log('No release label found');
+              core.setOutput('should_release', 'false');
+            }
+
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    needs: check-release
+    if: needs.check-release.outputs.should_release == 'true'
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Download container artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: container-image
+          path: /tmp
+
+      - name: Load container image
+        run: |
+          docker load -i /tmp/mc-server-container.tar
+          docker images
+
+      - name: Get latest tag
+        id: get_tag
+        run: |
+          # Get latest tag or default to 0.0.0
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "latest_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+
+          # Remove 'v' prefix for version calculation
+          VERSION=${LATEST_TAG#v}
+          echo "current_version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Calculate new version
+        id: new_version
+        run: |
+          VERSION="${{ steps.get_tag.outputs.current_version }}"
+          BUMP="${{ needs.check-release.outputs.version_bump }}"
+
+          IFS='.' read -r major minor patch <<< "$VERSION"
+
+          if [ "$BUMP" = "major" ]; then
+            major=$((major + 1))
+            minor=0
+            patch=0
+          elif [ "$BUMP" = "minor" ]; then
+            minor=$((minor + 1))
+            patch=0
+          elif [ "$BUMP" = "patch" ]; then
+            patch=$((patch + 1))
+          fi
+
+          NEW_VERSION="$major.$minor.$patch"
+          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "tag=v$NEW_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tag and push container
+        run: |
+          VERSION="${{ steps.new_version.outputs.version }}"
+          
+          # Tag the tested image with version tags
+          docker tag mc-server-container:test ghcr.io/${{ github.repository }}:latest
+          docker tag mc-server-container:test ghcr.io/${{ github.repository }}:${VERSION}
+          
+          # Push both tags
+          docker push ghcr.io/${{ github.repository }}:latest
+          docker push ghcr.io/${{ github.repository }}:${VERSION}
+
+      - name: Create GitHub Release
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const tag = '${{ steps.new_version.outputs.tag }}';
+            const version = '${{ steps.new_version.outputs.version }}';
+
+            await github.rest.git.createRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: `refs/tags/${tag}`,
+              sha: context.sha
+            });
+
+            await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: tag,
+              name: `Release ${version}`,
+              body: `## Release ${version}\n\nDocker image: \`ghcr.io/${{ github.repository }}:${version}\`\n\nPull with:\n\`\`\`bash\ndocker pull ghcr.io/${{ github.repository }}:${version}\n\`\`\``,
+              draft: false,
+              prerelease: false
+            });

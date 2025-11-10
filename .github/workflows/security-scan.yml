@@ -1,21 +1,9 @@
-name: Security Scan
+name: Scheduled Security Scan
 
 on:
   schedule:
     # Run every day at 03:00 UTC
     - cron: '0 3 * * *'
-  push:
-    branches: [ main ]
-    paths:
-      - 'Dockerfile'
-      - 'scripts/**'
-      - 'docker-compose.yml'
-  pull_request:
-    branches: [ main ]
-    paths:
-      - 'Dockerfile'
-      - 'scripts/**'
-      - 'docker-compose.yml'
   workflow_dispatch: # Allow manual trigger
 
 permissions:
@@ -66,7 +54,6 @@ jobs:
           exit-code: '0'  # Don't fail the workflow, just report
 
       - name: Check for vulnerabilities and create issue
-        if: github.event_name == 'schedule'
         uses: actions/github-script@v8
         with:
           script: |
