@@ -86,7 +86,7 @@ if [ "${DISABLE_MEOWICE_FLAGS:-false}" != "true" ]; then
   JAVA_OPTS="$JAVA_OPTS -XX:G1SATBBufferEnqueueingThresholdPercent=30"
   JAVA_OPTS="$JAVA_OPTS -XX:G1ConcMarkStepDurationMillis=5"
   JAVA_OPTS="$JAVA_OPTS -XX:G1RSetUpdatingPauseTimePercent=0"
-  JAVA_OPTS="$JAVA_OPTS -XX:+UseNUMA"
+  # Note: -XX:+UseNUMA removed - not beneficial/available in containers
 
   # Compiler optimizations
   JAVA_OPTS="$JAVA_OPTS -XX:-DontCompileHugeMethods"
