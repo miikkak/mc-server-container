@@ -360,8 +360,23 @@ echo ""
 # ============================================================================
 read -r -a JAVA_OPTS <<<"${JAVA_OPTS}"
 
+# Configurable shutdown delays (matching itzg behavior)
+# STOP_SERVER_ANNOUNCE_DELAY: Optional delay after announcing shutdown (default: none)
+#   - If set, announces "Server shutting down in X seconds" and waits
+#   - If unset, stops immediately without announcement (like itzg)
+# STOP_DURATION: Max time to wait for graceful shutdown after stop command (default: 60s)
+
+# Build mc-server-runner arguments
+MC_SERVER_RUNNER_ARGS="--named-pipe /tmp/minecraft-console"
+
+# Only add announce delay if explicitly configured
+if [ -n "${STOP_SERVER_ANNOUNCE_DELAY:-}" ]; then
+  MC_SERVER_RUNNER_ARGS="$MC_SERVER_RUNNER_ARGS --stop-server-announce-delay $STOP_SERVER_ANNOUNCE_DELAY"
+fi
+
+# Always include stop duration
+MC_SERVER_RUNNER_ARGS="$MC_SERVER_RUNNER_ARGS --stop-duration ${STOP_DURATION:-60s}"
+
 exec mc-server-runner \
-  --named-pipe /tmp/minecraft-console \
-  --stop-server-announce-delay 30s \
-  --stop-duration 60s \
+  $MC_SERVER_RUNNER_ARGS \
   java "${JAVA_OPTS[@]}" -jar paper.jar --nogui
