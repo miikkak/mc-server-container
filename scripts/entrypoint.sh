@@ -36,7 +36,7 @@ fi
 
 # Try to find latest paper.jar
 if ! latest=$(find /data -maxdepth 1 -type f -name 'paper-*.jar' |
-  grep -E 'paper-[0-9]+\.[0-9]+\.[0-9]+-[0-9]+\.jar$' |
+  grep -E 'paper-[0-9]+\.[0-9]+(\.[0-9]+)?-[0-9]+\.jar$' |
   sort -V |
   tail -n 1); then
   # Check Paper JAR
