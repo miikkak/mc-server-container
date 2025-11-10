@@ -356,9 +356,15 @@ echo ""
 # Start Server with mc-server-runner
 # ============================================================================
 
+# Configurable shutdown delays
+# STOP_SERVER_ANNOUNCE_DELAY: Time to wait after announcing shutdown (default: 5s)
+# STOP_DURATION: Max time to wait for graceful shutdown after stop command (default: 60s)
+STOP_SERVER_ANNOUNCE_DELAY="${STOP_SERVER_ANNOUNCE_DELAY:-5s}"
+STOP_DURATION="${STOP_DURATION:-60s}"
+
 # shellcheck disable=SC2086
 exec mc-server-runner \
   --named-pipe /tmp/minecraft-console \
-  --stop-server-announce-delay 30s \
-  --stop-duration 60s \
+  --stop-server-announce-delay "$STOP_SERVER_ANNOUNCE_DELAY" \
+  --stop-duration "$STOP_DURATION" \
   java $JAVA_OPTS -jar paper.jar --nogui
