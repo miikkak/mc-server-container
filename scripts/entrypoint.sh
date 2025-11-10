@@ -86,7 +86,12 @@ if [ "${DISABLE_MEOWICE_FLAGS:-false}" != "true" ]; then
   JAVA_OPTS="$JAVA_OPTS -XX:G1SATBBufferEnqueueingThresholdPercent=30"
   JAVA_OPTS="$JAVA_OPTS -XX:G1ConcMarkStepDurationMillis=5"
   JAVA_OPTS="$JAVA_OPTS -XX:G1RSetUpdatingPauseTimePercent=0"
-  # Note: -XX:+UseNUMA removed - not beneficial/available in containers
+
+  # Auto-detect NUMA and enable optimization if available
+  # NUMA is typically not available in standard containers, but detect it just in case
+  if [ -d /sys/devices/system/node/node1 ]; then
+    JAVA_OPTS="$JAVA_OPTS -XX:+UseNUMA"
+  fi
 
   # Compiler optimizations
   JAVA_OPTS="$JAVA_OPTS -XX:-DontCompileHugeMethods"
@@ -265,4 +270,4 @@ echo ""
 exec mc-server-runner \
   --named-pipe /tmp/minecraft-console \
   --stop-server-announce-delay 30s \
-  java $JAVA_OPTS -jar paper.jar
+  java $JAVA_OPTS -jar paper.jar --nogui
