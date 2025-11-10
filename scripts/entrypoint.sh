@@ -294,6 +294,7 @@ setup_rcon_password() {
 
   # Export RCON configuration for mc-server-runner
   if [ "$rcon_enabled" = "true" ] && [ -n "$rcon_password" ]; then
+    export ENABLE_RCON="TRUE"
     export RCON_PASSWORD="$rcon_password"
     export RCON_PORT="$rcon_port"
 
