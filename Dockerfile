@@ -61,8 +61,9 @@ COPY --from=downloader --chown=root:root --chmod=755 /downloads/rcon-cli /usr/lo
 COPY --chown=root:root --chmod=755 scripts/mc-health /usr/local/bin/mc-health
 COPY --chown=root:root --chmod=755 scripts/mc-send-to-console /usr/local/bin/mc-send-to-console
 
-# Copy entrypoint script to /scripts/ (with execute permissions)
+# Copy entrypoint and functions.sh scripts to /scripts/ (with execute permissions)
 COPY --chown=root:root --chmod=755 scripts/entrypoint.sh /scripts/entrypoint.sh
+COPY --chown=root:root --chmod=644 scripts/functions.sh /scripts/functions.sh
 
 # Set working directory (overrides the base image's /app WORKDIR, which we don't use)
 WORKDIR /data

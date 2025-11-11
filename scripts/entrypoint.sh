@@ -2,8 +2,16 @@
 # shellcheck shell=bash
 # Custom Minecraft Server Container Entrypoint
 # Runs Paper server with GraalVM and optimized MeowIce flags
-
 set -euo pipefail
+
+FUNCTIONS="/scripts/functions.sh"
+if [ -r "$FUNCTIONS" ]; then
+  # shellcheck source=./functions.sh
+  . "$FUNCTIONS"
+else
+  echo "❌ Fatal: common library not found: $FUNCTIONS" >&2
+  exit 1
+fi
 
 cd /data
 
@@ -199,32 +207,9 @@ fi
 # OpenTelemetry Java Agent (Default: ENABLED)
 # Disable with: DISABLE_OTEL_AGENT=true (for troubleshooting)
 # ============================================================================
-if [ "${DISABLE_OTEL_AGENT:-false}" != "true" ]; then
-  # Set sensible OpenTelemetry defaults (user can override any of these)
-  export OTEL_SERVICE_NAME="${OTEL_SERVICE_NAME:-minecraft-server}"
-  export OTEL_EXPORTER_OTLP_PROTOCOL="${OTEL_EXPORTER_OTLP_PROTOCOL:-grpc}"
-  export OTEL_INSTRUMENTATION_RUNTIME_TELEMETRY_ENABLED="${OTEL_INSTRUMENTATION_RUNTIME_TELEMETRY_ENABLED:-true}"
-  export OTEL_INSTRUMENTATION_RUNTIME_METRICS_ENABLED="${OTEL_INSTRUMENTATION_RUNTIME_METRICS_ENABLED:-true}"
-  export OTEL_METRIC_EXPORT_INTERVAL="${OTEL_METRIC_EXPORT_INTERVAL:-60000}"
-  export OTEL_TRACES_SAMPLER="${OTEL_TRACES_SAMPLER:-parentbased_traceidratio}"
-  export OTEL_TRACES_SAMPLER_ARG="${OTEL_TRACES_SAMPLER_ARG:-0.1}"
-
-  if [ -f /opt/opentelemetry-javaagent.jar ]; then
-    echo "📊 OpenTelemetry Java agent: ENABLED"
-    echo "   Service name: ${OTEL_SERVICE_NAME}"
-    if [ -n "${OTEL_EXPORTER_OTLP_ENDPOINT:-}" ]; then
-      echo "   Exporter endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT}"
-    else
-      echo "   ⚠️  Note: OTEL_EXPORTER_OTLP_ENDPOINT not set - metrics will not be exported"
-    fi
-    JAVA_OPTS="$JAVA_OPTS -javaagent:/opt/opentelemetry-javaagent.jar"
-  else
-    echo "⚠️  Warning: OpenTelemetry agent not found at /opt/opentelemetry-javaagent.jar"
-    echo "   This may indicate an image build issue. Please verify you are using the latest image or rebuild the container."
-    echo "   OpenTelemetry instrumentation will not be available."
-  fi
-else
-  echo "⚙️  OpenTelemetry Java agent: DISABLED"
+configure_otel_agent
+if [ "${JAVA_AGENT:-false}" = "true" ]; then
+  JAVA_OPTS="$JAVA_OPTS -javaagent:/opt/opentelemetry-javaagent.jar"
 fi
 
 # ============================================================================
