@@ -13,19 +13,10 @@ else
   exit 1
 fi
 
-export LANG="C.UTF8"
-export LC_CTYPE="C.UTF8"
-export LC_NUMERIC="C.UTF8"
-export LC_TIME="C.UTF8"
-export LC_COLLATE="C.UTF8"
-export LC_MONETARY="C.UTF8"
-export LC_MESSAGES="C.UTF8"
-export LC_PAPER="C.UTF8"
-export LC_NAME="C.UTF8"
-export LC_ADDRESS="C.UTF8"
-export LC_TELEPHONE="C.UTF8"
-export LC_MEASUREMENT="C.UTF8"
-export LC_IDENTIFICATION="C.UTF8"
+# Set UTF-8 locale for proper unicode/emoji character display in console logs
+# Use C.UTF-8 which provides UTF-8 support without language-specific behavior
+# Only set LANG - system will derive other LC_* variables automatically
+export LANG="C.UTF-8"
 
 cd /data
 
@@ -86,6 +77,21 @@ echo "✅ Paper JAR found: ${JAR}"
 # Memory configuration
 MEMORY="${MEMORY:-16G}"
 JAVA_OPTS="-Xms${MEMORY} -Xmx${MEMORY}"
+
+# ============================================================================
+# Java Locale and Terminal Configuration
+# ============================================================================
+# Explicitly set Java locale properties to ensure proper language detection
+# and unicode/emoji support in console logs (fixes Floodgate "en_" warning)
+JAVA_OPTS="$JAVA_OPTS -Duser.language=en"
+JAVA_OPTS="$JAVA_OPTS -Duser.country=US"
+JAVA_OPTS="$JAVA_OPTS -Dfile.encoding=UTF-8"
+
+# Terminal configuration for proper ANSI color support
+# - terminal.jline=false: Disables JLine advanced terminal features (avoids warnings in container)
+# - terminal.ansi=true: Forces ANSI color codes for log levels (warnings=yellow, errors=red)
+JAVA_OPTS="$JAVA_OPTS -Dterminal.jline=false"
+JAVA_OPTS="$JAVA_OPTS -Dterminal.ansi=true"
 
 # ============================================================================
 # MeowIce G1GC Flags (Default: ENABLED)
