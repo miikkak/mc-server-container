@@ -382,7 +382,7 @@ mc-server-container/
 │   └── update-plugins.sh  # Plugin update helper
 ├── .github/
 │   └── workflows/         # GitHub Actions CI/CD
-├── TODO.MD                # Detailed project plan and goals
+├── TODO.md                # Detailed project plan and goals
 └── CLAUDE.md              # Development guide for Claude Code
 ```
 
