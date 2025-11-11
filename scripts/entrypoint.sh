@@ -207,45 +207,9 @@ fi
 # OpenTelemetry Java Agent (Default: ENABLED)
 # Disable with: DISABLE_OTEL_AGENT=true (for troubleshooting)
 # ============================================================================
-if [ "${DISABLE_OTEL_AGENT:-false}" != "true" ]; then
-  if [ -n "${OTEL_JAVAAGENT_CONFIGURATION_FILE:-}" ]; then
-    if [ -f "${OTEL_JAVAAGENT_CONFIGURATION_FILE}" ]; then
-      if grep -q ^otel.service.name "${OTEL_JAVAAGENT_CONFIGURATION_FILE}"; then
-        if grep -q ^otel.exporter.otlp.endpoint "${OTEL_JAVAAGENT_CONFIGURATION_FILE}"; then
-          if [ -f /opt/opentelemetry-javaagent.jar ]; then
-            echo "📊 OpenTelemetry Java agent: ENABLED"
-            echo "   Service name: $(get_properties_config_value "otel\.service\.name" "$OTEL_JAVAAGENT_CONFIGURATION_FILE")"
-            echo "   Exporter endpoint: $(get_properties_config_value "otel\.exporter\.otlp\.endpoint" "$OTEL_JAVAAGENT_CONFIGURATION_FILE")"
-            JAVA_OPTS="$JAVA_OPTS -javaagent:/opt/opentelemetry-javaagent.jar"
-          else
-            echo "⚠️  Warning: OpenTelemetry agent not found at /opt/opentelemetry-javaagent.jar"
-            echo "   This may indicate an image build issue. Please verify you are using the latest image or rebuild the container."
-            echo "   OpenTelemetry instrumentation will not be available."
-          fi
-        else
-          echo "⚠️  Warning: OpenTelemetry agent OTLP endpoint not configured"
-          echo "   Likely a configuration issue with ${OTEL_JAVAAGENT_CONFIGURATION_FILE}"
-          echo "   OpenTelemetry instrumentation will not be available."
-        fi
-      else
-        echo "⚠️  Warning: OpenTelemetry agent service name not configured"
-        echo "   Likely a configuration issue with ${OTEL_JAVAAGENT_CONFIGURATION_FILE}"
-        echo "   OpenTelemetry instrumentation will not be available."
-      fi
-    else
-      echo "⚠️  Warning: OpenTelemetry agent config file not found"
-      echo "   Likely a missing configuration file or wrong configuration for OTEL_JAVAAGENT_CONFIGURATION_FILE"
-      echo "   OpenTelemetry instrumentation will not be available."
-    fi
-  else
-    echo "⚠️  Warning: OpenTelemetry agent config file not set"
-    echo "   Likely a missing setting for OTEL_JAVAAGENT_CONFIGURATION_FILE in container configuration"
-    echo "   OpenTelemetry instrumentation will not be available."
-  fi
-else
-  echo "⚙️  OpenTelemetry Java agent: DISABLED"
-  echo "   DISABLE_OTEL_AGENT has been set to true in container configuration"
-  echo "   OpenTelemetry instrumentation will not be available."
+configure_otel_agent
+if [ "${JAVA_AGENT}" == "true" ]; then
+  JAVA_OPTS="$JAVA_OPTS -javaagent:/opt/opentelemetry-javaagent.jar"
 fi
 
 # ============================================================================

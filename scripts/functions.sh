@@ -10,6 +10,7 @@ get_properties_config_value() {
   local config_file="$2"
   grep "^${property}[[:space:]]*=" "$config_file" |
     grep -v "^[[:space:]]*#" |
+    head -n 1 |
     sed "s/^${property}[[:space:]]*=[[:space:]]*//;s/^[\"']\(.*\)[\"']$/\1/;s/[[:space:]]*$//"
 }
 
@@ -75,5 +76,5 @@ configure_otel_agent() {
   echo "📊 OpenTelemetry Java agent: ENABLED"
   echo "   Service name: ${service_name}"
   echo "   Exporter endpoint: ${exporter_endpoint}"
-  JAVA_OPTS="$JAVA_OPTS -javaagent:/opt/opentelemetry-javaagent.jar"
+  export JAVA_AGENT="true"
 }
