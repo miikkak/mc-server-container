@@ -52,8 +52,8 @@ configure_otel_agent() {
 
   # Read required config values (handle failures gracefully)
   local service_name exporter_endpoint
-  service_name=$(get_properties_config_value "otel\.service\.name" "$OTEL_JAVAAGENT_CONFIGURATION_FILE" || echo "")
-  exporter_endpoint=$(get_properties_config_value "otel\.exporter\.otlp\.endpoint" "$OTEL_JAVAAGENT_CONFIGURATION_FILE" || echo "")
+  service_name=$(get_properties_config_value "otel.service.name" "$OTEL_JAVAAGENT_CONFIGURATION_FILE" || echo "")
+  exporter_endpoint=$(get_properties_config_value "otel.exporter.otlp.endpoint" "$OTEL_JAVAAGENT_CONFIGURATION_FILE" || echo "")
 
   # Check service name configuration
   if [ -z "$service_name" ]; then
