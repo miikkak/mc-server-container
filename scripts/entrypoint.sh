@@ -13,6 +13,20 @@ else
   exit 1
 fi
 
+export LANG="C.UTF8"
+export LC_CTYPE="C.UTF8"
+export LC_NUMERIC="C.UTF8"
+export LC_TIME="C.UTF8"
+export LC_COLLATE="C.UTF8"
+export LC_MONETARY="C.UTF8"
+export LC_MESSAGES="C.UTF8"
+export LC_PAPER="C.UTF8"
+export LC_NAME="C.UTF8"
+export LC_ADDRESS="C.UTF8"
+export LC_TELEPHONE="C.UTF8"
+export LC_MEASUREMENT="C.UTF8"
+export LC_IDENTIFICATION="C.UTF8"
+
 cd /data
 
 # ============================================================================
