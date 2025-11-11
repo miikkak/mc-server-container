@@ -184,7 +184,7 @@ Runs on every push and PR when `**.sh` files change:
 
 - **Runner**: ubuntu-slim
 - Finds all `.sh` files
-- Changes into each script's directory before running shellcheck
+- Changes into each script's directory before running ShellCheck
 - Uses `--external-sources` flag for sourced files
 - Labels PRs with `shellcheck` on success
 - Fails build if any warnings/errors found
