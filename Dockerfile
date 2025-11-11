@@ -1,5 +1,6 @@
 # Custom Minecraft Server Container
 # Multi-stage build for minimal final image
+# Optimized CI/CD workflow with label-based gating
 
 # ============================================================================
 # Stage 1: Download binaries
