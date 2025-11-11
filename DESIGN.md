@@ -128,7 +128,7 @@ Configuration includes:
 **Included in Container:**
 - ✅ `mc-server-runner` - Process supervisor (from itzg)
 - ✅ `rcon-cli` - RCON client (from itzg)
-- ✅ `mc-send-to-console` - Console command script (simple bash)
+- ✅ `mc-send-to-console.sh` - Console command script (simple bash)
 
 **NOT Included (User Manages):**
 - ❌ `download-paper.sh` - User downloads manually or uses check-minecraft-versions
@@ -149,7 +149,7 @@ Configuration includes:
 ### Functionality Targets
 4. ✅ All 22 plugins load successfully
 5. ✅ RCON access works (`rcon-cli`)
-6. ✅ Console commands work (`mc-send-to-console`)
+6. ✅ Console commands work (`mc-send-to-console.sh`)
 7. ✅ OpenTelemetry metrics collection continues
 8. ✅ Graceful shutdown preserves world data
 9. ✅ Offline operation (boots without internet access)
@@ -173,7 +173,7 @@ Configuration includes:
    - Hardcoded MeowIce G1GC flags
    - OpenTelemetry agent integration (conditional)
    - mc-server-runner execution
-3. Create `scripts/mc-send-to-console` script
+3. Create `scripts/mc-send-to-console.sh` script
 4. Set up minecraft user (UID 25565, GID 25565)
 5. Configure permissions for /data
 
@@ -186,7 +186,7 @@ Configuration includes:
 2. Create example `docker-compose.yml` with JVM/infrastructure config
 3. Test with fresh Paper 1.21.10 download
 4. Verify RCON functionality
-5. Verify mc-send-to-console functionality
+5. Verify mc-send-to-console.sh functionality
 6. Test graceful shutdown (SIGTERM handling)
 7. Measure boot time
 
@@ -230,7 +230,7 @@ mc-server-container/
 ├── docker-compose.yml              # Example infrastructure config
 ├── scripts/
 │   ├── entrypoint.sh              # Main entrypoint
-│   └── mc-send-to-console         # Console command wrapper
+│   └── mc-send-to-console.sh      # Console command wrapper
 ├── .github/                        # CI/CD (already complete)
 ├── README.md                       # User documentation
 ├── DESIGN.md                       # This file

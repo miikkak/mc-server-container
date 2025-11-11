@@ -206,7 +206,7 @@ rcon.password=a1b2c3d4e5f6g7h8i9j0k1l2
 ### Send Console Commands
 
 ```bash
-docker exec minecraft-server mc-send-to-console "say Hello players!"
+docker exec minecraft-server mc-send-to-console.sh "say Hello players!"
 ```
 
 ## Troubleshooting
