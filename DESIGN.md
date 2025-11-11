@@ -235,7 +235,7 @@ mc-server-container/
 ├── README.md                       # User documentation
 ├── DESIGN.md                       # This file
 ├── MIGRATION.md                    # Migration guide (to create)
-└── TODO.MD                         # Original project definition
+└── TODO.md                         # Original project definition
 
 /srv/minecraft/                     # Mount point (user manages)
 ├── eula.txt

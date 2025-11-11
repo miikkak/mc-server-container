@@ -63,7 +63,7 @@ mc-server-container/
 ├── .gitignore                     # Git ignore patterns
 ├── README.md                      # User-facing documentation
 ├── SECURITY.md                    # Security policy and reporting
-├── TODO.MD                        # Detailed implementation plan
+├── TODO.md                        # Detailed implementation plan
 ├── CLAUDE.md                      # This file
 ├── LICENSE                        # MIT License
 └── SETUP_GUIDE.md                 # Initial setup notes (can be removed)
