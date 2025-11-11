@@ -19,7 +19,9 @@ services:
       - "25565:25565/udp"  # Minecraft server (UDP)
       - "25575:25575/tcp"  # RCON
 
-    # Volume mount (ensure /data contains paper.jar, eula.txt, and server configs)
+    # Volume mount
+    # IMPORTANT: Before first run, create ./data/eula.txt with content: eula=true
+    # Ensure ./data contains: paper.jar, eula.txt, and server configs
     volumes:
       - ./data:/data
 
@@ -29,12 +31,18 @@ services:
       MEMORY: "16G"
 
       # OpenTelemetry configuration (optional)
-      # The agent is ENABLED by default with sensible defaults.
-      # You only need to set the endpoint and optionally the service name.
-      # All other OTEL_* variables have sensible defaults but can be overridden.
-      OTEL_SERVICE_NAME: "minecraft-server"           # Default: "minecraft-server"
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
-      # OTEL_RESOURCE_ATTRIBUTES: "deployment.environment=production"  # Optional
+      # The agent is ENABLED by default but requires a configuration file.
+      # Create /data/otel-config.properties with your settings, then set:
+      OTEL_JAVAAGENT_CONFIGURATION_FILE: "/data/otel-config.properties"
+      #
+      # Example /data/otel-config.properties content:
+      # otel.service.name=minecraft-server
+      # otel.exporter.otlp.endpoint=http://otel-collector:4317
+      # otel.exporter.otlp.protocol=grpc
+      # otel.resource.attributes=deployment.environment=production
+      # otel.metrics.exporter=otlp
+      # otel.logs.exporter=otlp
+      # otel.traces.exporter=otlp
 
       # Advanced JVM tuning (uncomment for troubleshooting only)
       # DISABLE_MEOWICE_FLAGS: "true"          # Disable MeowIce G1GC optimizations
@@ -74,9 +82,8 @@ services:
 #
 #     environment:
 #       MEMORY: "16G"
-#       OTEL_SERVICE_NAME: "minecraft-cubeschool"
-#       OTEL_EXPORTER_OTLP_ENDPOINT: "http://172.18.0.1:4317"
-#       OTEL_RESOURCE_ATTRIBUTES: "service.namespace=minecraft,deployment.environment=production"
+#       OTEL_JAVAAGENT_CONFIGURATION_FILE: "/data/otel-config.properties"
+#       # Create /data/otel-config.properties with your OpenTelemetry settings
 #
 #     deploy:
 #       resources:

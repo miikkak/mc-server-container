@@ -63,7 +63,7 @@ mc-server-container/
 ├── .gitignore                     # Git ignore patterns
 ├── README.md                      # User-facing documentation
 ├── SECURITY.md                    # Security policy and reporting
-├── TODO.md                        # Detailed implementation plan
+├── TODO.MD                        # Detailed implementation plan
 ├── CLAUDE.md                      # This file
 ├── LICENSE                        # MIT License
 └── SETUP_GUIDE.md                 # Initial setup notes (can be removed)
@@ -328,13 +328,23 @@ This container focuses on **JVM configuration only**. Minecraft-specific configu
 - `DISABLE_MEOWICE_GRAALVM_FLAGS` - Disable GraalVM-specific optimizations (default: enabled)
 - `JAVA_OPTS_CUSTOM` - Add custom JVM options (appended to generated flags)
 
-**OpenTelemetry (enabled by default with sensible defaults):**
-- `OTEL_SERVICE_NAME` - Service name (default: `minecraft-server`)
-- `OTEL_EXPORTER_OTLP_ENDPOINT` - OTLP collector endpoint (required for export)
-- `OTEL_EXPORTER_OTLP_PROTOCOL` - Protocol (default: `grpc`)
-- `OTEL_RESOURCE_ATTRIBUTES` - Resource attributes (optional)
-- `DISABLE_OTEL_AGENT` - Disable OpenTelemetry agent (default: enabled)
-- All standard `OTEL_*` variables can be set to override defaults
+**OpenTelemetry (enabled by default, requires configuration file):**
+- `OTEL_JAVAAGENT_CONFIGURATION_FILE` - Path to OpenTelemetry Java agent configuration file (required for agent to load)
+  - Example: `/data/otel-config.properties`
+  - File must contain at minimum: `otel.service.name` and `otel.exporter.otlp.endpoint`
+  - See Java agent documentation for all available properties
+- `DISABLE_OTEL_AGENT` - Disable OpenTelemetry agent entirely (default: enabled)
+
+**Example configuration file (`/data/otel-config.properties`):**
+```properties
+otel.service.name=minecraft-server
+otel.exporter.otlp.endpoint=http://otel-collector:4317
+otel.exporter.otlp.protocol=grpc
+otel.resource.attributes=deployment.environment=production
+otel.metrics.exporter=otlp
+otel.logs.exporter=otlp
+otel.traces.exporter=otlp
+```
 
 **Note:** The container does NOT handle Minecraft-specific configuration via environment variables. Use `/data/server.properties` and other Minecraft config files for server settings, or use helper scripts from the `check-minecraft-versions` repository.
 
@@ -391,7 +401,7 @@ The build process uses Docker Buildx with BuildKit:
 
 ### When Working on Scripts
 
-1. **Always read TODO.md** - Contains detailed implementation requirements
+1. **Always read TODO.MD** - Contains detailed implementation requirements
 2. **Use existing patterns** - Check other bash repos (scripts/, check-minecraft-versions/) for patterns
 3. **Test with ShellCheck** - Run `shellcheck --external-sources script.sh` before committing
 4. **Format with shfmt** - Run `shfmt -i 2 -ci -w script.sh`
@@ -407,7 +417,7 @@ The build process uses Docker Buildx with BuildKit:
 
 ### When Adding Features
 
-1. **Update TODO.md** - Document the feature requirements
+1. **Update TODO.MD** - Document the feature requirements
 2. **Update README.md** - Add user-facing documentation
 3. **Add tests** - Update `.github/workflows/ci-cd.yml` if needed
 4. **Test locally** - Build and run container with new feature
@@ -571,7 +581,7 @@ When developing, consider how changes might affect:
 
 ## Notes for Claude Code
 
-- **TODO.md** contains the full project plan and requirements - always consult it
+- **TODO.MD** contains the full project plan and requirements - always consult it
 - This is a **container repository**, not a script repository - focus on Docker best practices
 - **Never commit to main** - pre-commit hooks enforce this
 - **ShellCheck and hadolint are mandatory** - all scripts and Dockerfiles must pass

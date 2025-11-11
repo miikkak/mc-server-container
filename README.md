@@ -133,10 +133,18 @@ MEMORY: "16G"  # Default: 16G
 
 **OpenTelemetry (enabled by default):**
 ```yaml
-OTEL_SERVICE_NAME: "minecraft-server"              # Default: "minecraft-server"
-OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel:4317"    # Required for metrics export
-OTEL_RESOURCE_ATTRIBUTES: "env=production"         # Optional
-# All other OTEL_* variables have sensible defaults but can be overridden
+# OpenTelemetry requires a configuration file mounted at /data/otel-config.properties
+# The entrypoint reads this file to configure the Java agent
+OTEL_JAVAAGENT_CONFIGURATION_FILE: "/data/otel-config.properties"
+
+# Example /data/otel-config.properties content:
+# otel.service.name=minecraft-server
+# otel.exporter.otlp.endpoint=http://otel-collector:4317
+# otel.exporter.otlp.protocol=grpc
+# otel.resource.attributes=deployment.environment=production
+# otel.metrics.exporter=otlp
+# otel.logs.exporter=otlp
+# otel.traces.exporter=otlp
 ```
 
 **Troubleshooting JVM Performance (for debugging only):**
@@ -151,8 +159,8 @@ JAVA_OPTS_CUSTOM: "-Xlog:gc*"         # Add custom JVM options
 ```yaml
 environment:
   MEMORY: "16G"
-  OTEL_SERVICE_NAME: "my-minecraft-server"
-  OTEL_EXPORTER_OTLP_ENDPOINT: "http://172.18.0.1:4317"
+  OTEL_JAVAAGENT_CONFIGURATION_FILE: "/data/otel-config.properties"
+# Then create /data/otel-config.properties with your OpenTelemetry settings
 ```
 
 See `docker-compose.yml` for a complete example.
