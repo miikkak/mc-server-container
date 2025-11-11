@@ -31,7 +31,7 @@ services:
       MEMORY: "16G"
 
       # OpenTelemetry configuration (optional)
-      # The agent is ENABLED by default but requires a configuration file.
+      # The agent is available by default but requires a configuration file to be enabled.
       # Create /data/otel-config.properties with your settings, then set:
       OTEL_JAVAAGENT_CONFIGURATION_FILE: "/data/otel-config.properties"
       #

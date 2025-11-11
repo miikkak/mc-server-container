@@ -131,7 +131,7 @@ This container focuses on **JVM configuration only**. Minecraft-specific setting
 MEMORY: "16G"  # Default: 16G
 ```
 
-**OpenTelemetry (enabled by default):**
+**OpenTelemetry (included by default, requires configuration to enable):**
 ```yaml
 # OpenTelemetry requires a configuration file mounted at /data/otel-config.properties
 # The entrypoint reads this file to configure the Java agent
@@ -382,7 +382,7 @@ mc-server-container/
 │   └── update-plugins.sh  # Plugin update helper
 ├── .github/
 │   └── workflows/         # GitHub Actions CI/CD
-├── TODO.md                # Detailed project plan and goals
+├── TODO.MD                # Detailed project plan and goals
 └── CLAUDE.md              # Development guide for Claude Code
 ```
 

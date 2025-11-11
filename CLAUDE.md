@@ -328,7 +328,7 @@ This container focuses on **JVM configuration only**. Minecraft-specific configu
 - `DISABLE_MEOWICE_GRAALVM_FLAGS` - Disable GraalVM-specific optimizations (default: enabled)
 - `JAVA_OPTS_CUSTOM` - Add custom JVM options (appended to generated flags)
 
-**OpenTelemetry (enabled by default, requires configuration file):**
+**OpenTelemetry (included by default, requires configuration to enable):**
 - `OTEL_JAVAAGENT_CONFIGURATION_FILE` - Path to OpenTelemetry Java agent configuration file (required for agent to load)
   - Example: `/data/otel-config.properties`
   - File must contain at minimum: `otel.service.name` and `otel.exporter.otlp.endpoint`
