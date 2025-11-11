@@ -79,13 +79,19 @@ MEMORY="${MEMORY:-16G}"
 JAVA_OPTS="-Xms${MEMORY} -Xmx${MEMORY}"
 
 # ============================================================================
-# Java Locale Configuration
+# Java Locale and Terminal Configuration
 # ============================================================================
 # Explicitly set Java locale properties to ensure proper language detection
 # and unicode/emoji support in console logs (fixes Floodgate "en_" warning)
 JAVA_OPTS="$JAVA_OPTS -Duser.language=en"
 JAVA_OPTS="$JAVA_OPTS -Duser.country=US"
 JAVA_OPTS="$JAVA_OPTS -Dfile.encoding=UTF-8"
+
+# Terminal configuration for proper ANSI color support
+# - terminal.jline=false: Disables JLine advanced terminal features (avoids warnings in container)
+# - terminal.ansi=true: Forces ANSI color codes for log levels (warnings=yellow, errors=red)
+JAVA_OPTS="$JAVA_OPTS -Dterminal.jline=false"
+JAVA_OPTS="$JAVA_OPTS -Dterminal.ansi=true"
 
 # ============================================================================
 # MeowIce G1GC Flags (Default: ENABLED)
