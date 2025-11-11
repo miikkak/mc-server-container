@@ -12,6 +12,7 @@ on:
       - '.github/dependabot.yml'
       - '.github/workflows/**'
   pull_request:
+    types: [opened, reopened, labeled]
     branches: [ main ]
     paths-ignore:
       - '**.md'
@@ -23,9 +24,43 @@ on:
       - '.github/workflows/**'
 
 jobs:
-  hadolint:
+  check-trigger:
+    name: Check if CI/CD should run
+    runs-on: ubuntu-slim
+    outputs:
+      should_run: ${{ steps.check.outputs.should_run }}
+    steps:
+      - name: Check trigger conditions
+        id: check
+        run: |
+          # Always run on push to main
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            echo "✅ Running CI/CD pipeline (push to main)"
+            echo "should_run=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # For PRs, only run if ci/ready label is present
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            if [[ "${{ contains(github.event.pull_request.labels.*.name, 'ci/ready') }}" == "true" ]]; then
+              echo "✅ Running CI/CD pipeline (ci/ready label present)"
+              echo "should_run=true" >> $GITHUB_OUTPUT
+            else
+              echo "⏭️  Skipping CI/CD pipeline (ci/ready label not present)"
+              echo "💡 Add the 'ci/ready' label to trigger full build, scan, and test pipeline"
+              echo "should_run=false" >> $GITHUB_OUTPUT
+            fi
+            exit 0
+          fi
+
+          # Fallback: don't run
+          echo "should_run=false" >> $GITHUB_OUTPUT
+
+  lint-dockerfile:
     name: Lint Dockerfile
     runs-on: ubuntu-latest
+    needs: check-trigger
+    if: needs.check-trigger.outputs.should_run == 'true'
 
     steps:
       - name: Checkout code
@@ -53,7 +88,7 @@ jobs:
   build:
     name: Build Container
     runs-on: ubuntu-latest
-    needs: hadolint
+    needs: lint-dockerfile
 
     steps:
       - name: Checkout code
@@ -140,7 +175,7 @@ jobs:
           format: 'table'
           exit-code: '0'  # Don't fail the workflow, just report
 
-  test:
+  test-docker:
     name: Test Container with Docker
     runs-on: ubuntu-latest
     needs: security-scan
@@ -463,7 +498,7 @@ jobs:
     runs-on: ubuntu-slim
     # Only run on main branch pushes, after tests pass
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [test, test-podman]
+    needs: [test-docker, test-podman]
     permissions:
       contents: read
       pull-requests: read
@@ -586,11 +621,11 @@ jobs:
       - name: Tag and push container
         run: |
           VERSION="${{ steps.new_version.outputs.version }}"
-          
+
           # Tag the tested image with version tags
           docker tag mc-server-container:test ghcr.io/${{ github.repository }}:latest
           docker tag mc-server-container:test ghcr.io/${{ github.repository }}:${VERSION}
-          
+
           # Push both tags
           docker push ghcr.io/${{ github.repository }}:latest
           docker push ghcr.io/${{ github.repository }}:${VERSION}
