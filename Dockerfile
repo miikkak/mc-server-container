@@ -59,8 +59,11 @@ COPY --from=downloader --chown=root:root --chmod=755 /downloads/mc-server-runner
 COPY --from=downloader --chown=root:root --chmod=755 /downloads/rcon-cli /usr/local/bin/rcon-cli
 
 # Copy local scripts to /usr/local/bin/ (alphabetical order, with execute permissions)
-COPY --chown=root:root --chmod=755 scripts/mc-health /usr/local/bin/mc-health
-COPY --chown=root:root --chmod=755 scripts/mc-send-to-console /usr/local/bin/mc-send-to-console
+COPY --chown=root:root --chmod=755 scripts/mc-health.sh /usr/local/bin/mc-health.sh
+COPY --chown=root:root --chmod=755 scripts/mc-send-to-console.sh /usr/local/bin/mc-send-to-console.sh
+
+# Create backward compatibility symlink for mc-send-to-console (called by external scripts)
+RUN ln -s /usr/local/bin/mc-send-to-console.sh /usr/local/bin/mc-send-to-console
 
 # Copy entrypoint and functions.sh scripts to /scripts/ (with execute permissions)
 COPY --chown=root:root --chmod=755 scripts/entrypoint.sh /scripts/entrypoint.sh
@@ -86,7 +89,7 @@ USER minecraft
 
 # Health check - verify both mc-server-runner and server are responding
 HEALTHCHECK --interval=30s --timeout=15s --start-period=90s --retries=3 \
-  CMD mc-health
+  CMD mc-health.sh
 
 # Set entrypoint
 ENTRYPOINT ["/scripts/entrypoint.sh"]

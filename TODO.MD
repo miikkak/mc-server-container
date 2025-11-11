@@ -43,9 +43,9 @@ Build a minimal, controlled Minecraft server Docker container that replaces itzg
    - Source: https://github.com/itzg/rcon-cli
    - Command: `docker exec -it mc rcon-cli`
 
-3. **mc-send-to-console** - Console command wrapper
+3. **mc-send-to-console.sh** - Console command wrapper
    - Simple bash script that writes to named pipe
-   - Command: `docker exec mc mc-send-to-console <command>`
+   - Command: `docker exec mc mc-send-to-console.sh <command>`
 
 ### Configuration Files to Preserve
 - `/data/server.properties`
@@ -124,7 +124,7 @@ mclogs (3.0.9)
 - [ ] Base image: `container-registry.oracle.com/graalvm/jdk:latest`
 - [ ] Install mc-server-runner binary
 - [ ] Install rcon-cli binary
-- [ ] Create mc-send-to-console script
+- [ ] Create mc-send-to-console.sh script
 - [ ] Create minecraft user (UID 25565, GID 25565)
 - [ ] Set up working directory and permissions
 - [ ] Configure ENTRYPOINT with mc-server-runner
@@ -207,7 +207,7 @@ mclogs (3.0.9)
 - Health check endpoint beyond Docker's basic check
 - Metrics collection from server logs
 - Automatic Paper update notifications (check only, not auto-update)
-- Check if mc-send-to-console script is the best option or should be replaced with something more advanced
+- Check if mc-send-to-console.sh script is the best option or should be replaced with something more advanced
 
 ## References
 - mc-server-runner: https://github.com/itzg/mc-server-runner

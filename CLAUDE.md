@@ -41,7 +41,7 @@ mc-server-container/
 │   ├── entrypoint.sh              # Container entrypoint script
 │   ├── download-paper.sh          # Helper to download Paper JAR
 │   ├── update-plugins.sh          # Helper to update plugins
-│   └── mc-send-to-console         # Console command wrapper
+│   └── mc-send-to-console.sh      # Console command wrapper
 ├── .github/
 │   ├── workflows/
 │   │   ├── ci-cd.yml              # Label-gated CI/CD pipeline (build, scan, test, release)
@@ -412,6 +412,21 @@ The build process uses Docker Buildx with BuildKit:
 3. **Add tests** - Update `.github/workflows/ci-cd.yml` if needed
 4. **Test locally** - Build and run container with new feature
 5. **Create PR** - Use feature branch and add appropriate release label
+
+## Backward Compatibility
+
+The container includes a symlink for backward compatibility with external scripts that may reference the older command name:
+
+- `/usr/local/bin/mc-send-to-console` → `/usr/local/bin/mc-send-to-console.sh`
+
+This ensures that:
+- **Existing scripts** (backup scripts, monitoring tools, etc.) continue to work without modification
+- **New scripts** can use the `.sh` extension for consistency with ShellCheck automation
+- **Both names** are valid and will continue to work indefinitely
+
+Note: `mc-health.sh` does not need a symlink since it's only called by the Dockerfile's HEALTHCHECK directive, which is self-contained and updated accordingly.
+
+When referencing these commands in documentation or new scripts, prefer the `.sh` extension.
 
 ## Common Tasks
 
