@@ -320,7 +320,7 @@ This repository uses a cost-optimized CI/CD workflow with label-based gating:
 5. If you push new commits, the label is auto-removed - re-add when ready
 
 **Why this approach?**
-- ⚡ Fast feedback on code quality (shellcheck, hadolint run in ~30 seconds)
+- ⚡ Fast feedback on code quality (ShellCheck, Hadolint run in ~30 seconds)
 - 💰 Reduced CI costs (~79% savings) by avoiding unnecessary builds during review
 - 🎯 Full pipeline only runs when you're ready, not on every intermediate commit
 
