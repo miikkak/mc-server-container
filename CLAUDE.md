@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with th
 
 ## Project Overview
 
-**mc-server-container** is a custom Minecraft server Docker container designed to replace [itzg/minecraft-server](https://github.com/itzg/docker-minecraft-server) with a minimal, controlled solution.
+**mc-server-container** is a custom Minecraft server Docker container.
 
 ### Purpose
 

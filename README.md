@@ -386,17 +386,6 @@ mc-server-container/
 └── CLAUDE.md              # Development guide for Claude Code
 ```
 
-## Comparison to itzg/minecraft-server
-
-| Feature | This Container | itzg/minecraft-server |
-|---------|---------------|----------------------|
-| Boot time | < 10s | 30-60s (API calls) |
-| Java warnings | None | Yes (Java 25 issues) |
-| Dependencies | Minimal | Many Java helpers |
-| JAR management | Manual | Auto-download |
-| Offline operation | Yes | No (needs APIs) |
-| Process manager | mc-server-runner | Custom Java tools |
-
 ## Dependency Management
 
 This repository includes automated dependency monitoring and security scanning:
