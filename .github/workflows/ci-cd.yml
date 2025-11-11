@@ -12,7 +12,7 @@ on:
       - '.github/dependabot.yml'
       - '.github/workflows/**'
   pull_request:
-    types: [opened, reopened, labeled, synchronize]
+    types: [opened, reopened, labeled]
     branches: [ main ]
     paths-ignore:
       - '**.md'

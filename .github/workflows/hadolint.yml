@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-slim
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Check if Dockerfile exists
         id: check_dockerfile
@@ -28,7 +28,7 @@ jobs:
 
       - name: Run Hadolint
         if: steps.check_dockerfile.outputs.exists == 'true'
-        uses: hadolint/hadolint-action@v3.1.0
+        uses: hadolint/hadolint-action@v3.3.0
         with:
           dockerfile: Dockerfile
           ignore: DL3008,DL3018
