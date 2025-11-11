@@ -208,7 +208,7 @@ fi
 # Disable with: DISABLE_OTEL_AGENT=true (for troubleshooting)
 # ============================================================================
 configure_otel_agent
-if [ "${JAVA_AGENT}" == "true" ]; then
+if [ "${JAVA_AGENT:-false}" = "true" ]; then
   JAVA_OPTS="$JAVA_OPTS -javaagent:/opt/opentelemetry-javaagent.jar"
 fi
 
