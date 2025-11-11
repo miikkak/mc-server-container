@@ -269,10 +269,10 @@ echo ""
 # Start Server with mc-server-runner
 # ============================================================================
 
-# Configurable shutdown delays (like itzg)
+# Configurable shutdown delays (similar to itzg)
 # STOP_SERVER_ANNOUNCE_DELAY: Optional delay after announcing shutdown (default: none)
 #   - If set, announces "Server shutting down in X seconds" and waits
-#   - If unset, stops immediately without announcement (like itzg)
+#   - If unset, stops immediately without announcement (similar to itzg)
 # STOP_DURATION: Max time to wait for graceful shutdown after stop command (default: 60s)
 
 # Build mc-server-runner arguments
