@@ -401,7 +401,7 @@ The build process uses Docker Buildx with BuildKit:
 
 ### When Working on Scripts
 
-1. **Always read TODO.MD** - Contains detailed implementation requirements
+1. **Always read TODO.md** - Contains detailed implementation requirements
 2. **Use existing patterns** - Check other bash repos (scripts/, check-minecraft-versions/) for patterns
 3. **Test with ShellCheck** - Run `shellcheck --external-sources script.sh` before committing
 4. **Format with shfmt** - Run `shfmt -i 2 -ci -w script.sh`
@@ -417,7 +417,7 @@ The build process uses Docker Buildx with BuildKit:
 
 ### When Adding Features
 
-1. **Update TODO.MD** - Document the feature requirements
+1. **Update TODO.md** - Document the feature requirements
 2. **Update README.md** - Add user-facing documentation
 3. **Add tests** - Update `.github/workflows/ci-cd.yml` if needed
 4. **Test locally** - Build and run container with new feature
@@ -581,7 +581,7 @@ When developing, consider how changes might affect:
 
 ## Notes for Claude Code
 
-- **TODO.MD** contains the full project plan and requirements - always consult it
+- **TODO.md** contains the full project plan and requirements - always consult it
 - This is a **container repository**, not a script repository - focus on Docker best practices
 - **Never commit to main** - pre-commit hooks enforce this
 - **ShellCheck and hadolint are mandatory** - all scripts and Dockerfiles must pass
