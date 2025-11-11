@@ -205,7 +205,7 @@ Automatically removes `ci/ready` label when new commits are pushed:
 - **Runner**: ubuntu-slim
 - **Trigger**: PR synchronize (new commits)
 - Removes `ci/ready` label if present
-- Adds comment: "🔄 New commits detected. Please re-add the `ci/ready` label when ready for CI/CD pipeline."
+- Adds comment: "🔄 New commits detected. The `ci/ready` label has been removed. Please re-add the label when ready to trigger the full CI/CD pipeline."
 
 ### 4. CI/CD Pipeline (`.github/workflows/ci-cd.yml`)
 
