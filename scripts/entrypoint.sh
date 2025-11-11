@@ -2,8 +2,16 @@
 # shellcheck shell=bash
 # Custom Minecraft Server Container Entrypoint
 # Runs Paper server with GraalVM and optimized MeowIce flags
-
 set -euo pipefail
+
+FUNCTIONS="/scripts/functions.sh"
+if [ -r "$FUNCTIONS" ]; then
+  # shellcheck source=./functions.sh
+  . "$FUNCTIONS"
+else
+  echo "❌ Fatal: common library not found: $FUNCTIONS" >&2
+  exit 1
+fi
 
 cd /data
 
@@ -206,12 +214,8 @@ if [ "${DISABLE_OTEL_AGENT:-false}" != "true" ]; then
         if grep -q ^otel.exporter.otlp.endpoint "${OTEL_JAVAAGENT_CONFIGURATION_FILE}"; then
           if [ -f /opt/opentelemetry-javaagent.jar ]; then
             echo "📊 OpenTelemetry Java agent: ENABLED"
-            echo "   Service name: $(grep "^otel\.service\.name\s*=" "$OTEL_JAVAAGENT_CONFIGURATION_FILE" |
-              grep -v "^\s*#" |
-              sed 's/^otel\.service\.name\s*=\s*//;s/^["'\'']\(.*\)["'\'']$/\1/;s/\s*$//')"
-            echo "   Exporter endpoint: $(grep "^otel\.exporter\.otlp\.endpoint\s*=" "$OTEL_JAVAAGENT_CONFIGURATION_FILE" |
-              grep -v "^\s*#" |
-              sed 's/^otel\.service\.name\s*=\s*//;s/^["'\'']\(.*\)["'\'']$/\1/;s/\s*$//')"
+            echo "   Service name: $(get_properties_config_value "otel\.service\.name" "$OTEL_JAVAAGENT_CONFIGURATION_FILE")"
+            echo "   Exporter endpoint: $(get_properties_config_value "otel\.exporter\.otlp\.endpoint" "$OTEL_JAVAAGENT_CONFIGURATION_FILE")"
             JAVA_OPTS="$JAVA_OPTS -javaagent:/opt/opentelemetry-javaagent.jar"
           else
             echo "⚠️  Warning: OpenTelemetry agent not found at /opt/opentelemetry-javaagent.jar"
@@ -243,10 +247,6 @@ else
   echo "   DISABLE_OTEL_AGENT has been set to true in container configuration"
   echo "   OpenTelemetry instrumentation will not be available."
 fi
-
-#export OTEL_INSTRUMENTATION_RUNTIME_METRICS_ENABLED="${OTEL_INSTRUMENTATION_RUNTIME_METRICS_ENABLED:-true}"
-#export OTEL_TRACES_SAMPLER="${OTEL_TRACES_SAMPLER:-parentbased_traceidratio}"
-#export OTEL_TRACES_SAMPLER_ARG="${OTEL_TRACES_SAMPLER_ARG:-0.1}"
 
 # ============================================================================
 # Custom JVM Options
