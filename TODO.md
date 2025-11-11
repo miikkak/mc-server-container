@@ -1,7 +1,7 @@
 # Project Definition: Custom Minecraft Server Container
 
 ## Goal
-Build a minimal, controlled Minecraft server Docker container that replaces itzg/minecraft-server with a custom solution using mc-server-runner, eliminating Java helper tool dependencies and compatibility issues while maintaining professional process management.
+Build a minimal, controlled Minecraft server Docker container using mc-server-runner.
 
 ## Repository Infrastructure Status
 

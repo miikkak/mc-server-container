@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with th
 
 ## Project Overview
 
-**mc-server-container** is a custom Minecraft server Docker container designed to replace [itzg/minecraft-server](https://github.com/itzg/docker-minecraft-server) with a minimal, controlled solution.
+**mc-server-container** is a custom Minecraft server Docker container.
 
 ### Purpose
 
@@ -328,13 +328,23 @@ This container focuses on **JVM configuration only**. Minecraft-specific configu
 - `DISABLE_MEOWICE_GRAALVM_FLAGS` - Disable GraalVM-specific optimizations (default: enabled)
 - `JAVA_OPTS_CUSTOM` - Add custom JVM options (appended to generated flags)
 
-**OpenTelemetry (enabled by default with sensible defaults):**
-- `OTEL_SERVICE_NAME` - Service name (default: `minecraft-server`)
-- `OTEL_EXPORTER_OTLP_ENDPOINT` - OTLP collector endpoint (required for export)
-- `OTEL_EXPORTER_OTLP_PROTOCOL` - Protocol (default: `grpc`)
-- `OTEL_RESOURCE_ATTRIBUTES` - Resource attributes (optional)
-- `DISABLE_OTEL_AGENT` - Disable OpenTelemetry agent (default: enabled)
-- All standard `OTEL_*` variables can be set to override defaults
+**OpenTelemetry (included by default, requires configuration to enable):**
+- `OTEL_JAVAAGENT_CONFIGURATION_FILE` - Path to OpenTelemetry Java agent configuration file (required for agent to load)
+  - Example: `/data/otel-config.properties`
+  - File must contain at minimum: `otel.service.name` and `otel.exporter.otlp.endpoint`
+  - See Java agent documentation for all available properties
+- `DISABLE_OTEL_AGENT` - Disable OpenTelemetry agent entirely (default: enabled)
+
+**Example configuration file (`/data/otel-config.properties`):**
+```properties
+otel.service.name=minecraft-server
+otel.exporter.otlp.endpoint=http://otel-collector:4317
+otel.exporter.otlp.protocol=grpc
+otel.resource.attributes=deployment.environment=production
+otel.metrics.exporter=otlp
+otel.logs.exporter=otlp
+otel.traces.exporter=otlp
+```
 
 **Note:** The container does NOT handle Minecraft-specific configuration via environment variables. Use `/data/server.properties` and other Minecraft config files for server settings, or use helper scripts from the `check-minecraft-versions` repository.
 
