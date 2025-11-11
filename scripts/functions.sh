@@ -11,7 +11,7 @@ get_properties_config_value() {
   grep "^${property}[[:space:]]*=" "$config_file" |
     grep -v "^[[:space:]]*#" |
     head -n 1 |
-    sed "s/^${property}[[:space:]]*=[[:space:]]*//;s/^\"\(.*\)\"$/\1/;s/^'\(.*\)'$/\1/;s/[[:space:]]*$//"
+    sed "s/^${property}[[:space:]]*=[[:space:]]*//;s/^\"\(.*\)\"$/\1/;s/^'\(.*\)'$/\1/;s/[[:space:]]*$//" || true
 }
 
 # ==============================================================================
