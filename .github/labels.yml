@@ -20,6 +20,11 @@
   color: "338be7"
   description: "Code linting related"
 
+# CI/CD Labels
+- name: ci/ready
+  color: "0e8a16"
+  description: "Triggers full CI/CD pipeline (build, scan, test, release)"
+
 # Standard Labels
 - name: bug
   color: "d73a4a"

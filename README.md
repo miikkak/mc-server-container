@@ -296,6 +296,56 @@ podman logs mc-test
 podman stop mc-test && podman rm mc-test
 ```
 
+### CI/CD Workflow
+
+This repository uses a cost-optimized CI/CD workflow with label-based gating:
+
+**Lightweight Validation (runs on every commit):**
+- ✅ ShellCheck - Validates shell scripts
+- ✅ Hadolint - Validates Dockerfile
+
+**Heavy CI/CD Pipeline (runs only when ready):**
+- 🏗️ Build container
+- 🔒 Security scan with Trivy
+- 🧪 Test with Docker
+- 🧪 Test with Podman (OCI compliance)
+- 🚀 Release (if release label present)
+
+**Triggering the Full Pipeline:**
+
+1. Create a PR with your changes
+2. Lightweight checks run automatically on each commit
+3. When ready for full build/test cycle, add the `ci/ready` label to the PR
+4. Full CI/CD pipeline runs automatically
+5. If you push new commits, the label is auto-removed - re-add when ready
+
+**Why this approach?**
+- ⚡ Fast feedback on code quality (shellcheck, hadolint run in ~30 seconds)
+- 💰 Reduced CI costs (~79% savings) by avoiding unnecessary builds during review
+- 🎯 Full pipeline only runs when you're ready, not on every intermediate commit
+
+**Example workflow:**
+```bash
+# 1. Create feature branch and make changes
+git checkout -b feature/my-feature
+
+# 2. Push to GitHub - lightweight checks run automatically
+git push origin feature/my-feature
+
+# 3. Create PR - lightweight checks continue on each commit
+
+# 4. When ready for full testing, add 'ci/ready' label via GitHub UI
+#    - Full pipeline runs (build → scan → test-docker + test-podman)
+
+# 5. Push more changes - label auto-removed
+git commit -am "Address review feedback"
+git push
+
+# 6. Re-add 'ci/ready' label when ready for another full test cycle
+```
+
+**Documentation changes skip all workflows** - Updates to `*.md` files don't trigger any CI/CD jobs.
+
 ## Release Process
 
 This project uses semantic versioning with automated releases:

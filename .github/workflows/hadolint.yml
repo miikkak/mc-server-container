@@ -1,0 +1,34 @@
+name: Hadolint
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'Dockerfile'
+  pull_request:
+    paths:
+      - 'Dockerfile'
+
+jobs:
+  lint-dockerfile:
+    runs-on: ubuntu-slim
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check if Dockerfile exists
+        id: check_dockerfile
+        run: |
+          if [ -f "Dockerfile" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run Hadolint
+        if: steps.check_dockerfile.outputs.exists == 'true'
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: Dockerfile
+          ignore: DL3008,DL3018

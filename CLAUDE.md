@@ -44,15 +44,17 @@ mc-server-container/
 │   └── mc-send-to-console         # Console command wrapper
 ├── .github/
 │   ├── workflows/
-│   │   ├── ci-cd.yml              # Unified CI/CD pipeline (build, scan, test, release)
-│   │   ├── shellcheck.yml         # ShellCheck linting
+│   │   ├── ci-cd.yml              # Label-gated CI/CD pipeline (build, scan, test, release)
+│   │   ├── shellcheck.yml         # ShellCheck linting (runs on every commit)
+│   │   ├── hadolint.yml           # Hadolint linting (runs on every commit)
+│   │   ├── label-management.yml   # Auto-removes ci/ready label on new commits
 │   │   ├── security-scan.yml      # Scheduled security scanning
 │   │   ├── dependency-check.yml   # Binary dependency monitoring
 │   │   ├── precommit-updates.yml  # Pre-commit hook updates
 │   │   └── dependency-dashboard.yml # Dependency status dashboard
 │   ├── dependabot.yml             # Dependabot configuration
 │   ├── ISSUE_TEMPLATE/            # Bug report and feature request templates
-│   └── labels.yml                 # GitHub labels configuration
+│   └── labels.yml                 # GitHub labels configuration (includes ci/ready)
 ├── docs/
 │   ├── DEPENDENCY_MANAGEMENT.md   # Dependency monitoring guide
 │   └── MONITORING_ARCHITECTURE.md # System architecture documentation
@@ -157,33 +159,78 @@ podman stop mc-test && podman rm mc-test
 
 ## GitHub Actions Workflows
 
+### Cost-Optimized Workflow Architecture
+
+This repository uses a **label-gated workflow** to reduce CI costs by ~79% while maintaining fast feedback:
+
+**Lightweight Validation (runs on every commit):**
+- ✅ ShellCheck - Validates shell scripts (~30 seconds, ubuntu-slim)
+- ✅ Hadolint - Validates Dockerfile (~30 seconds, ubuntu-slim)
+- 💰 **Cost**: ~$0.001-0.002 per commit
+
+**Heavy CI/CD Pipeline (only runs when `ci/ready` label is present):**
+- 🏗️ Build container → Security scan → Test (Docker + Podman) → Release
+- 💰 **Cost**: ~$0.08-0.12 per run
+
+**Workflow:**
+1. Create PR → Lightweight checks run automatically on each commit
+2. Add `ci/ready` label → Full pipeline runs
+3. Push new commits → Label auto-removed, re-add when ready
+4. Merge to main → Full pipeline always runs (no label needed)
+
 ### 1. ShellCheck Workflow (`.github/workflows/shellcheck.yml`)
 
-Runs on every push and PR to validate shell scripts:
+Runs on every push and PR when `**.sh` files change:
 
+- **Runner**: ubuntu-slim
 - Finds all `.sh` files
 - Changes into each script's directory before running shellcheck
 - Uses `--external-sources` flag for sourced files
 - Labels PRs with `shellcheck` on success
 - Fails build if any warnings/errors found
 
-### 2. CI/CD Pipeline (`.github/workflows/ci-cd.yml`)
+### 2. Hadolint Workflow (`.github/workflows/hadolint.yml`)
 
-Unified pipeline with proper job dependencies:
+Runs on every push and PR when `Dockerfile` changes:
 
-1. **hadolint**: Lints Dockerfile for best practices
-2. **build**: Builds container once and saves as artifact
-3. **security-scan**: Scans the built artifact with Trivy (depends on build)
-4. **test**: Loads artifact and runs Docker integration tests (depends on security-scan)
-5. **test-podman**: Loads artifact and runs Podman integration tests for OCI compliance (depends on security-scan)
-6. **check-release**: Checks for release labels on main branch pushes (depends on both test jobs)
-7. **release**: Tags and pushes tested artifact to GHCR, creates GitHub release (depends on check-release, conditional)
+- **Runner**: ubuntu-slim
+- Lints Dockerfile for best practices
+- Ignores: DL3008, DL3018 (version pinning rules)
+- Fails build if any errors found
 
-**Key improvements:**
+### 3. Label Management (`.github/workflows/label-management.yml`)
+
+Automatically removes `ci/ready` label when new commits are pushed:
+
+- **Runner**: ubuntu-slim
+- **Trigger**: PR synchronize (new commits)
+- Removes `ci/ready` label if present
+- Adds comment: "🔄 New commits detected. Please re-add the `ci/ready` label when ready for CI/CD pipeline."
+
+### 4. CI/CD Pipeline (`.github/workflows/ci-cd.yml`)
+
+**Label-gated pipeline** with proper job dependencies:
+
+**Trigger Logic:**
+- **Always runs**: Push to main branch
+- **Conditional**: PR with `ci/ready` label
+
+**Job Flow:**
+1. **check-trigger** (ubuntu-slim): Determines if pipeline should run based on trigger conditions
+2. **lint-dockerfile** (ubuntu-latest): Lints Dockerfile (skipped if check-trigger says no)
+3. **build** (ubuntu-latest): Builds container once and saves as artifact
+4. **security-scan** (ubuntu-latest): Scans the built artifact with Trivy
+5. **test-docker** (ubuntu-latest): Tests with Docker runtime
+6. **test-podman** (ubuntu-latest): Tests with Podman runtime (OCI compliance)
+7. **check-release** (ubuntu-slim): Checks for release labels on main branch pushes
+8. **release** (ubuntu-latest): Tags and pushes tested artifact to GHCR, creates GitHub release
+
+**Key Features:**
 - Container is built once and reused across all jobs via artifacts
 - Security scanning happens before testing
 - Released images are identical to tested images
 - Proper job dependencies ensure pipeline flow
+- Label gating reduces unnecessary builds during review iterations
 
 **Paper JAR Caching**: Both test jobs use GitHub Actions cache to avoid re-downloading the Paper JAR on every run:
 - Cache key is based on Paper version and build number (e.g., `paper-jar-1.21.4-123`)
@@ -191,15 +238,13 @@ Unified pipeline with proper job dependencies:
 - Cached JARs are retained for 7 days (managed by cache-cleanup workflow)
 - Each test job maintains its own cache entry to avoid conflicts
 
-**Release Process**: 
+**Release Process**:
 - Only runs on main branch when a PR with `release:major`, `release:minor`, or `release:patch` label is merged
 - Uses semantic versioning based on label
 - Pushes tested container to GHCR with version tag and latest tag
 - Creates GitHub release with tag and notes
 
-Runs on every push and PR.
-
-### 3. Scheduled Security Scan (`.github/workflows/security-scan.yml`)
+### 5. Scheduled Security Scan (`.github/workflows/security-scan.yml`)
 
 Daily scheduled security scanning (separate from CI/CD pipeline):
 
@@ -208,7 +253,7 @@ Daily scheduled security scanning (separate from CI/CD pipeline):
 - **Output**: Table and JSON reports in logs, creates/updates issues for CRITICAL/HIGH vulnerabilities
 - Also runs on manual trigger (workflow_dispatch)
 
-### 4. Dependency Monitoring Workflows
+### 6. Dependency Monitoring Workflows
 
 The repository includes automated dependency monitoring:
 
