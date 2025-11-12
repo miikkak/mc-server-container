@@ -35,7 +35,7 @@ exit_code=0
 for file in "${files[@]}"; do
   # Use eval to properly handle CONTAINER_CMD with sudo
   # Must explicitly call /bin/hadolint when passing args (otherwise args replace CMD entirely)
-  if ! eval "$CONTAINER_CMD run --rm -i docker.io/hadolint/hadolint:latest /bin/hadolint $(printf '%q ' "${hadolint_args[@]}") -" < "$file"; then
+  if ! eval "$CONTAINER_CMD run --rm -i docker.io/hadolint/hadolint:latest /bin/hadolint $(printf '%q ' "${hadolint_args[@]}") -" <"$file"; then
     exit_code=1
   fi
 done
