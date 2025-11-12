@@ -46,11 +46,15 @@ repos:
         types: [shell]
         files: \.(sh|bash)$
 
-  # Docker-specific checks
-  - repo: https://github.com/hadolint/hadolint
-    rev: v2.12.0
+  # Dockerfile linting with hadolint
+  # Uses wrapper script that works with both Docker and Podman
+  - repo: local
     hooks:
-      - id: hadolint-docker
+      - id: hadolint
+        name: hadolint
+        entry: .hadolint-wrapper.sh
+        language: script
+        files: Dockerfile
         args: ['--ignore', 'DL3008', '--ignore', 'DL3018']
         # DL3008: Pin versions in apt-get install
         # DL3018: Pin versions in apk add
