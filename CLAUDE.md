@@ -145,7 +145,9 @@ docker stop mc-test && docker rm mc-test
 **With Podman (OCI compliance verification):**
 ```bash
 # Build the container
-podman build -t mc-server-container:test .
+# IMPORTANT: Must use --format docker to enable HEALTHCHECK support
+# Podman's default OCI format ignores HEALTHCHECK directives
+podman build --format docker -t mc-server-container:test .
 
 # Run with minimal config
 podman run -d --name mc-test -e EULA=TRUE mc-server-container:test
@@ -395,7 +397,18 @@ The build process uses Docker Buildx with BuildKit:
 - OCI-compliant image layers
 - Compatible with any OCI registry (GHCR, Docker Hub, Quay.io, etc.)
 
-**Important**: You do NOT need to migrate from Docker to Podman for building. Docker Buildx already produces OCI-compliant images. Use whichever runtime you prefer for development and deployment.
+**Important Notes:**
+
+1. **Docker Buildx**: Already produces OCI-compliant images. No special flags needed.
+
+2. **Podman**: Must use `--format docker` to enable HEALTHCHECK support:
+   ```bash
+   podman build --format docker -t mc-server-container:latest .
+   ```
+
+   **Why?** The pure OCI image format doesn't support HEALTHCHECK directives. Podman's default format will silently ignore the HEALTHCHECK in the Dockerfile, causing health status to be stuck in "starting" state. Using `--format docker` produces a Docker-compatible image that includes health check metadata while remaining OCI-compliant for runtime purposes.
+
+3. **Runtime Compatibility**: Images built with `--format docker` in Podman are still OCI-compliant and work with all OCI runtimes (Docker, Podman, Kubernetes, etc.). The format flag only affects the image manifest format, not runtime compatibility.
 
 ## Development Guidelines
 
@@ -454,10 +467,11 @@ docker build --build-arg VERSION=1.0.0 -t mc-server-container:local .
 **With Podman:**
 ```bash
 # Build with default settings
-podman build -t mc-server-container:local .
+# IMPORTANT: Must use --format docker to enable HEALTHCHECK support
+podman build --format docker -t mc-server-container:local .
 
 # Build with build args (if needed)
-podman build --build-arg VERSION=1.0.0 -t mc-server-container:local .
+podman build --format docker --build-arg VERSION=1.0.0 -t mc-server-container:local .
 ```
 
 ### Testing Changes
