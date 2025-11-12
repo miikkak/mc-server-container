@@ -6,6 +6,7 @@ set -euo pipefail
 # Detect hadolint method - prefer local binary, fall back to containers
 USE_LOCAL=false
 CONTAINER_CMD=""
+USE_SUDO=false
 
 if command -v hadolint &>/dev/null; then
   # Local hadolint binary found
@@ -15,7 +16,8 @@ elif command -v docker &>/dev/null && docker info &>/dev/null; then
 elif command -v podman &>/dev/null && podman info &>/dev/null; then
   CONTAINER_CMD="podman"
 elif command -v podman &>/dev/null && sudo podman info &>/dev/null; then
-  CONTAINER_CMD="sudo podman"
+  CONTAINER_CMD="podman"
+  USE_SUDO=true
 else
   echo "Error: hadolint not found. Install hadolint locally or install docker/podman." >&2
   exit 1
@@ -45,10 +47,15 @@ if [ "$USE_LOCAL" = true ]; then
   done
 else
   # Use container runtime - needs stdin
+  # Build command prefix (empty or sudo)
+  cmd_prefix=()
+  if [ "$USE_SUDO" = true ]; then
+    cmd_prefix=(sudo)
+  fi
+
   for file in "${files[@]}"; do
-    # Use eval to properly handle CONTAINER_CMD with sudo
     # Must explicitly call /bin/hadolint when passing args (otherwise args replace CMD entirely)
-    if ! eval "$CONTAINER_CMD run --rm -i docker.io/hadolint/hadolint:latest /bin/hadolint $(printf '%q ' "${hadolint_args[@]}") -" <"$file"; then
+    if ! "${cmd_prefix[@]}" "$CONTAINER_CMD" run --rm -i docker.io/hadolint/hadolint:latest /bin/hadolint "${hadolint_args[@]}" - <"$file"; then
       exit_code=1
     fi
   done
