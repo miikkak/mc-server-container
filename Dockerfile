@@ -89,8 +89,7 @@ USER minecraft
 
 # Health check - verify both mc-server-runner and server are responding
 # Use exec form (array syntax) for better Podman compatibility
-HEALTHCHECK --interval=30s --timeout=15s --start-period=90s --retries=3 \
-  CMD ["/usr/local/bin/mc-health.sh"]
+HEALTHCHECK --interval=30s --timeout=15s --start-period=90s --retries=3 CMD ["/usr/local/bin/mc-health.sh"]
 
 # Set entrypoint
 ENTRYPOINT ["/scripts/entrypoint.sh"]
