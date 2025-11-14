@@ -101,8 +101,9 @@ JAVA_OPTS="$JAVA_OPTS -Dterminal.ansi=true"
 if [ "${DISABLE_MEOWICE_FLAGS:-false}" != "true" ]; then
   echo "🚀 MeowIce optimization flags: ENABLED"
 
-  # Vector API support
-  JAVA_OPTS="$JAVA_OPTS --add-modules=jdk.incubator.vector"
+  # Note: --add-modules=jdk.incubator.vector is NOT included
+  # This flag only benefits Pufferfish/Purpur (SIMD map rendering), not Paper
+  # Paper has no code that uses the Vector API, so the flag provides zero benefit
 
   # G1GC configuration
   JAVA_OPTS="$JAVA_OPTS -XX:+UseG1GC"
