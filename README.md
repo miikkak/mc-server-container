@@ -304,6 +304,15 @@ podman logs mc-test
 podman stop mc-test && podman rm mc-test
 ```
 
+**Note on Paper Server Startup:**
+When Paper starts for the first time (or when upgrading Minecraft versions), it downloads Mojang's vanilla Minecraft JAR to `/data/cache/mojang-<version>.jar`. This JAR is used by Paper to apply patches and create the Paper server.
+
+In GitHub Actions, both the Paper JAR and the vanilla Minecraft JAR are cached to:
+- Reduce network traffic
+- Speed up test execution
+- Reduce dependency on external servers (Paper API, Mojang)
+- Make the testing environment more self-contained
+
 ### CI/CD Workflow
 
 This repository uses a cost-optimized CI/CD workflow with label-based gating:
