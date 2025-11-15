@@ -234,11 +234,15 @@ Automatically removes `ci/ready` label when new commits are pushed:
 - Proper job dependencies ensure pipeline flow
 - Label gating reduces unnecessary builds during review iterations
 
-**Paper JAR Caching**: Both test jobs use GitHub Actions cache to avoid re-downloading the Paper JAR on every run:
-- Cache key is based on Paper version and build number (e.g., `paper-jar-1.21.4-123`)
-- Paper JAR is only downloaded on cache miss
-- Cached JARs are retained for 7 days (managed by cache-cleanup workflow)
-- Each test job maintains its own cache entry to avoid conflicts
+**Paper JAR Caching**: Both test jobs use GitHub Actions cache to avoid re-downloading files on every run:
+- **Paper JAR Cache**: Based on Paper version and build number (e.g., `paper-jar-1.21.4-123`)
+  - Paper JAR is only downloaded on cache miss
+- **Vanilla Minecraft JAR Cache**: Based on Minecraft version (e.g., `paper-vanilla-cache-1.21.4`)
+  - Paper downloads Mojang's vanilla JAR on first startup to `/data/cache/mojang-<version>.jar`
+  - Cache prevents re-downloading vanilla JAR on subsequent test runs
+  - Reduces network traffic and potential failure points (Mojang server availability)
+- Cached files are retained for 7 days (managed by GitHub Actions cache retention)
+- Each test job maintains its own cache entries to avoid conflicts
 
 **Release Process**:
 - Only runs on main branch when a PR with `release:major`, `release:minor`, or `release:patch` label is merged
@@ -295,6 +299,8 @@ The container uses **mc-server-runner** for professional process supervision:
 ```
 /data/                          # Volume mount point
 ├── paper.jar                   # Paper server JAR (manual)
+├── cache/                      # Paper's cache directory
+│   └── mojang-<version>.jar    # Vanilla Minecraft JAR (downloaded by Paper)
 ├── server.properties           # Server configuration
 ├── bukkit.yml                  # Bukkit configuration
 ├── spigot.yml                  # Spigot configuration

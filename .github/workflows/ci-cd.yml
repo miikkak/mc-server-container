@@ -220,6 +220,13 @@ jobs:
           path: paper.jar
           key: paper-jar-${{ steps.paper_version.outputs.version }}-${{ steps.paper_version.outputs.build }}
 
+      - name: Cache Paper vanilla Minecraft JAR
+        id: cache_paper_vanilla
+        uses: actions/cache@v4
+        with:
+          path: paper-cache
+          key: paper-vanilla-cache-${{ steps.paper_version.outputs.version }}
+
       - name: Download Paper JAR
         if: steps.cache_paper.outputs.cache-hit != 'true'
         run: |
@@ -263,6 +270,17 @@ jobs:
 
           JAR_SIZE=$(stat -c%s test-data/paper.jar 2>/dev/null || stat -f%z test-data/paper.jar)
           echo "✅ Paper JAR ready (${JAR_SIZE} bytes)"
+
+          # Restore Paper's vanilla Minecraft JAR cache if available
+          if [ "${{ steps.cache_paper_vanilla.outputs.cache-hit }}" == "true" ]; then
+            echo "📦 Restoring cached Paper vanilla Minecraft JAR"
+            mkdir -p test-data/cache
+            cp -r paper-cache/* test-data/cache/ 2>/dev/null || true
+            CACHE_SIZE=$(du -sh test-data/cache 2>/dev/null | cut -f1 || echo "0")
+            echo "✅ Restored Paper cache (${CACHE_SIZE})"
+          else
+            echo "ℹ️  No cached Paper vanilla JAR - will be downloaded on first startup"
+          fi
 
           # Change ownership to minecraft user (UID 25565)
           # This allows the container's minecraft user to write to /data
@@ -318,8 +336,28 @@ jobs:
           echo "📋 Server startup logs:"
           docker logs mc-test | tail -20
 
+          # Check if Paper downloaded vanilla Minecraft JAR
+          echo ""
+          if docker logs mc-test 2>&1 | grep -q "Downloading vanilla jar"; then
+            echo "⬇️  Paper downloaded vanilla Minecraft JAR (not cached)"
+          else
+            echo "✅ Paper used cached vanilla Minecraft JAR (no download)"
+          fi
+
           echo ""
           echo "✅ Integration test passed - Paper server started successfully"
+
+          # Save Paper's vanilla Minecraft JAR cache for next run
+          echo ""
+          echo "💾 Saving Paper vanilla Minecraft JAR cache"
+          if [ -d test-data/cache ]; then
+            mkdir -p paper-cache
+            cp -r test-data/cache/* paper-cache/ 2>/dev/null || true
+            CACHE_SIZE=$(du -sh paper-cache 2>/dev/null | cut -f1 || echo "0")
+            echo "✅ Saved Paper cache (${CACHE_SIZE})"
+          else
+            echo "ℹ️  No Paper cache directory found"
+          fi
 
           # Cleanup
           echo ""
@@ -382,6 +420,13 @@ jobs:
           path: paper-podman.jar
           key: paper-jar-${{ steps.paper_version_podman.outputs.version }}-${{ steps.paper_version_podman.outputs.build }}
 
+      - name: Cache Paper vanilla Minecraft JAR for Podman test
+        id: cache_paper_vanilla_podman
+        uses: actions/cache@v4
+        with:
+          path: paper-cache-podman
+          key: paper-vanilla-cache-podman-${{ steps.paper_version_podman.outputs.version }}
+
       - name: Download Paper JAR for Podman test
         if: steps.cache_paper_podman.outputs.cache-hit != 'true'
         run: |
@@ -425,6 +470,17 @@ jobs:
 
           JAR_SIZE=$(stat -c%s test-data-podman/paper.jar 2>/dev/null || stat -f%z test-data-podman/paper.jar)
           echo "✅ Paper JAR ready (${JAR_SIZE} bytes)"
+
+          # Restore Paper's vanilla Minecraft JAR cache if available
+          if [ "${{ steps.cache_paper_vanilla_podman.outputs.cache-hit }}" == "true" ]; then
+            echo "📦 Restoring cached Paper vanilla Minecraft JAR"
+            mkdir -p test-data-podman/cache
+            cp -r paper-cache-podman/* test-data-podman/cache/ 2>/dev/null || true
+            CACHE_SIZE=$(du -sh test-data-podman/cache 2>/dev/null | cut -f1 || echo "0")
+            echo "✅ Restored Paper cache (${CACHE_SIZE})"
+          else
+            echo "ℹ️  No cached Paper vanilla JAR - will be downloaded on first startup"
+          fi
 
           # Change ownership to minecraft user (UID 25565)
           # This allows the container's minecraft user to write to /data
@@ -483,8 +539,28 @@ jobs:
           echo "📋 Server startup logs:"
           sudo podman logs mc-test-podman | tail -20
 
+          # Check if Paper downloaded vanilla Minecraft JAR
+          echo ""
+          if sudo podman logs mc-test-podman 2>&1 | grep -q "Downloading vanilla jar"; then
+            echo "⬇️  Paper downloaded vanilla Minecraft JAR (not cached)"
+          else
+            echo "✅ Paper used cached vanilla Minecraft JAR (no download)"
+          fi
+
           echo ""
           echo "✅ Podman integration test passed - OCI compliance verified!"
+
+          # Save Paper's vanilla Minecraft JAR cache for next run
+          echo ""
+          echo "💾 Saving Paper vanilla Minecraft JAR cache"
+          if [ -d test-data-podman/cache ]; then
+            mkdir -p paper-cache-podman
+            cp -r test-data-podman/cache/* paper-cache-podman/ 2>/dev/null || true
+            CACHE_SIZE=$(du -sh paper-cache-podman 2>/dev/null | cut -f1 || echo "0")
+            echo "✅ Saved Paper cache (${CACHE_SIZE})"
+          else
+            echo "ℹ️  No Paper cache directory found"
+          fi
 
           # Cleanup
           echo ""
