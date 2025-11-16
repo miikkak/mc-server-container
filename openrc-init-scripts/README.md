@@ -89,10 +89,14 @@ All configuration is done through `/etc/conf.d/${RC_SVCNAME}`. The init script i
 
 - `NETWORK_NAME` - Name of the Podman network
   - Default: `minecraft-net` (or `minecraft-${INSTANCE}-net` for symlinked services)
+  - **Shared networks**: Set all instances to the same network name to allow inter-container communication (e.g., for Velocity proxy + backend servers)
 - `NETWORK_SUBNET` - Subnet for the Podman network (default: `10.10.10.0/24`)
 - `NETWORK_GATEWAY` - Gateway for the Podman network (default: `10.10.10.1`)
 - `CONTAINER_IP` - IPv4 address for the container (default: `10.10.10.10`)
+  - **Important**: Each container needs a unique IP within the network
 - `CONTAINER_IPv6` - IPv6 address for the container (default: `2a01:4f9:3070:1169::b10c:cafe`)
+  - **Important**: Each container needs a unique IPv6 address
+  - **Skip IPv6**: Set to empty string (`CONTAINER_IPv6=""`) to skip IPv6 setup entirely (useful for internal-only servers)
 - `CONTAINER_INTERFACE` - Container's network interface name (default: auto-detect)
   - Leave empty for automatic detection of the first non-loopback interface
   - Set explicitly (e.g., `eth0`) only if auto-detection fails or you need a specific interface
@@ -289,12 +293,84 @@ rc-service minecraft.creative start
 rc-service minecraft.modded start
 ```
 
+### Proxy + Backend Servers Architecture
+
+For running a Velocity proxy with multiple backend servers (lobby + world servers):
+
+**`/etc/conf.d/minecraft.proxy` (Velocity - Internet-facing):**
+```bash
+# Velocity proxy exposed to the Internet
+NETWORK_NAME="minecraft-net"  # Shared network
+CONTAINER_IP="10.10.10.10"
+CONTAINER_IPv6="2a01:4f9:3070:1169::b10c:cafe"  # Has IPv6
+CONTAINER_PORTS="25565:25565/tcp 25565:25565/udp"  # Public ports
+CONTAINER_VOLUMES="/srv/minecraft/proxy:/data"
+CONTAINER_LABELS="minecraft.server=true
+minecraft.name=proxy
+minecraft.role=velocity"
+```
+
+**`/etc/conf.d/minecraft.lobby` (Backend - Internal only):**
+```bash
+# Lobby server - internal only
+NETWORK_NAME="minecraft-net"  # Shared network with proxy
+CONTAINER_IP="10.10.10.20"
+CONTAINER_IPv6=""  # No IPv6 = skips IPv6 setup
+CONTAINER_PORTS=""  # No port mappings - internal only
+CONTAINER_VOLUMES="/srv/minecraft/lobby:/data"
+CONTAINER_LABELS="minecraft.server=true
+minecraft.name=lobby
+minecraft.role=backend"
+```
+
+**`/etc/conf.d/minecraft.world1` (Backend - Internal only):**
+```bash
+# World server 1 - internal only
+NETWORK_NAME="minecraft-net"
+CONTAINER_IP="10.10.10.21"
+CONTAINER_IPv6=""  # No IPv6
+CONTAINER_PORTS=""  # Internal only
+CONTAINER_VOLUMES="/srv/minecraft/world1:/data"
+CONTAINER_LABELS="minecraft.server=true
+minecraft.name=world1
+minecraft.role=backend"
+```
+
+**Similar for `minecraft.world2` and `minecraft.world3`** (IPs: 10.10.10.22, 10.10.10.23)
+
+**Setup commands:**
+```bash
+# Create symlinks
+ln -s /etc/init.d/minecraft /etc/init.d/minecraft.proxy
+ln -s /etc/init.d/minecraft /etc/init.d/minecraft.lobby
+ln -s /etc/init.d/minecraft /etc/init.d/minecraft.world1
+ln -s /etc/init.d/minecraft /etc/init.d/minecraft.world2
+ln -s /etc/init.d/minecraft /etc/init.d/minecraft.world3
+
+# Create directories
+mkdir -p /srv/minecraft/{proxy,lobby,world1,world2,world3}
+
+# Start all servers
+rc-service minecraft.proxy start
+rc-service minecraft.lobby start
+rc-service minecraft.world1 start
+rc-service minecraft.world2 start
+rc-service minecraft.world3 start
+```
+
+**Key points:**
+- All containers share the same network (`minecraft-net`) and can communicate
+- Only the proxy has port mappings exposed to the Internet
+- Backend servers have `CONTAINER_IPv6=""` which **automatically skips IPv6 setup**
+- Each server gets a unique internal IP for Velocity configuration
+
 ## Features
 
 - **Symlink-based multi-instance support**: One script manages unlimited server instances via symlinks (just like `net.lo`)
 - **Instance-aware defaults**: Each instance automatically gets isolated containers, networks, and volumes
+- **Shared network support**: Override `NETWORK_NAME` to share a network between multiple containers
 - **Automatic network creation**: Creates the Podman network if it doesn't exist
-- **IPv6 support**: Configures IPv6 address and routing for the container
+- **Optional IPv6 support**: Set `CONTAINER_IPv6=""` to skip IPv6 configuration (useful for internal-only servers)
 - **Graceful shutdown**: Waits for the server to shut down gracefully
 - **Container reuse**: Starts existing containers instead of recreating them
 - **Dependencies**: Properly depends on network and optionally uses ndppd for IPv6 NDP proxy

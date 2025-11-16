@@ -37,6 +37,7 @@ NETWORK_GATEWAY="${NETWORK_GATEWAY:-10.10.10.1}"
 CONTAINER_IP="${CONTAINER_IP:-10.10.10.10}"
 # IMPORTANT: When running multiple instances, each needs a unique IPv6 address
 # Example: CONTAINER_IPv6="2a01:4f9:3070:1169::b10c:caf1" for second server, etc.
+# Set to empty string (CONTAINER_IPv6="") to skip IPv6 configuration (useful for internal-only servers)
 CONTAINER_IPv6="${CONTAINER_IPv6:-2a01:4f9:3070:1169::b10c:cafe}"
 
 # Container network interface name (leave empty for auto-detection)

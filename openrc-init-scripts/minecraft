@@ -176,11 +176,15 @@ start() {
   if [ $ret -eq 0 ]; then
     # Wait for container to be running (with timeout)
     if timeout 30 podman wait --condition=running "${CONTAINER_NAME}"; then
-      # Setup IPv6
-      setup_ipv6
-      local ipv6_ret=$?
-      if [ $ipv6_ret -ne 0 ]; then
-        ewarn "IPv6 setup failed (code $ipv6_ret), continuing without IPv6."
+      # Setup IPv6 if CONTAINER_IPv6 is set
+      if [ -n "${CONTAINER_IPv6}" ]; then
+        setup_ipv6
+        local ipv6_ret=$?
+        if [ $ipv6_ret -ne 0 ]; then
+          ewarn "IPv6 setup failed (code $ipv6_ret), continuing without IPv6."
+        fi
+      else
+        einfo "IPv6 address not set, skipping IPv6 configuration"
       fi
     else
       ewarn "Container did not reach running state within 30 seconds"
@@ -257,14 +261,17 @@ stop() {
 
 stop_post() {
   # Clean up IPv6 route (ndppd handles NDP proxy cleanup automatically)
-  ebegin "Cleaning up IPv6 configuration"
-  ip -6 route del "${CONTAINER_IPv6}" dev "${NETWORK_NAME}" 2>/dev/null
-  rc=$?
-  # Exit code 2 means the route did not exist, which is acceptable for idempotency
-  if [ $rc -eq 0 ] || [ $rc -eq 2 ]; then
-    eend 0
-  else
-    eend $rc
+  # Only clean up if IPv6 was configured
+  if [ -n "${CONTAINER_IPv6}" ]; then
+    ebegin "Cleaning up IPv6 configuration"
+    ip -6 route del "${CONTAINER_IPv6}" dev "${NETWORK_NAME}" 2>/dev/null
+    rc=$?
+    # Exit code 2 means the route did not exist, which is acceptable for idempotency
+    if [ $rc -eq 0 ] || [ $rc -eq 2 ]; then
+      eend 0
+    else
+      eend $rc
+    fi
   fi
 }
 
