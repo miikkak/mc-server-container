@@ -84,7 +84,8 @@ start() {
 
     # Build label arguments
     local label_args=()
-    for label in ${CONTAINER_LABELS}; do
+    read -r -a label_array <<< "${CONTAINER_LABELS}"
+    for label in "${label_array[@]}"; do
       label_args+=("--label" "${label}")
     done
 
