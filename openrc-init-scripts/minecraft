@@ -19,6 +19,7 @@ NETWORK_SUBNET="${NETWORK_SUBNET:-10.10.10.0/24}"
 NETWORK_GATEWAY="${NETWORK_GATEWAY:-10.10.10.1}"
 CONTAINER_IP="${CONTAINER_IP:-10.10.10.10}"
 CONTAINER_IPv6="${CONTAINER_IPv6:-2a01:4f9:3070:1169::b10c:cafe}"
+CONTAINER_INTERFACE="${CONTAINER_INTERFACE:-}"
 
 CONTAINER_VOLUMES="${CONTAINER_VOLUMES:-/srv/minecraft:/data /srv/bluemap:/data/bluemap}"
 CONTAINER_PORTS="${CONTAINER_PORTS:-127.0.0.1:8100:8100 127.0.0.1:9000:9000 127.0.0.1:9940:9940 19132:19132/udp 25565:25565/udp 25565:25565/tcp}"
@@ -125,7 +126,7 @@ start() {
 }
 
 setup_ipv6() {
-  local container_pid bridge_ll_addr
+  local container_pid bridge_ll_addr container_iface
   container_pid=$(podman inspect "${CONTAINER_NAME}" --format '{{.State.Pid}}')
 
   # Validate container_pid is a positive integer using POSIX-compliant case statement
@@ -136,7 +137,20 @@ setup_ipv6() {
       ;;
   esac
 
-  ebegin "Configuring IPv6 for ${name}"
+  # Determine container interface name
+  if [ -n "${CONTAINER_INTERFACE}" ]; then
+    # Use explicitly configured interface
+    container_iface="${CONTAINER_INTERFACE}"
+  else
+    # Detect the first non-loopback interface dynamically
+    container_iface=$(nsenter -t "$container_pid" -n ip -o link show | awk '$2 != "lo:" {gsub(/:$/, "", $2); print $2; exit}')
+    if [ -z "$container_iface" ]; then
+      ewarn "Could not detect container network interface"
+      return 1
+    fi
+  fi
+
+  ebegin "Configuring IPv6 for ${name} (interface: ${container_iface})"
 
   # Add route to container (ndppd handles NDP proxy)
   if ! ip -6 route replace "${CONTAINER_IPv6}" dev "${NETWORK_NAME}"; then
@@ -148,14 +162,14 @@ setup_ipv6() {
   bridge_ll_addr=$(ip -6 addr show dev "${NETWORK_NAME}" scope link | awk '/inet6 fe80/ {split($2, a, "/"); print a[1]; exit}')
 
   # Configure container IPv6 as /128
-  if ! nsenter -t "$container_pid" -n ip -6 addr add "${CONTAINER_IPv6}/128" dev eth0; then
+  if ! nsenter -t "$container_pid" -n ip -6 addr add "${CONTAINER_IPv6}/128" dev "$container_iface"; then
     eend 1 "Failed to configure container IPv6 address"
     return 1
   fi
 
   # Add default route via bridge link-local address
   if [ -n "$bridge_ll_addr" ]; then
-    if ! nsenter -t "$container_pid" -n ip -6 route add default via "$bridge_ll_addr" dev eth0; then
+    if ! nsenter -t "$container_pid" -n ip -6 route add default via "$bridge_ll_addr" dev "$container_iface"; then
       eend 1 "Failed to add default IPv6 route"
       return 1
     fi

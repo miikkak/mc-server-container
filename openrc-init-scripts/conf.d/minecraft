@@ -15,6 +15,10 @@ NETWORK_GATEWAY="${NETWORK_GATEWAY:-10.10.10.1}"
 CONTAINER_IP="${CONTAINER_IP:-10.10.10.10}"
 CONTAINER_IPv6="${CONTAINER_IPv6:-2a01:4f9:3070:1169::b10c:cafe}"
 
+# Container network interface name (leave empty for auto-detection)
+# Only set this if you need to override the default detection
+# CONTAINER_INTERFACE="eth0"
+
 # Volume mounts
 # Space-separated list of volume mounts in format "host:container"
 CONTAINER_VOLUMES="${CONTAINER_VOLUMES:-/srv/minecraft:/data /srv/bluemap:/data/bluemap}"
