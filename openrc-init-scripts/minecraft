@@ -144,8 +144,13 @@ stop() {
 stop_post() {
   # Clean up IPv6 route (ndppd handles NDP proxy cleanup automatically)
   ebegin "Cleaning up IPv6 configuration"
-  ip -6 route del "${CONTAINER_IPv6}" dev "${NETWORK_NAME}" 2>/dev/null || true
-  eend 0
+  ip -6 route del "${CONTAINER_IPv6}" dev "${NETWORK_NAME}" 2>/dev/null
+  rc=$?
+  if [ $rc -eq 0 ] || [ $rc -eq 2 ]; then
+    eend 0
+  else
+    eend $rc
+  fi
 }
 
 remove() {
