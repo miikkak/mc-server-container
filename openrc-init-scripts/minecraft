@@ -160,7 +160,7 @@ setup_ipv6() {
   bridge_ll_addr=$(ip -6 addr show dev "${NETWORK_NAME}" scope link | awk '/inet6 fe80/ {split($2, a, "/"); print a[1]; exit}')
 
   # Configure container IPv6 as /128
-  if ! nsenter -t "$container_pid" -n ip -6 addr add "${CONTAINER_IPv6}/128" dev "$container_iface"; then
+  if ! nsenter -t "$container_pid" -n ip -6 addr replace "${CONTAINER_IPv6}/128" dev "$container_iface"; then
     eend 1 "Failed to configure container IPv6 address"
     return 1
   fi
