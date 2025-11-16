@@ -108,7 +108,9 @@ start() {
       # Setup IPv6
       setup_ipv6
       local ipv6_ret=$?
-      [ $ipv6_ret -ne 0 ] && ret=$ipv6_ret
+      if [ $ipv6_ret -ne 0 ]; then
+        ewarn "IPv6 setup failed (code $ipv6_ret), continuing without IPv6."
+      fi
     fi
 
   fi
