@@ -303,11 +303,9 @@ setup_ipv6() {
     return 1
   fi
 
-  ebegin "Configuring IPv6 for ${name} (container: ${container_iface}, bridge: ${bridge_iface})"
-
   # Add route to container (ndppd handles NDP proxy)
-  if ! ip -6 route replace "${CONTAINER_IPv6}" dev "${bridge_iface}"; then
-    eend 1 "Failed to add IPv6 route"
+  if ! ip -6 route replace "${CONTAINER_IPv6}" dev "${bridge_iface}" 2>/dev/null; then
+    ewarn "Failed to add IPv6 route for ${CONTAINER_IPv6}"
     return 1
   fi
 
@@ -315,20 +313,19 @@ setup_ipv6() {
   bridge_ll_addr=$(ip -6 addr show dev "${bridge_iface}" scope link | awk '/inet6 fe80/ {split($2, a, "/"); print a[1]; exit}')
 
   # Configure container IPv6 as /128
-  if ! nsenter -t "$container_pid" -n ip -6 addr replace "${CONTAINER_IPv6}/128" dev "$container_iface"; then
-    eend 1 "Failed to configure container IPv6 address"
+  if ! nsenter -t "$container_pid" -n ip -6 addr replace "${CONTAINER_IPv6}/128" dev "$container_iface" 2>/dev/null; then
+    ewarn "Failed to configure container IPv6 address"
     return 1
   fi
 
   # Add default route via bridge link-local address
   if [ -n "$bridge_ll_addr" ]; then
-    if ! nsenter -t "$container_pid" -n ip -6 route replace default via "$bridge_ll_addr" dev "$container_iface"; then
-      eend 1 "Failed to add default IPv6 route"
+    if ! nsenter -t "$container_pid" -n ip -6 route replace default via "$bridge_ll_addr" dev "$container_iface" 2>/dev/null; then
+      ewarn "Failed to add default IPv6 route"
       return 1
     fi
   fi
 
-  eend 0
   return 0
 }
 
@@ -367,12 +364,9 @@ stop_post() {
   if [ -n "${ipv6_to_cleanup}" ] && [ -n "${bridge_to_cleanup}" ]; then
     # Check if bridge interface still exists before attempting cleanup
     if ip link show "${bridge_to_cleanup}" >/dev/null 2>&1; then
-      ebegin "Cleaning up IPv6 configuration"
-      # Best-effort cleanup: delete route if it exists
+      # Best-effort cleanup: delete route if it exists silently
       # Don't fail the stop operation if cleanup fails
       ip -6 route del "${ipv6_to_cleanup}" dev "${bridge_to_cleanup}" 2>/dev/null
-      # Always succeed - cleanup failures shouldn't prevent stopping
-      eend 0
     fi
 
     # Remove state file after cleanup (or attempted cleanup)
