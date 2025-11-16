@@ -76,7 +76,7 @@ start_pre() {
   fi
   
   # CONTAINER_ENV: KEY=value pairs with spaces
-  if ! validate_config "CONTAINER_ENV" "${CONTAINER_ENV}" "[a-zA-Z0-9_=/.@: -]*"; then
+  if ! validate_config "CONTAINER_ENV" "${CONTAINER_ENV}" "[a-zA-Z0-9_=/.@:+-]*"; then
     return 1
   fi
   
