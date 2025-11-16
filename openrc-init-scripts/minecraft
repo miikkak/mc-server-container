@@ -107,8 +107,13 @@ setup_ipv6() {
 
 stop() {
   ebegin "Stopping ${name}"
-  podman stop "${CONTAINER_NAME}"
-  eend $?
+  if podman container exists "${CONTAINER_NAME}"; then
+    podman stop "${CONTAINER_NAME}"
+    eend $?
+  else
+    einfo "Container ${CONTAINER_NAME} does not exist"
+    eend 0
+  fi
 }
 
 stop_post() {
