@@ -70,7 +70,7 @@ else
   JAR="${latest_paper}"
   TYPE="paper"
 fi
-echo "✅ Server (${TYPE}) JAR found: ${JAR}"
+echo "✅ Server (${TYPE:-}) JAR found: ${JAR}"
 
 if [ "${TYPE:-}" = "paper" ]; then
   # Check EULA
