@@ -110,6 +110,9 @@ start_pre() {
   
   # CONTAINER_ENV: KEY=value pairs with newlines (multiline values supported)
   # Validate by removing newlines first, then checking allowed characters
+  # This is safe because: spaces are already allowed in the pattern, so replacing
+  # newlines with spaces doesn't change validation semantics (e.g., "KEY1=val1\nKEY2=val2"
+  # becomes "KEY1=val1 KEY2=val2" which is valid since both spaces and = are allowed)
   local env_cleaned="${CONTAINER_ENV//$'\n'/ }"
   if ! validate_config "CONTAINER_ENV" "${env_cleaned}" "[a-zA-Z0-9_=/.@:+ -]*"; then
     return 1
@@ -117,6 +120,7 @@ start_pre() {
 
   # CONTAINER_LABELS: key=value pairs with newlines (multiline values supported)
   # Validate by removing newlines first, then checking allowed characters
+  # Same reasoning as CONTAINER_ENV: spaces are allowed, so newline→space is safe
   local labels_cleaned="${CONTAINER_LABELS//$'\n'/ }"
   if ! validate_config "CONTAINER_LABELS" "${labels_cleaned}" "[a-zA-Z0-9_.=: -]*"; then
     return 1
@@ -148,7 +152,7 @@ start_pre() {
       --gateway "${NETWORK_GATEWAY}"
     )
 
-    # Only set interface name if it's 15 characters or less (Linux kernel limit)
+    # Only set interface name if it's 15 characters or less (IFNAMSIZ kernel limit: 16 bytes including null terminator)
     # Otherwise, let Podman auto-generate an interface name
     if [ ${#NETWORK_NAME} -le 15 ]; then
       network_args+=(--interface-name "${NETWORK_NAME}")
@@ -246,7 +250,10 @@ start() {
           # Get bridge interface name for cleanup
           local cleanup_bridge
           cleanup_bridge=$(podman network inspect "${NETWORK_NAME}" --format '{{.NetworkInterface}}' 2>/dev/null)
-          echo "${CONTAINER_IPv6} ${cleanup_bridge}" > "/var/run/openrc/${RC_SVCNAME}-ipv6" 2>/dev/null || true
+          # Only write state file if we have both IPv6 and bridge interface
+          if [ -n "${cleanup_bridge}" ]; then
+            echo "${CONTAINER_IPv6} ${cleanup_bridge}" > "/var/run/openrc/${RC_SVCNAME}-ipv6" 2>/dev/null || true
+          fi
         fi
       else
         einfo "IPv6 address not set, skipping IPv6 configuration"
@@ -277,7 +284,7 @@ setup_ipv6() {
     container_iface="${CONTAINER_INTERFACE}"
   else
     # Detect the first non-loopback, non-tunnel interface dynamically
-    # Prefer eth* interfaces, filter out sit*, ip6tnl*, ip6_vti*, and other tunnel interfaces
+    # Filter out tunnel interfaces: sit*, ip6tnl*, ip6_vti*, ip_vti*, gre*, ipip*, tunl*
     # Strip @... suffixes (e.g., sit0@NONE -> sit0)
     container_iface=$(nsenter -t "$container_pid" -n ip -o link show | awk '
       $2 != "lo:" {
@@ -412,14 +419,24 @@ remove_network() {
   local containers_using_network
   containers_using_network=$(podman network inspect "${NETWORK_NAME}" --format '{{len .Containers}}' 2>/dev/null)
 
-  if [ -n "${containers_using_network}" ] && [ "${containers_using_network}" -gt 0 ]; then
-    eend 1
-    eerror "Network ${NETWORK_NAME} is still in use by ${containers_using_network} container(s)"
-    eerror "Stop and remove all containers first:"
-    eerror "  rc-service ${RC_SVCNAME} stop"
-    eerror "  rc-service ${RC_SVCNAME} remove"
-    return 1
-  fi
+  # Validate we got a numeric value and check if > 0
+  # Use case statement for POSIX-compliant integer validation
+  case "${containers_using_network}" in
+    ''|*[!0-9]*)
+      # Empty or non-numeric - skip check and try removal (will fail if in use)
+      ;;
+    *)
+      # Valid number - check if network is in use
+      if [ "${containers_using_network}" -gt 0 ]; then
+        eend 1
+        eerror "Network ${NETWORK_NAME} is still in use by ${containers_using_network} container(s)"
+        eerror "Stop and remove all containers first:"
+        eerror "  rc-service ${RC_SVCNAME} stop"
+        eerror "  rc-service ${RC_SVCNAME} remove"
+        return 1
+      fi
+      ;;
+  esac
 
   podman network rm "${NETWORK_NAME}" >/dev/null
   eend $?
