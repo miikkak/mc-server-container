@@ -60,7 +60,6 @@ start() {
       -e OTEL_JAVAAGENT_CONFIGURATION_FILE=/data/otel-config.properties \
       --label minecraft.server=true \
       --label minecraft.name=CubeSchool \
-      --restart unless-stopped \
       "${CONTAINER_IMAGE}"
     local ret=$?
   fi
