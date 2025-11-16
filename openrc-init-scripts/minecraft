@@ -71,7 +71,7 @@ start() {
       # Setup IPv6
       setup_ipv6
       local ipv6_ret=$?
-      ret=$(( ret || ipv6_ret ))
+      [ $ipv6_ret -ne 0 ] && ret=$ipv6_ret
     fi
 
   fi
