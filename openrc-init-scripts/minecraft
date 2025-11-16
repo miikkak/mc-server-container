@@ -3,29 +3,44 @@
 # Copyright 2025 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
-# shellcheck disable=SC2034
-name="Minecraft Server"
-# shellcheck disable=SC2034
-description="Minecraft server in Podman container"
+# Detect service instance name from symlink (e.g., minecraft.server1 -> server1)
+# This allows the same script to manage multiple Minecraft servers via symlinks
+RC_SVCNAME="${RC_SVCNAME:-minecraft}"
+INSTANCE="${RC_SVCNAME#minecraft}"
+INSTANCE="${INSTANCE#.}"  # Remove leading dot if present
 
-# Default configuration values (can be overridden in /etc/conf.d/minecraft)
-CONTAINER_NAME="${CONTAINER_NAME:-mc}"
+# Set dynamic name and description based on instance
+if [ -n "${INSTANCE}" ]; then
+  # shellcheck disable=SC2034
+  name="Minecraft Server (${INSTANCE})"
+  # shellcheck disable=SC2034
+  description="Minecraft server ${INSTANCE} in Podman container"
+else
+  # shellcheck disable=SC2034
+  name="Minecraft Server"
+  # shellcheck disable=SC2034
+  description="Minecraft server in Podman container"
+fi
+
+# Default configuration values (can be overridden in /etc/conf.d/${RC_SVCNAME})
+# When using symlinks, each instance gets its own config file
+CONTAINER_NAME="${CONTAINER_NAME:-mc${INSTANCE:+-${INSTANCE}}}"
 CONTAINER_IMAGE="${CONTAINER_IMAGE:-ghcr.io/miikkak/mc-server-container:latest}"
 CONTAINER_MEMORY="${CONTAINER_MEMORY:-24G}"
 CONTAINER_STOP_TIMEOUT="${CONTAINER_STOP_TIMEOUT:-120}"
 
-NETWORK_NAME="${NETWORK_NAME:-minecraft-net}"
+NETWORK_NAME="${NETWORK_NAME:-minecraft${INSTANCE:+-${INSTANCE}}-net}"
 NETWORK_SUBNET="${NETWORK_SUBNET:-10.10.10.0/24}"
 NETWORK_GATEWAY="${NETWORK_GATEWAY:-10.10.10.1}"
 CONTAINER_IP="${CONTAINER_IP:-10.10.10.10}"
 CONTAINER_IPv6="${CONTAINER_IPv6:-2a01:4f9:3070:1169::b10c:cafe}"
 CONTAINER_INTERFACE="${CONTAINER_INTERFACE:-}"
 
-CONTAINER_VOLUMES="${CONTAINER_VOLUMES:-/srv/minecraft:/data /srv/bluemap:/data/bluemap}"
+CONTAINER_VOLUMES="${CONTAINER_VOLUMES:-/srv/minecraft${INSTANCE:+/${INSTANCE}}:/data /srv/bluemap${INSTANCE:+/${INSTANCE}}:/data/bluemap}"
 CONTAINER_PORTS="${CONTAINER_PORTS:-127.0.0.1:8100:8100 127.0.0.1:9000:9000 127.0.0.1:9940:9940 19132:19132/udp 25565:25565/udp 25565:25565/tcp}"
 CONTAINER_ENV="${CONTAINER_ENV:-OTEL_JAVAAGENT_CONFIGURATION_FILE=/data/otel-config.properties}"
 CONTAINER_LABELS="${CONTAINER_LABELS:-minecraft.server=true
-minecraft.name=CubeSchool}"
+minecraft.name=${INSTANCE:-default}}"
 NETWORK_DISABLE_DNS="${NETWORK_DISABLE_DNS:-true}"
 
 depend() {
