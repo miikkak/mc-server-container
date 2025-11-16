@@ -28,11 +28,11 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "🎮 Custom Minecraft/Velocity Server Container"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 latest_paper=$(find /data -maxdepth 1 -type f -name 'paper-*.jar' |
-  grep -E 'paper-[0-9]+\.[0-9]+(\.[0-9]+)?-[0-9]+\.jar$' |
+  { grep -E 'paper-[0-9]+\.[0-9]+(\.[0-9]+)?-[0-9]+\.jar$' || true; } |
   sort -V |
   tail -n 1)
 latest_velocity=$(find /data -maxdepth 1 -type f -name 'velocity-*.jar' |
-  grep -E 'velocity-[0-9]+\.[0-9]+(\.[0-9]+)?(-SNAPSHOT)?-[0-9]+\.jar$' |
+  { grep -E 'velocity-[0-9]+\.[0-9]+(\.[0-9]+)?(-SNAPSHOT)?-[0-9]+\.jar$' || true; } |
   sort -V |
   tail -n 1)
 
