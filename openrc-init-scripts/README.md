@@ -105,7 +105,7 @@ CONTAINER_MEMORY="16G"
 # Network configuration
 NETWORK_NAME="mc-network"
 CONTAINER_IP="10.20.30.40"
-CONTAINER_IPv6="2001:db8::1"
+CONTAINER_IPv6="2001:db8::1"  # Replace with your actual IPv6 address
 
 # Custom volumes
 CONTAINER_VOLUMES="/mnt/data/minecraft:/data /mnt/data/bluemap:/data/bluemap"
