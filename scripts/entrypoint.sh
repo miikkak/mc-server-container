@@ -27,14 +27,14 @@ cd /data
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "🎮 Custom Minecraft/Velocity Server Container"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-latest_paper=$(find /data -maxdepth 1 -type f -name 'paper-*.jar' |
+latest_paper="$(find /data -maxdepth 1 -type f -name 'paper-*.jar' |
   grep -E 'paper-[0-9]+\.[0-9]+(\.[0-9]+)?-[0-9]+\.jar$' |
   sort -V |
-  tail -n 1)
-latest_velocity=$(find /data -maxdepth 1 -type f -name 'velocity-*.jar' |
+  tail -n 1)"
+latest_velocity="$(find /data -maxdepth 1 -type f -name 'velocity-*.jar' |
   grep -E 'velocity-[0-9]+\.[0-9]+(\.[0-9]+)?(-SNAPSHOT)?-[0-9]+\.jar$' |
   sort -V |
-  tail -n 1)
+  tail -n 1)"
 
 # Entrypoint will always prefer Paper if it is found, user is not supposed to
 # keep both Paper and Velocity in the /data folder
@@ -68,6 +68,7 @@ else
   JAR="${latest_paper}"
   TYPE="paper"
 fi
+echo "✅ Server (${TYPE}) JAR found: ${JAR}"
 
 if [ "${TYPE:-}" = "paper" ]; then
   # Check EULA
@@ -91,8 +92,6 @@ if [ "${TYPE:-}" = "paper" ]; then
 
   echo "✅ EULA accepted"
 fi
-
-echo "✅ Server JAR found: ${JAR}"
 
 # ============================================================================
 # Build Java Command
