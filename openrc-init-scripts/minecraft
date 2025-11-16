@@ -109,9 +109,9 @@ setup_ipv6() {
     # Aggregate status: if any failed, report failure
     if [ $status1 -eq 0 ] && [ $status2 -eq 0 ] && [ $status3 -eq 0 ]; then
       eend 0
+      return 0
     else
       eend 1
-    fi
   else
     ewarn "Could not get container PID for IPv6 setup"
     return 1
