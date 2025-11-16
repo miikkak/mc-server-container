@@ -136,31 +136,30 @@ setup_ipv6() {
   ebegin "Configuring IPv6 for ${name}"
 
   # Add route to container (ndppd handles NDP proxy)
-  ip -6 route replace "${CONTAINER_IPv6}" dev "${NETWORK_NAME}"
-  local status1=$?
+  if ! ip -6 route replace "${CONTAINER_IPv6}" dev "${NETWORK_NAME}"; then
+    eend 1 "Failed to add IPv6 route"
+    return 1
+  fi
 
   # Get bridge link-local address
   bridge_ll_addr=$(ip -6 addr show dev "${NETWORK_NAME}" scope link | awk '/inet6 fe80/ {split($2, a, "/"); print a[1]; exit}')
 
   # Configure container IPv6 as /128
-  nsenter -t "$container_pid" -n ip -6 addr add "${CONTAINER_IPv6}/128" dev eth0
-  local status2=$?
-
-  # Add default route via bridge link-local address
-  local status3=0
-  if [ -n "$bridge_ll_addr" ]; then
-    nsenter -t "$container_pid" -n ip -6 route add default via "$bridge_ll_addr" dev eth0
-    status3=$?
-  fi
-
-  # Aggregate status: if any failed, report failure
-  if [ $status1 -eq 0 ] && [ $status2 -eq 0 ] && [ $status3 -eq 0 ]; then
-    eend 0
-    return 0
-  else
-    eend 1
+  if ! nsenter -t "$container_pid" -n ip -6 addr add "${CONTAINER_IPv6}/128" dev eth0; then
+    eend 1 "Failed to configure container IPv6 address"
     return 1
   fi
+
+  # Add default route via bridge link-local address
+  if [ -n "$bridge_ll_addr" ]; then
+    if ! nsenter -t "$container_pid" -n ip -6 route add default via "$bridge_ll_addr" dev eth0; then
+      eend 1 "Failed to add default IPv6 route"
+      return 1
+    fi
+  fi
+
+  eend 0
+  return 0
 }
 
 stop() {
