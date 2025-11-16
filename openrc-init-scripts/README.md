@@ -60,20 +60,39 @@ All configuration is done through `/etc/conf.d/minecraft`. The init script inclu
 
 ### Environment Variables
 
-- `CONTAINER_ENV` - Space-separated list of environment variables in format `KEY=value`
+- `CONTAINER_ENV` - Newline-separated list of environment variables in format `KEY=value`
+  - Values may contain spaces
+  - Use newlines to separate multiple entries
   
   Default:
   ```bash
   CONTAINER_ENV="OTEL_JAVAAGENT_CONFIGURATION_FILE=/data/otel-config.properties"
   ```
+  
+  Example with multiple variables:
+  ```bash
+  CONTAINER_ENV="VAR1=value with spaces
+VAR2=another value
+VAR3=simple"
+  ```
 
 ### Container Labels
 
-- `CONTAINER_LABELS` - Space-separated list of labels in format `key=value`
+- `CONTAINER_LABELS` - Newline-separated list of labels in format `key=value`
+  - Values may contain spaces
+  - Use newlines to separate multiple entries
   
   Default:
   ```bash
-  CONTAINER_LABELS="minecraft.server=true minecraft.name=CubeSchool"
+  CONTAINER_LABELS="minecraft.server=true
+minecraft.name=CubeSchool"
+  ```
+  
+  Example with values containing spaces:
+  ```bash
+  CONTAINER_LABELS="minecraft.server=true
+minecraft.name=My Server Name
+minecraft.description=A server for friends"
   ```
 
 ## Usage
@@ -116,11 +135,14 @@ CONTAINER_VOLUMES="/mnt/data/minecraft:/data /mnt/data/bluemap:/data/bluemap"
 # Custom ports (only expose 25565)
 CONTAINER_PORTS="25565:25565/tcp 25565:25565/udp"
 
-# Custom environment
-CONTAINER_ENV="OTEL_JAVAAGENT_CONFIGURATION_FILE=/data/otel-config.properties JAVA_OPTS=-XX:+UseG1GC"
+# Custom environment (newline-separated)
+CONTAINER_ENV="OTEL_JAVAAGENT_CONFIGURATION_FILE=/data/otel-config.properties
+JAVA_OPTS=-XX:+UseG1GC"
 
-# Custom labels
-CONTAINER_LABELS="minecraft.server=true minecraft.name=MyServer minecraft.version=1.21.4"
+# Custom labels (newline-separated)
+CONTAINER_LABELS="minecraft.server=true
+minecraft.name=MyServer
+minecraft.version=1.21.4"
 ```
 
 ## Features
