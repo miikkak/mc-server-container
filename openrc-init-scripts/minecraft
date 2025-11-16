@@ -170,7 +170,7 @@ setup_ipv6() {
 
   # Add default route via bridge link-local address
   if [ -n "$bridge_ll_addr" ]; then
-    if ! nsenter -t "$container_pid" -n ip -6 route add default via "$bridge_ll_addr" dev "$container_iface"; then
+    if ! nsenter -t "$container_pid" -n ip -6 route replace default via "$bridge_ll_addr" dev "$container_iface"; then
       eend 1 "Failed to add default IPv6 route"
       return 1
     fi
