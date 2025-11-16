@@ -138,11 +138,12 @@ CONTAINER_VOLUMES="/mnt/data/minecraft:/data /mnt/data/bluemap:/data/bluemap"
 CONTAINER_PORTS="25565:25565/tcp 25565:25565/udp"
 
 # Custom environment (newline-separated)
+# Use this format if your values may contain spaces or you want to use multiple lines:
 CONTAINER_ENV="OTEL_JAVAAGENT_CONFIGURATION_FILE=/data/otel-config.properties
 JAVA_OPTS=-XX:+UseG1GC"
-# Custom environment (note: values cannot contain spaces)
-CONTAINER_ENV="OTEL_JAVAAGENT_CONFIGURATION_FILE=/data/otel-config.properties MEMORY=8G"
 
+# OR, use this space-separated format (note: values cannot contain spaces):
+# CONTAINER_ENV="OTEL_JAVAAGENT_CONFIGURATION_FILE=/data/otel-config.properties MEMORY=8G"
 # Custom labels (newline-separated)
 CONTAINER_LABELS="minecraft.server=true
 minecraft.name=MyServer
