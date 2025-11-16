@@ -237,7 +237,7 @@ Automatically removes `ci/ready` label when new commits are pushed:
 **Paper JAR Caching**: Both test jobs use GitHub Actions cache to avoid re-downloading files on every run:
 - **Paper JAR Cache**: Based on Paper version and build number (e.g., `paper-jar-1.21.4-123`)
   - Paper JAR is only downloaded on cache miss
-- **Vanilla Minecraft JAR Cache**: Based on Minecraft version (e.g., `paper-vanilla-cache-1.21.4`)
+- **Vanilla Minecraft JAR Cache**: Based on Minecraft version (e.g., `vanilla-cache-1.21.4`)
   - Paper downloads Mojang's vanilla JAR on first startup to `/data/cache/mojang-<version>.jar`
   - Cache prevents re-downloading vanilla JAR on subsequent test runs
   - Reduces network traffic and potential failure points (Mojang server availability)

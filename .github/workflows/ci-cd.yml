@@ -220,12 +220,12 @@ jobs:
           path: paper.jar
           key: paper-jar-${{ steps.paper_version.outputs.version }}-${{ steps.paper_version.outputs.build }}
 
-      - name: Cache Paper vanilla Minecraft JAR
-        id: cache_paper_vanilla
+      - name: Cache Mojang vanilla Minecraft JAR
+        id: cache_vanilla
         uses: actions/cache@v4
         with:
-          path: paper-cache
-          key: paper-vanilla-cache-${{ steps.paper_version.outputs.version }}
+          path: vanilla-cache
+          key: vanilla-cache-${{ steps.paper_version.outputs.version }}
 
       - name: Download Paper JAR
         if: steps.cache_paper.outputs.cache-hit != 'true'
@@ -272,12 +272,12 @@ jobs:
           echo "✅ Paper JAR ready (${JAR_SIZE} bytes)"
 
           # Restore vanilla Minecraft JAR from cache if available
-          if [ "${{ steps.cache_paper_vanilla.outputs.cache-hit }}" == "true" ]; then
+          if [ "${{ steps.cache_vanilla.outputs.cache-hit }}" == "true" ]; then
             echo "📦 Restoring cached vanilla Minecraft JAR"
             mkdir -p test-data/cache
-            cp -r paper-cache/* test-data/cache/ 2>/dev/null || true
+            cp -r vanilla-cache/* test-data/cache/ 2>/dev/null || true
             VANILLA_SIZE=$(du -sh test-data/cache 2>/dev/null | cut -f1 || echo "0")
-            echo "✅ Restored Paper cache (${VANILLA_SIZE})"
+            echo "✅ Restored vanilla Minecraft JAR cache (${VANILLA_SIZE})"
           else
             echo "ℹ️  No cached vanilla JAR - will be downloaded on first startup"
           fi
@@ -347,16 +347,16 @@ jobs:
           echo ""
           echo "✅ Integration test passed - Paper server started successfully"
 
-          # Save Paper's vanilla Minecraft JAR cache for next run
+          # Save Mojang's vanilla Minecraft JAR cache for next run
           echo ""
-          echo "💾 Saving Paper vanilla Minecraft JAR cache"
+          echo "💾 Saving vanilla Minecraft JAR cache"
           if [ -d test-data/cache ]; then
-            mkdir -p paper-cache
-            cp -r test-data/cache/* paper-cache/ 2>/dev/null || true
-            CACHE_SIZE=$(du -sh paper-cache 2>/dev/null | cut -f1 || echo "0")
-            echo "✅ Saved Paper cache (${CACHE_SIZE})"
+            mkdir -p vanilla-cache
+            cp -r test-data/cache/* vanilla-cache/ 2>/dev/null || true
+            CACHE_SIZE=$(du -sh vanilla-cache 2>/dev/null | cut -f1 || echo "0")
+            echo "✅ Saved vanilla Minecraft JAR cache (${CACHE_SIZE})"
           else
-            echo "ℹ️  No Paper cache directory found"
+            echo "ℹ️  No cache directory found"
           fi
 
           # Cleanup
@@ -420,12 +420,12 @@ jobs:
           path: paper-podman.jar
           key: paper-jar-${{ steps.paper_version_podman.outputs.version }}-${{ steps.paper_version_podman.outputs.build }}
 
-      - name: Cache Paper vanilla Minecraft JAR for Podman test
-        id: cache_paper_vanilla_podman
+      - name: Cache Mojang vanilla Minecraft JAR for Podman test
+        id: cache_vanilla_podman
         uses: actions/cache@v4
         with:
-          path: paper-cache-podman
-          key: paper-vanilla-cache-podman-${{ steps.paper_version_podman.outputs.version }}
+          path: vanilla-cache-podman
+          key: vanilla-cache-podman-${{ steps.paper_version_podman.outputs.version }}
 
       - name: Download Paper JAR for Podman test
         if: steps.cache_paper_podman.outputs.cache-hit != 'true'
@@ -471,15 +471,15 @@ jobs:
           JAR_SIZE=$(stat -c%s test-data-podman/paper.jar 2>/dev/null || stat -f%z test-data-podman/paper.jar)
           echo "✅ Paper JAR ready (${JAR_SIZE} bytes)"
 
-          # Restore Paper's vanilla Minecraft JAR cache if available
-          if [ "${{ steps.cache_paper_vanilla_podman.outputs.cache-hit }}" == "true" ]; then
-            echo "📦 Restoring cached Paper vanilla Minecraft JAR"
+          # Restore vanilla Minecraft JAR cache if available
+          if [ "${{ steps.cache_vanilla_podman.outputs.cache-hit }}" == "true" ]; then
+            echo "📦 Restoring cached vanilla Minecraft JAR"
             mkdir -p test-data-podman/cache
-            cp -r paper-cache-podman/* test-data-podman/cache/ 2>/dev/null || true
+            cp -r vanilla-cache-podman/* test-data-podman/cache/ 2>/dev/null || true
             CACHE_SIZE=$(du -sh test-data-podman/cache 2>/dev/null | cut -f1 || echo "0")
-            echo "✅ Restored Paper cache (${CACHE_SIZE})"
+            echo "✅ Restored vanilla Minecraft JAR cache (${CACHE_SIZE})"
           else
-            echo "ℹ️  No cached Paper vanilla JAR - will be downloaded on first startup"
+            echo "ℹ️  No cached vanilla JAR - will be downloaded on first startup"
           fi
 
           # Change ownership to minecraft user (UID 25565)
@@ -550,16 +550,16 @@ jobs:
           echo ""
           echo "✅ Podman integration test passed - OCI compliance verified!"
 
-          # Save Paper's vanilla Minecraft JAR cache for next run
+          # Save Mojang's vanilla Minecraft JAR cache for next run
           echo ""
-          echo "💾 Saving Paper vanilla Minecraft JAR cache"
+          echo "💾 Saving vanilla Minecraft JAR cache"
           if [ -d test-data-podman/cache ]; then
-            mkdir -p paper-cache-podman
-            cp -r test-data-podman/cache/* paper-cache-podman/ 2>/dev/null || true
-            CACHE_SIZE=$(du -sh paper-cache-podman 2>/dev/null | cut -f1 || echo "0")
-            echo "✅ Saved Paper cache (${CACHE_SIZE})"
+            mkdir -p vanilla-cache-podman
+            cp -r test-data-podman/cache/* vanilla-cache-podman/ 2>/dev/null || true
+            CACHE_SIZE=$(du -sh vanilla-cache-podman 2>/dev/null | cut -f1 || echo "0")
+            echo "✅ Saved vanilla Minecraft JAR cache (${CACHE_SIZE})"
           else
-            echo "ℹ️  No Paper cache directory found"
+            echo "ℹ️  No cache directory found"
           fi
 
           # Cleanup
