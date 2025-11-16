@@ -252,9 +252,6 @@ if [ "${DISABLE_MEOWICE_FLAGS:-false}" != "true" ] && [ "${DISABLE_MEOWICE_GRAAL
   JAVA_OPTS="$JAVA_OPTS -Djdk.graal.CompilerConfiguration=enterprise"
 elif [ "${DISABLE_MEOWICE_FLAGS:-false}" != "true" ] && [ "${DISABLE_MEOWICE_GRAALVM_FLAGS:-false}" = "true" ] && [ "${TYPE}" = "paper" ]; then
   echo "⚙️  GraalVM-specific optimization flags: DISABLED"
-elif [ "${TYPE}" = "velocity" ]; then
-  echo "⚙️  GraalVM-specific optimization flags: DISABLED (not applicable for Velocity proxy)"
-fi
 
 # ============================================================================
 # OpenTelemetry Java Agent (Default: ENABLED)
