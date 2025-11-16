@@ -102,16 +102,16 @@ start_pre() {
   fi
   
   # CONTAINER_ENV: KEY=value pairs with newlines (multiline values supported)
-  # Pattern allows newlines by using a more permissive check
-  if ! validate_config "CONTAINER_ENV" "${CONTAINER_ENV}" "[a-zA-Z0-9_=/.@:+
- -]*"; then
+  # Pattern explicitly allows newlines using $'...\n...' syntax
+  local env_pattern=$'[a-zA-Z0-9_=/.@:+\n -]*'
+  if ! validate_config "CONTAINER_ENV" "${CONTAINER_ENV}" "$env_pattern"; then
     return 1
   fi
 
   # CONTAINER_LABELS: key=value pairs with newlines (multiline values supported)
-  # Pattern allows newlines and spaces in values
-  if ! validate_config "CONTAINER_LABELS" "${CONTAINER_LABELS}" "[a-zA-Z0-9_.=:
- -]*"; then
+  # Pattern explicitly allows newlines and spaces in values
+  local label_pattern=$'[a-zA-Z0-9_.=:\n -]*'
+  if ! validate_config "CONTAINER_LABELS" "${CONTAINER_LABELS}" "$label_pattern"; then
     return 1
   fi
   
