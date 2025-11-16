@@ -109,16 +109,16 @@ start_pre() {
   fi
   
   # CONTAINER_ENV: KEY=value pairs with newlines (multiline values supported)
-  # Pattern allows alphanumerics, underscores, equals, slashes, dots, at-signs, colons, plus signs, spaces, and hyphens
-  # Note: newlines are implicitly allowed as the pattern is applied to the full multiline string
-  if ! validate_config "CONTAINER_ENV" "${CONTAINER_ENV}" "([a-zA-Z0-9_=/.@:+ -]*(\n|$))*"; then
+  # Validate by removing newlines first, then checking allowed characters
+  local env_cleaned="${CONTAINER_ENV//$'\n'/ }"
+  if ! validate_config "CONTAINER_ENV" "${env_cleaned}" "[a-zA-Z0-9_=/.@:+ -]*"; then
     return 1
   fi
 
   # CONTAINER_LABELS: key=value pairs with newlines (multiline values supported)
-  # Pattern allows alphanumerics, underscores, dots, equals, colons, spaces, and hyphens
-  # Note: newlines are implicitly allowed as the pattern is applied to the full multiline string
-  if ! validate_config "CONTAINER_LABELS" "${CONTAINER_LABELS}" "([a-zA-Z0-9_.=: -]*(\n|$))*"; then
+  # Validate by removing newlines first, then checking allowed characters
+  local labels_cleaned="${CONTAINER_LABELS//$'\n'/ }"
+  if ! validate_config "CONTAINER_LABELS" "${labels_cleaned}" "[a-zA-Z0-9_.=: -]*"; then
     return 1
   fi
   
@@ -254,8 +254,19 @@ setup_ipv6() {
     # Use explicitly configured interface
     container_iface="${CONTAINER_INTERFACE}"
   else
-    # Detect the first non-loopback interface dynamically
-    container_iface=$(nsenter -t "$container_pid" -n ip -o link show | awk '$2 != "lo:" {gsub(/:$/, "", $2); print $2; exit}')
+    # Detect the first non-loopback, non-tunnel interface dynamically
+    # Prefer eth* interfaces, filter out sit*, ip6tnl*, ip6_vti*, and other tunnel interfaces
+    # Strip @... suffixes (e.g., sit0@NONE -> sit0)
+    container_iface=$(nsenter -t "$container_pid" -n ip -o link show | awk '
+      $2 != "lo:" {
+        gsub(/:$/, "", $2)
+        gsub(/@.*$/, "", $2)
+        if ($2 !~ /^(sit|ip6tnl|ip6_vti|ip_vti|gre|ipip|tunl)[0-9]*$/) {
+          print $2
+          exit
+        }
+      }
+    ')
     if [ -z "$container_iface" ]; then
       ewarn "Could not detect container network interface"
       return 1
