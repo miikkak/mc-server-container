@@ -35,6 +35,9 @@ All configuration is done through `/etc/conf.d/minecraft`. The init script inclu
 - `NETWORK_GATEWAY` - Gateway for the Podman network (default: `10.10.10.1`)
 - `CONTAINER_IP` - IPv4 address for the container (default: `10.10.10.10`)
 - `CONTAINER_IPv6` - IPv6 address for the container (default: `2a01:4f9:3070:1169::b10c:cafe`)
+- `CONTAINER_INTERFACE` - Container's network interface name (default: auto-detect)
+  - Leave empty for automatic detection of the first non-loopback interface
+  - Set explicitly (e.g., `eth0`) only if auto-detection fails or you need a specific interface
 - `NETWORK_DISABLE_DNS` - Disable DNS in the Podman network (default: `true`)
 
 ### Volume Mounts
