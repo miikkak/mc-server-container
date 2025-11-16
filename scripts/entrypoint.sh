@@ -36,7 +36,7 @@ latest_velocity=$(find /data -maxdepth 1 -type f -name 'velocity-*.jar' |
   sort -V |
   tail -n 1)
 
-# Entrypoint will prefer always Paper if it is found, user is not supposed to
+# Entrypoint will always prefer Paper if it is found, user is not supposed to
 # keep both Paper and Velocity in the /data folder
 #
 # First, try to find latest Paper JAR with version numbers
