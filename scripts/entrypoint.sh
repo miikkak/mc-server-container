@@ -66,7 +66,7 @@ else
   TYPE="paper"
 fi
 
-if [ "${TYPE}" == "paper" ]; then
+if [ "${TYPE}" = "paper" ]; then
   # Check EULA
   if [ ! -f /data/eula.txt ]; then
     echo "❌ ERROR: /data/eula.txt not found"
