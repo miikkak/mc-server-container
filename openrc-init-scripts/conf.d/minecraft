@@ -25,6 +25,7 @@ CONTAINER_PORTS="${CONTAINER_PORTS:-127.0.0.1:8100:8100 127.0.0.1:9000:9000 127.
 
 # Environment variables
 # Space-separated list of environment variables in format "KEY=value"
+#   e.g. CONTAINER_ENV="VAR1=value1 VAR2=value2"
 CONTAINER_ENV="${CONTAINER_ENV:-OTEL_JAVAAGENT_CONFIGURATION_FILE=/data/otel-config.properties}"
 
 # Container labels
