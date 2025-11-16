@@ -33,12 +33,57 @@ depend() {
   after firewall
 }
 
+validate_config() {
+  local var_name="$1"
+  local var_value="$2"
+  local pattern="$3"
+  
+  # Check for dangerous shell metacharacters
+  # Reject: ; & | < > ` $ ( ) { } [ ] " ' \ !
+  case "$var_value" in
+    *[\;\&\|\<\>\`\$\(\)\{\}\[\]\"\'\\!]*)
+      eerror "Invalid characters in ${var_name}: contains shell metacharacters"
+      return 1
+      ;;
+  esac
+  
+  # Validate against expected pattern
+  if ! echo "$var_value" | grep -Eq "^${pattern}$"; then
+    eerror "Invalid format in ${var_name}: does not match expected pattern"
+    return 1
+  fi
+  
+  return 0
+}
+
 start_pre() {
   # Validate required configuration
   if [ -z "${CONTAINER_NAME}" ] || [ -z "${CONTAINER_IMAGE}" ] || [ -z "${NETWORK_NAME}" ]; then
     eerror "Required configuration variables are not set"
     return 1
   fi
+  
+  # Validate configuration variables for security
+  # CONTAINER_VOLUMES: paths with optional colon separators and spaces
+  if ! validate_config "CONTAINER_VOLUMES" "${CONTAINER_VOLUMES}" "[a-zA-Z0-9/_. :-]*"; then
+    return 1
+  fi
+  
+  # CONTAINER_PORTS: IP addresses, ports, protocols (tcp/udp) with spaces
+  if ! validate_config "CONTAINER_PORTS" "${CONTAINER_PORTS}" "[0-9a-zA-Z.:/ -]*"; then
+    return 1
+  fi
+  
+  # CONTAINER_ENV: KEY=value pairs with spaces
+  if ! validate_config "CONTAINER_ENV" "${CONTAINER_ENV}" "[a-zA-Z0-9_=/.@: -]*"; then
+    return 1
+  fi
+  
+  # CONTAINER_LABELS: key=value pairs with spaces
+  if ! validate_config "CONTAINER_LABELS" "${CONTAINER_LABELS}" "[a-zA-Z0-9_.=: -]*"; then
+    return 1
+  fi
+  
   # Ensure network exists
   if ! podman network exists "${NETWORK_NAME}" >/dev/null 2>&1; then
     ebegin "Creating Podman network ${NETWORK_NAME}"
