@@ -118,6 +118,7 @@ stop_post() {
 
 remove() {
   # Remove old container
+  ebegin "Removing container ${CONTAINER_NAME}"
   podman rm "${CONTAINER_NAME}"
   eend $?
 }
