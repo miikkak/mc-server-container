@@ -335,7 +335,7 @@ setup_ipv6() {
 stop() {
   ebegin "Stopping ${name}"
   if podman container exists "${CONTAINER_NAME}"; then
-    podman stop "${CONTAINER_NAME}"
+    podman stop "${CONTAINER_NAME}" >/dev/null
     eend $?
   else
     einfo "Container ${CONTAINER_NAME} does not exist"
@@ -365,17 +365,17 @@ stop_post() {
 
   # Clean up if we have an IPv6 address to clean
   if [ -n "${ipv6_to_cleanup}" ] && [ -n "${bridge_to_cleanup}" ]; then
-    ebegin "Cleaning up IPv6 configuration"
-    ip -6 route del "${ipv6_to_cleanup}" dev "${bridge_to_cleanup}" 2>/dev/null
-    rc=$?
-    # Exit code 2 means the route did not exist, which is acceptable for idempotency
-    if [ $rc -eq 0 ] || [ $rc -eq 2 ]; then
+    # Check if bridge interface still exists before attempting cleanup
+    if ip link show "${bridge_to_cleanup}" >/dev/null 2>&1; then
+      ebegin "Cleaning up IPv6 configuration"
+      # Best-effort cleanup: delete route if it exists
+      # Don't fail the stop operation if cleanup fails
+      ip -6 route del "${ipv6_to_cleanup}" dev "${bridge_to_cleanup}" 2>/dev/null
+      # Always succeed - cleanup failures shouldn't prevent stopping
       eend 0
-    else
-      eend $rc
     fi
 
-    # Remove state file after cleanup
+    # Remove state file after cleanup (or attempted cleanup)
     rm -f "/var/run/openrc/${RC_SVCNAME}-ipv6" 2>/dev/null
   fi
 }
@@ -384,7 +384,7 @@ remove() {
   # Remove old container
   ebegin "Removing container ${CONTAINER_NAME}"
   if podman container exists "${CONTAINER_NAME}"; then
-    podman rm -f "${CONTAINER_NAME}"
+    podman rm -f "${CONTAINER_NAME}" >/dev/null
     eend $?
   else
     einfo "Container ${CONTAINER_NAME} does not exist"
@@ -427,7 +427,7 @@ remove_network() {
     return 1
   fi
 
-  podman network rm "${NETWORK_NAME}"
+  podman network rm "${NETWORK_NAME}" >/dev/null
   eend $?
 }
 
