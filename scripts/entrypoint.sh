@@ -259,7 +259,6 @@ elif [ "${DISABLE_MEOWICE_FLAGS:-false}" != "true" ] &&
 elif [ "${TYPE}" = "velocity" ]; then
   echo "⚠️  GraalVM-specific optimization flags: NOT APPLICABLE for Velocity proxy servers"
 fi
-fi
 
 # ============================================================================
 # OpenTelemetry Java Agent (Default: ENABLED)
