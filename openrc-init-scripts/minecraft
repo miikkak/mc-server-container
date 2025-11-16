@@ -172,6 +172,7 @@ stop_post() {
   ebegin "Cleaning up IPv6 configuration"
   ip -6 route del "${CONTAINER_IPv6}" dev "${NETWORK_NAME}" 2>/dev/null
   rc=$?
+  # Exit code 2 means the route did not exist, which is acceptable for idempotency
   if [ $rc -eq 0 ] || [ $rc -eq 2 ]; then
     eend 0
   else
