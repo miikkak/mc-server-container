@@ -291,11 +291,11 @@ echo "Java:         $(java -version 2>&1 | head -n1)"
 
 # Follow symlinks (-L) to get actual JAR size and modification date
 if [ -f "${JAR}" ] || [ -L "${JAR}" ]; then
-  PAPER_SIZE=$(du -Lh "${JAR}" 2>/dev/null | cut -f1)
-  PAPER_DATE=$(stat -L -c '%y' "${JAR}" 2>/dev/null | cut -d' ' -f1)
-  echo "Paper JAR:    ${PAPER_SIZE} (modified: ${PAPER_DATE})"
+  JAR_SIZE=$(du -Lh "${JAR}" 2>/dev/null | cut -f1)
+  JAR_DATE=$(stat -L -c '%y' "${JAR}" 2>/dev/null | cut -d' ' -f1)
+  echo "Server JAR:    ${JAR_SIZE} (modified: ${JAR_DATE})"
 else
-  echo "Paper JAR:    not found"
+  echo "Server JAR:    not found"
 fi
 # Count only JAR files in plugins/ directory (not in subdirectories)
 if [ -d plugins ]; then
@@ -307,7 +307,7 @@ fi
 echo "Plugins:      ${PLUGIN_COUNT} found"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
-echo "🚀 Starting Minecraft server..."
+echo "🚀 Starting server..."
 echo ""
 
 # ============================================================================
