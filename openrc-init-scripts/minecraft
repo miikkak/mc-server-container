@@ -61,41 +61,40 @@ start() {
     ret=$?
   else
     # Build volume arguments
-    local volume_args=""
+    local volume_args=()
     for vol in ${CONTAINER_VOLUMES}; do
-      volume_args="${volume_args} -v ${vol}"
+      volume_args+=("-v" "${vol}")
     done
 
     # Build port arguments
-    local port_args=""
+    local port_args=()
     for port in ${CONTAINER_PORTS}; do
-      port_args="${port_args} -p ${port}"
+      port_args+=("-p" "${port}")
     done
 
     # Build environment arguments
-    local env_args=""
+    local env_args=()
     for env in ${CONTAINER_ENV}; do
-      env_args="${env_args} -e ${env}"
+      env_args+=("-e" "${env}")
     done
 
     # Build label arguments
-    local label_args=""
+    local label_args=()
     for label in ${CONTAINER_LABELS}; do
-      label_args="${label_args} --label ${label}"
+      label_args+=("--label" "${label}")
     done
 
     # Create and start new container
-    # shellcheck disable=SC2086
     podman run -d \
       --name "${CONTAINER_NAME}" \
       --memory "${CONTAINER_MEMORY}" \
       --network "${NETWORK_NAME}" \
       --ip "${CONTAINER_IP}" \
       --stop-timeout "${CONTAINER_STOP_TIMEOUT}" \
-      ${volume_args} \
-      ${port_args} \
-      ${env_args} \
-      ${label_args} \
+      "${volume_args[@]}" \
+      "${port_args[@]}" \
+      "${env_args[@]}" \
+      "${label_args[@]}" \
       "${CONTAINER_IMAGE}"
     ret=$?
   fi
