@@ -10,7 +10,6 @@ CONTAINER_IMAGE="ghcr.io/miikkak/mc-server-container:latest"
 NETWORK_NAME="minecraft-net"
 CONTAINER_IP="10.10.10.10"
 CONTAINER_IPv6="2a01:4f9:3070:1169::b10c:cafe"
-HOST_IPv6_GW="2a01:4f9:3070:1169::1"
 
 depend() {
   need net
