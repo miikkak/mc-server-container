@@ -28,13 +28,19 @@ CONTAINER_VOLUMES="${CONTAINER_VOLUMES:-/srv/minecraft:/data /srv/bluemap:/data/
 CONTAINER_PORTS="${CONTAINER_PORTS:-127.0.0.1:8100:8100 127.0.0.1:9000:9000 127.0.0.1:9940:9940 19132:19132/udp 25565:25565/udp 25565:25565/tcp}"
 
 # Environment variables
-# Space-separated list of environment variables in format "KEY=value"
-#   e.g. CONTAINER_ENV="VAR1=value1 VAR2=value2"
+# Newline-separated list of environment variables in format "KEY=value"
+# Values may contain spaces. Use newlines to separate multiple entries.
+#   e.g. CONTAINER_ENV="VAR1=value with spaces
+# VAR2=another value"
 CONTAINER_ENV="${CONTAINER_ENV:-OTEL_JAVAAGENT_CONFIGURATION_FILE=/data/otel-config.properties}"
 
 # Container labels
-# Space-separated list of labels in format "key=value"
-CONTAINER_LABELS="${CONTAINER_LABELS:-minecraft.server=true minecraft.name=CubeSchool}"
+# Newline-separated list of labels in format "key=value"
+# Values may contain spaces. Use newlines to separate multiple entries.
+#   e.g. CONTAINER_LABELS="key1=value with spaces
+# key2=another value"
+CONTAINER_LABELS="${CONTAINER_LABELS:-minecraft.server=true
+minecraft.name=CubeSchool}"
 
 # Network settings
 NETWORK_DISABLE_DNS="true"

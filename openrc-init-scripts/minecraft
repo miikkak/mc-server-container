@@ -24,7 +24,8 @@ CONTAINER_INTERFACE="${CONTAINER_INTERFACE:-}"
 CONTAINER_VOLUMES="${CONTAINER_VOLUMES:-/srv/minecraft:/data /srv/bluemap:/data/bluemap}"
 CONTAINER_PORTS="${CONTAINER_PORTS:-127.0.0.1:8100:8100 127.0.0.1:9000:9000 127.0.0.1:9940:9940 19132:19132/udp 25565:25565/udp 25565:25565/tcp}"
 CONTAINER_ENV="${CONTAINER_ENV:-OTEL_JAVAAGENT_CONFIGURATION_FILE=/data/otel-config.properties}"
-CONTAINER_LABELS="${CONTAINER_LABELS:-minecraft.server=true minecraft.name=CubeSchool}"
+CONTAINER_LABELS="${CONTAINER_LABELS:-minecraft.server=true
+minecraft.name=CubeSchool}"
 NETWORK_DISABLE_DNS="${NETWORK_DISABLE_DNS:-true}"
 
 depend() {
@@ -79,15 +80,21 @@ start() {
 
     # Build environment arguments
     local env_args=()
-    read -r -a env_array <<< "${CONTAINER_ENV}"
+    local env_array=()
+    mapfile -t env_array <<< "${CONTAINER_ENV}"
     for env in "${env_array[@]}"; do
+      # Skip empty lines
+      [ -z "${env}" ] && continue
       env_args+=("-e" "${env}")
     done
 
     # Build label arguments
     local label_args=()
-    read -r -a label_array <<< "${CONTAINER_LABELS}"
+    local label_array=()
+    mapfile -t label_array <<< "${CONTAINER_LABELS}"
     for label in "${label_array[@]}"; do
+      # Skip empty lines
+      [ -z "${label}" ] && continue
       label_args+=("--label" "${label}")
     done
 
