@@ -33,6 +33,11 @@ depend() {
 }
 
 start_pre() {
+  # Validate required configuration
+  if [ -z "${CONTAINER_NAME}" ] || [ -z "${CONTAINER_IMAGE}" ] || [ -z "${NETWORK_NAME}" ]; then
+    eerror "Required configuration variables are not set"
+    return 1
+  fi
   # Ensure network exists
   if ! podman network exists "${NETWORK_NAME}" >/dev/null 2>&1; then
     ebegin "Creating Podman network ${NETWORK_NAME}"
