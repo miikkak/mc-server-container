@@ -27,48 +27,69 @@ cd /data
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "🎮 Custom Minecraft Server Container"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-
-# Check EULA
-if [ ! -f /data/eula.txt ]; then
-  echo "❌ ERROR: /data/eula.txt not found"
-  echo ""
-  echo "Create /data/eula.txt with:"
-  echo "  eula=true"
-  echo ""
-  exit 1
-fi
-
-if ! grep -q "eula=true" /data/eula.txt; then
-  echo "❌ ERROR: EULA not accepted in /data/eula.txt"
-  echo ""
-  echo "Edit /data/eula.txt and set:"
-  echo "  eula=true"
-  echo ""
-  exit 1
-fi
-
-# Try to find latest paper.jar
-if ! latest=$(find /data -maxdepth 1 -type f -name 'paper-*.jar' |
+latest_paper=$(find /data -maxdepth 1 -type f -name 'paper-*.jar' |
   grep -E 'paper-[0-9]+\.[0-9]+(\.[0-9]+)?-[0-9]+\.jar$' |
   sort -V |
-  tail -n 1); then
-  # Check Paper JAR
+  tail -n 1)
+latest_velocity=$(find /data -maxdepth 1 -type f -name 'velocity-*.jar' |
+  grep -E 'velocity-[0-9]+\.[0-9]+\.[0-9]+(-SNAPSHOT)?-[0-9]+\.jar$' |
+  sort -V |
+  tail -n 1)
+
+# First, try to find latest Paper JAR with version numbers
+if [ -z "$latest_paper" ]; then
+  # Check for paper.jar instead of versioned filename
   if [ ! -f /data/paper.jar ]; then
-    echo "❌ ERROR: /data/paper.jar not found"
-    echo ""
-    echo "Download Paper JAR to /data/paper.jar before starting the server"
-    echo "Visit: https://papermc.io/downloads"
-    echo ""
-    exit 1
+    # Paper isn't found, check for Velocity
+    if [ -z "$latest_velocity" ]; then
+      if [ ! -f /data/velocity.jar ]; then
+        echo "❌ ERROR: neither Paper or Velocity found"
+        echo ""
+        echo "Download Paper or Velocity to /data before starting the server"
+        echo "Visit: https://papermc.io/downloads"
+        echo ""
+        exit 1
+      else
+        JAR="/data/velocity.jar"
+        TYPE="velocity"
+      fi
+    else
+      JAR="${latest_velocity}"
+      TYPE="velocity"
+    fi
   else
     JAR="/data/paper.jar"
+    TYPE="paper"
   fi
 else
-  JAR="${latest}"
+  JAR="${latest_paper}"
+  TYPE="paper"
 fi
 
-echo "✅ EULA accepted"
-echo "✅ Paper JAR found: ${JAR}"
+if [ "${TYPE}" == "paper" ]; then
+  # Check EULA
+  if [ ! -f /data/eula.txt ]; then
+    echo "❌ ERROR: /data/eula.txt not found"
+    echo ""
+    echo "Create /data/eula.txt with:"
+    echo "  eula=true"
+    echo ""
+    exit 1
+  fi
+
+  if ! grep -q "eula=true" /data/eula.txt; then
+    echo "❌ ERROR: EULA not accepted in /data/eula.txt"
+    echo ""
+    echo "Edit /data/eula.txt and set:"
+    echo "  eula=true"
+    echo ""
+    exit 1
+  fi
+
+  echo "✅ EULA accepted"
+fi
+
+echo "✅ Server JAR found: ${JAR}"
 
 # ============================================================================
 # Build Java Command
