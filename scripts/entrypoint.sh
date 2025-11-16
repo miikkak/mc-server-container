@@ -25,50 +25,74 @@ cd /data
 # ============================================================================
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "🎮 Custom Minecraft Server Container"
+echo "🎮 Custom Minecraft/Velocity Server Container"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-
-# Check EULA
-if [ ! -f /data/eula.txt ]; then
-  echo "❌ ERROR: /data/eula.txt not found"
-  echo ""
-  echo "Create /data/eula.txt with:"
-  echo "  eula=true"
-  echo ""
-  exit 1
-fi
-
-if ! grep -q "eula=true" /data/eula.txt; then
-  echo "❌ ERROR: EULA not accepted in /data/eula.txt"
-  echo ""
-  echo "Edit /data/eula.txt and set:"
-  echo "  eula=true"
-  echo ""
-  exit 1
-fi
-
-# Try to find latest paper.jar
-if ! latest=$(find /data -maxdepth 1 -type f -name 'paper-*.jar' |
+latest_paper=$(find /data -maxdepth 1 -type f -name 'paper-*.jar' |
   grep -E 'paper-[0-9]+\.[0-9]+(\.[0-9]+)?-[0-9]+\.jar$' |
   sort -V |
-  tail -n 1); then
-  # Check Paper JAR
+  tail -n 1)
+latest_velocity=$(find /data -maxdepth 1 -type f -name 'velocity-*.jar' |
+  grep -E 'velocity-[0-9]+\.[0-9]+(\.[0-9]+)?(-SNAPSHOT)?-[0-9]+\.jar$' |
+  sort -V |
+  tail -n 1)
+
+# Entrypoint will always prefer Paper if it is found, user is not supposed to
+# keep both Paper and Velocity in the /data folder
+#
+# First, try to find latest Paper JAR with version numbers
+if [ -z "$latest_paper" ]; then
+  # Check for paper.jar instead of versioned filename
   if [ ! -f /data/paper.jar ]; then
-    echo "❌ ERROR: /data/paper.jar not found"
-    echo ""
-    echo "Download Paper JAR to /data/paper.jar before starting the server"
-    echo "Visit: https://papermc.io/downloads"
-    echo ""
-    exit 1
+    # Paper isn't found, check for Velocity
+    if [ -z "$latest_velocity" ]; then
+      if [ ! -f /data/velocity.jar ]; then
+        echo "❌ ERROR: neither Paper nor Velocity found"
+        echo ""
+        echo "Download Paper or Velocity to /data before starting the server"
+        echo "Visit: https://papermc.io/downloads"
+        echo ""
+        exit 1
+      else
+        JAR="/data/velocity.jar"
+        TYPE="velocity"
+      fi
+    else
+      JAR="${latest_velocity}"
+      TYPE="velocity"
+    fi
   else
     JAR="/data/paper.jar"
+    TYPE="paper"
   fi
 else
-  JAR="${latest}"
+  JAR="${latest_paper}"
+  TYPE="paper"
 fi
 
-echo "✅ EULA accepted"
-echo "✅ Paper JAR found: ${JAR}"
+if [ "${TYPE}" = "paper" ]; then
+  # Check EULA
+  if [ ! -f /data/eula.txt ]; then
+    echo "❌ ERROR: /data/eula.txt not found"
+    echo ""
+    echo "Create /data/eula.txt with:"
+    echo "  eula=true"
+    echo ""
+    exit 1
+  fi
+
+  if ! grep -q "eula=true" /data/eula.txt; then
+    echo "❌ ERROR: EULA not accepted in /data/eula.txt"
+    echo ""
+    echo "Edit /data/eula.txt and set:"
+    echo "  eula=true"
+    echo ""
+    exit 1
+  fi
+
+  echo "✅ EULA accepted"
+fi
+
+echo "✅ Server JAR found: ${JAR}"
 
 # ============================================================================
 # Build Java Command
@@ -94,11 +118,13 @@ JAVA_OPTS="$JAVA_OPTS -Dterminal.jline=false"
 JAVA_OPTS="$JAVA_OPTS -Dterminal.ansi=true"
 
 # ============================================================================
-# MeowIce G1GC Flags (Default: ENABLED)
+# MeowIce G1GC Flags (Default: ENABLED for Paper, DISABLED for Velocity)
 # Source: https://github.com/MeowIce/meowice-flags
 # Disable with: DISABLE_MEOWICE_FLAGS=true (for troubleshooting)
+# Note: These flags are optimized for Paper/Minecraft servers and are not
+#       applied to Velocity proxy servers due to different performance characteristics
 # ============================================================================
-if [ "${DISABLE_MEOWICE_FLAGS:-false}" != "true" ]; then
+if [ "${DISABLE_MEOWICE_FLAGS:-false}" != "true" ] && [ "${TYPE}" = "paper" ]; then
   echo "🚀 MeowIce optimization flags: ENABLED"
 
   # Note: --add-modules=jdk.incubator.vector is NOT included
@@ -195,16 +221,22 @@ if [ "${DISABLE_MEOWICE_FLAGS:-false}" != "true" ]; then
 
   # System properties
   JAVA_OPTS="$JAVA_OPTS -Djdk.nio.maxCachedBufferSize=262144"
+elif [ "${TYPE}" = "velocity" ]; then
+  echo "⚙️  MeowIce optimization flags: DISABLED (not applicable for Velocity proxy)"
 else
   echo "⚙️  MeowIce optimization flags: DISABLED (using JVM defaults)"
 fi
 
 # ============================================================================
-# GraalVM-Specific Optimizations (Default: ENABLED)
+# GraalVM-Specific Optimizations (Default: ENABLED for Paper, DISABLED for Velocity)
 # Disable with: DISABLE_MEOWICE_GRAALVM_FLAGS=true (for troubleshooting)
 # Note: Only applied if MeowIce flags are enabled
+#       These flags are optimized for Paper/Minecraft servers and are not
+#       applied to Velocity proxy servers due to different performance characteristics
 # ============================================================================
-if [ "${DISABLE_MEOWICE_FLAGS:-false}" != "true" ] && [ "${DISABLE_MEOWICE_GRAALVM_FLAGS:-false}" != "true" ]; then
+if [ "${DISABLE_MEOWICE_FLAGS:-false}" != "true" ] &&
+  [ "${DISABLE_MEOWICE_GRAALVM_FLAGS:-false}" != "true" ] &&
+  [ "${TYPE}" = "paper" ]; then
   echo "🚀 GraalVM-specific optimization flags: ENABLED"
 
   JAVA_OPTS="$JAVA_OPTS -Djdk.graal.UsePriorityInlining=true"
@@ -220,8 +252,12 @@ if [ "${DISABLE_MEOWICE_FLAGS:-false}" != "true" ] && [ "${DISABLE_MEOWICE_GRAAL
   JAVA_OPTS="$JAVA_OPTS -Djdk.graal.TuneInlinerExploration=1"
   JAVA_OPTS="$JAVA_OPTS -Djdk.graal.LoopRotation=true"
   JAVA_OPTS="$JAVA_OPTS -Djdk.graal.CompilerConfiguration=enterprise"
-elif [ "${DISABLE_MEOWICE_FLAGS:-false}" != "true" ] && [ "${DISABLE_MEOWICE_GRAALVM_FLAGS:-false}" = "true" ]; then
+elif [ "${DISABLE_MEOWICE_FLAGS:-false}" != "true" ] &&
+  [ "${DISABLE_MEOWICE_GRAALVM_FLAGS:-false}" = "true" ] &&
+  [ "${TYPE}" = "paper" ]; then
   echo "⚙️  GraalVM-specific optimization flags: DISABLED"
+elif [ "${TYPE}" = "velocity" ]; then
+  echo "⚠️  GraalVM-specific optimization flags: NOT APPLICABLE for Velocity proxy servers"
 fi
 
 # ============================================================================
@@ -267,11 +303,11 @@ echo "Java:         $(java -version 2>&1 | head -n1)"
 
 # Follow symlinks (-L) to get actual JAR size and modification date
 if [ -f "${JAR}" ] || [ -L "${JAR}" ]; then
-  PAPER_SIZE=$(du -Lh "${JAR}" 2>/dev/null | cut -f1)
-  PAPER_DATE=$(stat -L -c '%y' "${JAR}" 2>/dev/null | cut -d' ' -f1)
-  echo "Paper JAR:    ${PAPER_SIZE} (modified: ${PAPER_DATE})"
+  JAR_SIZE=$(du -Lh "${JAR}" 2>/dev/null | cut -f1)
+  JAR_DATE=$(stat -L -c '%y' "${JAR}" 2>/dev/null | cut -d' ' -f1)
+  echo "Server JAR:    ${JAR_SIZE} (modified: ${JAR_DATE})"
 else
-  echo "Paper JAR:    not found"
+  echo "Server JAR:    not found"
 fi
 # Count only JAR files in plugins/ directory (not in subdirectories)
 if [ -d plugins ]; then
@@ -283,7 +319,7 @@ fi
 echo "Plugins:      ${PLUGIN_COUNT} found"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
-echo "🚀 Starting Minecraft server..."
+echo "🚀 Starting server..."
 echo ""
 
 # ============================================================================
