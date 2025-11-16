@@ -61,10 +61,8 @@ All configuration is done through `/etc/conf.d/minecraft`. The init script inclu
 ### Environment Variables
 
 - `CONTAINER_ENV` - Newline-separated list of environment variables in format `KEY=value`
-  - Values may contain spaces
   - Use newlines to separate multiple entries
-  
-  **Note**: Environment variable values cannot contain spaces, as they are split on whitespace. Use simple values like paths or flags without spaces.
+  - Values cannot contain spaces or special shell characters
   
   Default:
   ```bash
@@ -73,9 +71,9 @@ All configuration is done through `/etc/conf.d/minecraft`. The init script inclu
   
   Example with multiple variables:
   ```bash
-  CONTAINER_ENV="VAR1=value with spaces
-VAR2=another value
-VAR3=simple"
+  CONTAINER_ENV="MEMORY=8G
+JAVA_OPTS=-XX:+UseG1GC
+OTEL_JAVAAGENT_CONFIGURATION_FILE=/data/otel-config.properties"
   ```
 
 ### Container Labels
@@ -138,12 +136,10 @@ CONTAINER_VOLUMES="/mnt/data/minecraft:/data /mnt/data/bluemap:/data/bluemap"
 CONTAINER_PORTS="25565:25565/tcp 25565:25565/udp"
 
 # Custom environment (newline-separated)
-# Use this format if your values may contain spaces or you want to use multiple lines:
+# Note: values cannot contain spaces or special shell characters
 CONTAINER_ENV="OTEL_JAVAAGENT_CONFIGURATION_FILE=/data/otel-config.properties
 JAVA_OPTS=-XX:+UseG1GC"
 
-# OR, use this space-separated format (note: values cannot contain spaces):
-# CONTAINER_ENV="OTEL_JAVAAGENT_CONFIGURATION_FILE=/data/otel-config.properties MEMORY=8G"
 # Custom labels (newline-separated)
 CONTAINER_LABELS="minecraft.server=true
 minecraft.name=MyServer
