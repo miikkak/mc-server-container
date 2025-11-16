@@ -64,6 +64,8 @@ All configuration is done through `/etc/conf.d/minecraft`. The init script inclu
   - Values may contain spaces
   - Use newlines to separate multiple entries
   
+  **Note**: Environment variable values cannot contain spaces, as they are split on whitespace. Use simple values like paths or flags without spaces.
+  
   Default:
   ```bash
   CONTAINER_ENV="OTEL_JAVAAGENT_CONFIGURATION_FILE=/data/otel-config.properties"
@@ -138,6 +140,8 @@ CONTAINER_PORTS="25565:25565/tcp 25565:25565/udp"
 # Custom environment (newline-separated)
 CONTAINER_ENV="OTEL_JAVAAGENT_CONFIGURATION_FILE=/data/otel-config.properties
 JAVA_OPTS=-XX:+UseG1GC"
+# Custom environment (note: values cannot contain spaces)
+CONTAINER_ENV="OTEL_JAVAAGENT_CONFIGURATION_FILE=/data/otel-config.properties MEMORY=8G"
 
 # Custom labels (newline-separated)
 CONTAINER_LABELS="minecraft.server=true
