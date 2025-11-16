@@ -1,0 +1,35 @@
+# shellcheck shell=bash
+# Configuration for Minecraft Server OpenRC init script
+# This file should be installed to /etc/conf.d/minecraft
+
+# Container configuration
+CONTAINER_NAME="${CONTAINER_NAME:-mc}"
+CONTAINER_IMAGE="${CONTAINER_IMAGE:-ghcr.io/miikkak/mc-server-container:latest}"
+CONTAINER_MEMORY="${CONTAINER_MEMORY:-24G}"
+CONTAINER_STOP_TIMEOUT="${CONTAINER_STOP_TIMEOUT:-120}"
+
+# Network configuration
+NETWORK_NAME="${NETWORK_NAME:-minecraft-net}"
+NETWORK_SUBNET="${NETWORK_SUBNET:-10.10.10.0/24}"
+NETWORK_GATEWAY="${NETWORK_GATEWAY:-10.10.10.1}"
+CONTAINER_IP="${CONTAINER_IP:-10.10.10.10}"
+CONTAINER_IPv6="${CONTAINER_IPv6:-2a01:4f9:3070:1169::b10c:cafe}"
+
+# Volume mounts
+# Space-separated list of volume mounts in format "host:container"
+CONTAINER_VOLUMES="${CONTAINER_VOLUMES:-/srv/minecraft:/data /srv/bluemap:/data/bluemap}"
+
+# Port mappings
+# Space-separated list of port mappings in format "host:container/protocol"
+CONTAINER_PORTS="${CONTAINER_PORTS:-127.0.0.1:8100:8100 127.0.0.1:9000:9000 127.0.0.1:9940:9940 19132:19132/udp 25565:25565/udp 25565:25565/tcp}"
+
+# Environment variables
+# Space-separated list of environment variables in format "KEY=value"
+CONTAINER_ENV="${CONTAINER_ENV:-OTEL_JAVAAGENT_CONFIGURATION_FILE=/data/otel-config.properties}"
+
+# Container labels
+# Space-separated list of labels in format "key=value"
+CONTAINER_LABELS="${CONTAINER_LABELS:-minecraft.server=true minecraft.name=CubeSchool}"
+
+# Network settings
+NETWORK_DISABLE_DNS="${NETWORK_DISABLE_DNS:-true}"
