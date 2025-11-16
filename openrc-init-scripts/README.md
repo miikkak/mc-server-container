@@ -135,14 +135,14 @@ All configuration is done through `/etc/conf.d/${RC_SVCNAME}`. The init script i
 ### Environment Variables
 
 - `CONTAINER_ENV` - Newline-separated list of environment variables in format `KEY=value`
+  - Values may contain spaces
   - Use newlines to separate multiple entries
-  - Values cannot contain spaces or special shell characters
-  
+
   Default:
   ```bash
   CONTAINER_ENV="OTEL_JAVAAGENT_CONFIGURATION_FILE=/data/otel-config.properties"
   ```
-  
+
   Example with multiple variables:
   ```bash
   CONTAINER_ENV="MEMORY=8G
