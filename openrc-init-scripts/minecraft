@@ -86,35 +86,46 @@ setup_ipv6() {
   local container_pid bridge_ll_addr
   container_pid=$(podman inspect "${CONTAINER_NAME}" --format '{{.State.Pid}}')
 
-  if [ -n "$container_pid" ] && [[ "$container_pid" =~ ^[0-9]+$ ]] && [ "$container_pid" -gt 0 ]; then
-    ebegin "Configuring IPv6 for ${name}"
+  # Validate container_pid is a positive integer using POSIX-compliant case statement
+  case "$container_pid" in
+    ''|*[!0-9]*)
+      ewarn "Could not get container PID for IPv6 setup"
+      return 1
+      ;;
+    *)
+      [ "$container_pid" -gt 0 ] || {
+        ewarn "Could not get container PID for IPv6 setup"
+        return 1
+      }
+      ;;
+  esac
 
-    # Add route to container (ndppd handles NDP proxy)
-    ip -6 route replace "${CONTAINER_IPv6}" dev "${NETWORK_NAME}" 2>/dev/null
-    local status1=$?
+  ebegin "Configuring IPv6 for ${name}"
 
-    # Get bridge link-local address
-    bridge_ll_addr=$(ip -6 addr show dev "${NETWORK_NAME}" | grep "inet6 fe80" | awk '{print $2}' | cut -d/ -f1)
+  # Add route to container (ndppd handles NDP proxy)
+  ip -6 route replace "${CONTAINER_IPv6}" dev "${NETWORK_NAME}" 2>/dev/null
+  local status1=$?
 
-    # Configure container IPv6 as /128
-    nsenter -t "$container_pid" -n ip -6 addr add "${CONTAINER_IPv6}/128" dev eth0 2>/dev/null
-    local status2=$?
+  # Get bridge link-local address
+  bridge_ll_addr=$(ip -6 addr show dev "${NETWORK_NAME}" | grep "inet6 fe80" | awk '{print $2}' | cut -d/ -f1)
 
-    # Add default route via bridge link-local address
-    local status3=0
-    if [ -n "$bridge_ll_addr" ]; then
-      nsenter -t "$container_pid" -n ip -6 route add default via "$bridge_ll_addr" dev eth0 2>/dev/null
-      status3=$?
-    fi
+  # Configure container IPv6 as /128
+  nsenter -t "$container_pid" -n ip -6 addr add "${CONTAINER_IPv6}/128" dev eth0 2>/dev/null
+  local status2=$?
 
-    # Aggregate status: if any failed, report failure
-    if [ $status1 -eq 0 ] && [ $status2 -eq 0 ] && [ $status3 -eq 0 ]; then
-      eend 0
-      return 0
-    else
-      eend 1
+  # Add default route via bridge link-local address
+  local status3=0
+  if [ -n "$bridge_ll_addr" ]; then
+    nsenter -t "$container_pid" -n ip -6 route add default via "$bridge_ll_addr" dev eth0 2>/dev/null
+    status3=$?
+  fi
+
+  # Aggregate status: if any failed, report failure
+  if [ $status1 -eq 0 ] && [ $status2 -eq 0 ] && [ $status3 -eq 0 ]; then
+    eend 0
+    return 0
   else
-    ewarn "Could not get container PID for IPv6 setup"
+    eend 1
     return 1
   fi
 }
