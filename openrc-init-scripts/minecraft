@@ -78,7 +78,8 @@ start() {
 
     # Build environment arguments
     local env_args=()
-    for env in ${CONTAINER_ENV}; do
+    read -r -a env_array <<< "${CONTAINER_ENV}"
+    for env in "${env_array[@]}"; do
       env_args+=("-e" "${env}")
     done
 
