@@ -43,7 +43,7 @@ if [ -z "$latest_paper" ]; then
     # Paper isn't found, check for Velocity
     if [ -z "$latest_velocity" ]; then
       if [ ! -f /data/velocity.jar ]; then
-        echo "❌ ERROR: neither Paper or Velocity found"
+        echo "❌ ERROR: neither Paper nor Velocity found"
         echo ""
         echo "Download Paper or Velocity to /data before starting the server"
         echo "Visit: https://papermc.io/downloads"
