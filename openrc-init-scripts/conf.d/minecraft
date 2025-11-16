@@ -43,4 +43,4 @@ CONTAINER_LABELS="${CONTAINER_LABELS:-minecraft.server=true
 minecraft.name=CubeSchool}"
 
 # Network settings
-NETWORK_DISABLE_DNS="true"
+NETWORK_DISABLE_DNS="${NETWORK_DISABLE_DNS:-true}"
