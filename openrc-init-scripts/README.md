@@ -362,7 +362,40 @@ rc-service minecraft.world3 start
 - All containers share the same network (`minecraft-net`) and can communicate
 - Only the proxy has port mappings exposed to the Internet
 - Backend servers have `CONTAINER_IPv6=""` which **automatically skips IPv6 setup**
-- Each server gets a unique internal IP for Velocity configuration
+- **Fixed internal IPs** make Velocity configuration stable and easy to maintain:
+  - `10.10.10.10` - Velocity proxy
+  - `10.10.10.20` - Lobby server
+  - `10.10.10.21-23` - World servers (survival, creative, minigames, etc.)
+
+**Example Velocity configuration** (`/srv/minecraft/proxy/velocity.toml`):
+```toml
+[servers]
+lobby = "10.10.10.20:25565"
+survival = "10.10.10.21:25565"
+creative = "10.10.10.22:25565"
+minigames = "10.10.10.23:25565"
+
+try = [
+  "lobby"
+]
+```
+
+These IPs are **predictable and stable** - no DNS needed, no IP changes on container restart.
+
+**Benefits of fixed internal IPs:**
+- 🔒 **Stable configuration**: Velocity config doesn't change when containers restart
+- 📝 **Easy maintenance**: You know exactly which IP belongs to which server
+- 🚫 **No DNS required**: Direct IP addressing on internal network
+- 🔍 **Simple troubleshooting**: `podman exec minecraft.lobby ping 10.10.10.10` to test connectivity
+- 📊 **Predictable monitoring**: Fixed IPs for health checks and metrics collection
+
+**IP allocation strategy:**
+```
+10.10.10.1    - Gateway (reserved)
+10.10.10.10   - Proxy/Internet-facing services
+10.10.10.20+  - Backend servers (lobby, worlds, etc.)
+10.10.10.100+ - Reserved for future services (database, monitoring, etc.)
+```
 
 ## Features
 

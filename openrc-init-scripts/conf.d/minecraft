@@ -34,6 +34,12 @@ NETWORK_SUBNET="${NETWORK_SUBNET:-10.10.10.0/24}"
 NETWORK_GATEWAY="${NETWORK_GATEWAY:-10.10.10.1}"
 # IMPORTANT: When running multiple instances, each needs a unique IP address
 # Example: CONTAINER_IP="10.10.10.11" for second server, "10.10.10.12" for third, etc.
+#
+# Recommended IP allocation for Velocity proxy + backend servers:
+#   10.10.10.10  - Velocity proxy (Internet-facing)
+#   10.10.10.20  - Lobby server
+#   10.10.10.21+ - World servers (survival, creative, minigames, etc.)
+# Fixed IPs make Velocity configuration stable and predictable.
 CONTAINER_IP="${CONTAINER_IP:-10.10.10.10}"
 # IMPORTANT: When running multiple instances, each needs a unique IPv6 address
 # Example: CONTAINER_IPv6="2a01:4f9:3070:1169::b10c:caf1" for second server, etc.
