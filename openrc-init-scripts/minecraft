@@ -121,15 +121,9 @@ setup_ipv6() {
 
   # Validate container_pid is a positive integer using POSIX-compliant case statement
   case "$container_pid" in
-    ''|*[!0-9]*)
+    ''|*[!0-9]*|0)
       ewarn "Could not get container PID for IPv6 setup"
       return 1
-      ;;
-    *)
-      [ "$container_pid" -gt 0 ] || {
-        ewarn "Could not get container PID for IPv6 setup"
-        return 1
-      }
       ;;
   esac
 
