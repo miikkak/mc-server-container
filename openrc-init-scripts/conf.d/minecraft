@@ -64,7 +64,7 @@ NETWORK_GATEWAY="${NETWORK_GATEWAY:-10.10.10.1}"
 # CONTAINER_VOLUMES - Auto-set with instance-aware paths, override to customize
 # Default for base service:     /srv/minecraft:/data /srv/bluemap:/data/bluemap
 # Default for symlinked service: /srv/minecraft/<instance>:/data /srv/bluemap/<instance>:/data/bluemap
-CONTAINER_VOLUMES="${CONTAINER_VOLUMES:-/srv/minecraft:/data /srv/bluemap:/data/bluemap}"
+#CONTAINER_VOLUMES="${CONTAINER_VOLUMES:-/srv/minecraft:/data /srv/bluemap:/data/bluemap}"
 
 # Port mappings
 # Space-separated list of port mappings in format "host:container/protocol"
