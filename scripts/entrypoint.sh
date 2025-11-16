@@ -257,6 +257,7 @@ elif [ "${DISABLE_MEOWICE_FLAGS:-false}" != "true" ] &&
   [ "${TYPE}" = "paper" ]; then
   echo "⚙️  GraalVM-specific optimization flags: DISABLED"
 fi
+fi
 
 # ============================================================================
 # OpenTelemetry Java Agent (Default: ENABLED)
