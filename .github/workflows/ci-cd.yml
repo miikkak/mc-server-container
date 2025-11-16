@@ -272,7 +272,7 @@ jobs:
           echo "✅ Paper JAR ready (${JAR_SIZE} bytes)"
 
           # Restore vanilla Minecraft JAR from cache if available
-          if [ "${{ steps.cache_vanilla_jar.outputs.cache-hit }}" == "true" ]; then
+          if [ "${{ steps.cache_paper_vanilla.outputs.cache-hit }}" == "true" ]; then
             echo "📦 Restoring cached vanilla Minecraft JAR"
             mkdir -p test-data/cache
             cp -r paper-cache/* test-data/cache/ 2>/dev/null || true
