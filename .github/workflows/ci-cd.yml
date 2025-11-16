@@ -271,15 +271,15 @@ jobs:
           JAR_SIZE=$(stat -c%s test-data/paper.jar 2>/dev/null || stat -f%z test-data/paper.jar)
           echo "✅ Paper JAR ready (${JAR_SIZE} bytes)"
 
-          # Restore Paper's vanilla Minecraft JAR cache if available
-          if [ "${{ steps.cache_paper_vanilla.outputs.cache-hit }}" == "true" ]; then
-            echo "📦 Restoring cached Paper vanilla Minecraft JAR"
+          # Restore vanilla Minecraft JAR from cache if available
+          if [ "${{ steps.cache_vanilla_jar.outputs.cache-hit }}" == "true" ]; then
+            echo "📦 Restoring cached vanilla Minecraft JAR"
             mkdir -p test-data/cache
             cp -r paper-cache/* test-data/cache/ 2>/dev/null || true
-            CACHE_SIZE=$(du -sh test-data/cache 2>/dev/null | cut -f1 || echo "0")
-            echo "✅ Restored Paper cache (${CACHE_SIZE})"
+            VANILLA_SIZE=$(du -sh test-data/cache 2>/dev/null | cut -f1 || echo "0")
+            echo "✅ Restored Paper cache (${VANILLA_SIZE})"
           else
-            echo "ℹ️  No cached Paper vanilla JAR - will be downloaded on first startup"
+            echo "ℹ️  No cached vanilla JAR - will be downloaded on first startup"
           fi
 
           # Change ownership to minecraft user (UID 25565)
