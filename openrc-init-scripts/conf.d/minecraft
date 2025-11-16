@@ -42,11 +42,18 @@ NETWORK_GATEWAY="${NETWORK_GATEWAY:-10.10.10.1}"
 #   10.10.10.20  - Lobby server
 #   10.10.10.21+ - World servers (survival, creative, minigames, etc.)
 # Fixed IPs make Velocity configuration stable and predictable.
-CONTAINER_IP="${CONTAINER_IP:-10.10.10.10}"
+#
+# NOTE: This is commented out to force explicit IP assignment for each instance
+# Uncomment and set a unique IP for your server
+#CONTAINER_IP="10.10.10.10"
+
 # IMPORTANT: When running multiple instances, each needs a unique IPv6 address
 # Example: CONTAINER_IPv6="2a01:4f9:3070:1169::b10c:caf1" for second server, etc.
 # Set to empty string (CONTAINER_IPv6="") to skip IPv6 configuration (useful for internal-only servers)
-CONTAINER_IPv6="${CONTAINER_IPv6:-2a01:4f9:3070:1169::b10c:cafe}"
+#
+# NOTE: This is commented out to force explicit IPv6 assignment for each instance
+# Uncomment and set a unique IPv6 address, or set to "" to skip IPv6
+#CONTAINER_IPv6="2a01:4f9:3070:1169::b10c:cafe"
 
 # Container network interface name (leave empty for auto-detection)
 # Only set this if you need to override the default detection

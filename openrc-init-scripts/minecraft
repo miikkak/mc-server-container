@@ -74,6 +74,13 @@ validate_config() {
 
 start_pre() {
   # Validate instance name (if present)
+  # Reject service names with trailing dots (e.g., minecraft.) to prevent conflicts with base service
+  if [ "${RC_SVCNAME}" != "minecraft" ] && [ -z "${INSTANCE}" ]; then
+    eerror "Invalid service name '${RC_SVCNAME}': must be 'minecraft' or 'minecraft.NAME'"
+    eerror "Service name cannot have trailing dots"
+    return 1
+  fi
+
   if [ -n "${INSTANCE}" ]; then
     # Instance name should only contain lowercase letters, numbers, and hyphens
     # No dots, no leading/trailing hyphens
@@ -117,14 +124,12 @@ start_pre() {
   
   # Check for IP conflicts on the same network (excluding this container)
   if podman network exists "${NETWORK_NAME}" >/dev/null 2>&1; then
-    local existing_ips
-    existing_ips=$(podman network inspect "${NETWORK_NAME}" --format '{{range .Containers}}{{.IPv4Address}} {{end}}' 2>/dev/null)
-    if echo "${existing_ips}" | grep -q "${CONTAINER_IP}/"; then
-      # IP exists, check if it's not our own container
-      if ! podman container exists "${CONTAINER_NAME}" 2>/dev/null; then
-        ewarn "IP address ${CONTAINER_IP} is already in use on network ${NETWORK_NAME}"
-        ewarn "Please assign a unique IP address to avoid conflicts"
-      fi
+    # Find which container (if any) is using this IP address
+    local ip_owner
+    ip_owner=$(podman network inspect "${NETWORK_NAME}" --format '{{range .Containers}}{{if eq .IPv4Address "'${CONTAINER_IP}'/24"}}{{.Name}}{{end}}{{end}}' 2>/dev/null)
+    if [ -n "$ip_owner" ] && [ "$ip_owner" != "${CONTAINER_NAME}" ]; then
+      ewarn "IP address ${CONTAINER_IP} is already in use by container '${ip_owner}' on network ${NETWORK_NAME}"
+      ewarn "Please assign a unique IP address to avoid conflicts"
     fi
   fi
 
