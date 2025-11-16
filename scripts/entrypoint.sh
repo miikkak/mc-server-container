@@ -234,7 +234,9 @@ fi
 #       These flags are optimized for Paper/Minecraft servers and are not
 #       applied to Velocity proxy servers due to different performance characteristics
 # ============================================================================
-if [ "${DISABLE_MEOWICE_FLAGS:-false}" != "true" ] && [ "${DISABLE_MEOWICE_GRAALVM_FLAGS:-false}" != "true" ] && [ "${TYPE}" = "paper" ]; then
+if [ "${DISABLE_MEOWICE_FLAGS:-false}" != "true" ] &&
+  [ "${DISABLE_MEOWICE_GRAALVM_FLAGS:-false}" != "true" ] &&
+  [ "${TYPE}" = "paper" ]; then
   echo "🚀 GraalVM-specific optimization flags: ENABLED"
 
   JAVA_OPTS="$JAVA_OPTS -Djdk.graal.UsePriorityInlining=true"
@@ -250,8 +252,11 @@ if [ "${DISABLE_MEOWICE_FLAGS:-false}" != "true" ] && [ "${DISABLE_MEOWICE_GRAAL
   JAVA_OPTS="$JAVA_OPTS -Djdk.graal.TuneInlinerExploration=1"
   JAVA_OPTS="$JAVA_OPTS -Djdk.graal.LoopRotation=true"
   JAVA_OPTS="$JAVA_OPTS -Djdk.graal.CompilerConfiguration=enterprise"
-elif [ "${DISABLE_MEOWICE_FLAGS:-false}" != "true" ] && [ "${DISABLE_MEOWICE_GRAALVM_FLAGS:-false}" = "true" ] && [ "${TYPE}" = "paper" ]; then
+elif [ "${DISABLE_MEOWICE_FLAGS:-false}" != "true" ] &&
+  [ "${DISABLE_MEOWICE_GRAALVM_FLAGS:-false}" = "true" ] &&
+  [ "${TYPE}" = "paper" ]; then
   echo "⚙️  GraalVM-specific optimization flags: DISABLED"
+fi
 
 # ============================================================================
 # OpenTelemetry Java Agent (Default: ENABLED)
