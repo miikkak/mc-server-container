@@ -22,7 +22,8 @@
 
 # Container configuration
 # CONTAINER_NAME - Auto-set to mc or mc-<instance>, override only if needed
-#CONTAINER_NAME="${CONTAINER_NAME:-mc}"
+# WARNING: Uncommenting this will override the instance-aware default
+#CONTAINER_NAME="my-custom-name"
 CONTAINER_IMAGE="${CONTAINER_IMAGE:-ghcr.io/miikkak/mc-server-container:latest}"
 CONTAINER_MEMORY="${CONTAINER_MEMORY:-24G}"
 CONTAINER_STOP_TIMEOUT="${CONTAINER_STOP_TIMEOUT:-120}"
@@ -31,7 +32,9 @@ CONTAINER_STOP_TIMEOUT="${CONTAINER_STOP_TIMEOUT:-120}"
 # NETWORK_NAME - Auto-set to minecraft-net or minecraft-<instance>-net, override only if needed
 # IMPORTANT: When sharing a network between instances (e.g., for Velocity proxy setup),
 # all instances using the same NETWORK_NAME must also use the same NETWORK_SUBNET and NETWORK_GATEWAY
-#NETWORK_NAME="${NETWORK_NAME:-minecraft-net}"
+# WARNING: Uncommenting this will override the instance-aware default
+# Example for shared network: NETWORK_NAME="minecraft-net"
+#NETWORK_NAME="minecraft-net"
 NETWORK_SUBNET="${NETWORK_SUBNET:-10.10.10.0/24}"
 NETWORK_GATEWAY="${NETWORK_GATEWAY:-10.10.10.1}"
 # IMPORTANT: When running multiple instances, each needs a unique IP address
@@ -84,10 +87,10 @@ CONTAINER_ENV="${CONTAINER_ENV:-OTEL_JAVAAGENT_CONFIGURATION_FILE=/data/otel-con
 # Values may contain spaces. Use newlines to separate multiple entries.
 #   e.g. CONTAINER_LABELS="key1=value with spaces
 # key2=another value"
-# Note: The actual default in the init script uses the instance name or "default"
-# This template shows an example that should be customized
-CONTAINER_LABELS="${CONTAINER_LABELS:-minecraft.server=true
-minecraft.name=CubeSchool}"
+# Note: The init script automatically sets minecraft.name to the instance name or "default"
+# Uncomment and customize if you want to override the automatic labels
+#CONTAINER_LABELS="minecraft.server=true
+#minecraft.name=my-custom-name"
 
 # Network settings
 NETWORK_DISABLE_DNS="${NETWORK_DISABLE_DNS:-true}"
