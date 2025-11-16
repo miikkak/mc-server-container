@@ -3,29 +3,44 @@
 # Copyright 2025 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
-# shellcheck disable=SC2034
-name="Minecraft Server"
-# shellcheck disable=SC2034
-description="Minecraft server in Podman container"
+# Detect service instance name from symlink (e.g., minecraft.server1 -> server1)
+# This allows the same script to manage multiple Minecraft servers via symlinks
+RC_SVCNAME="${RC_SVCNAME:-minecraft}"
+INSTANCE="${RC_SVCNAME#minecraft}"
+INSTANCE="${INSTANCE#.}"  # Remove leading dot if present
 
-# Default configuration values (can be overridden in /etc/conf.d/minecraft)
-CONTAINER_NAME="${CONTAINER_NAME:-mc}"
+# Set dynamic name and description based on instance
+if [ -n "${INSTANCE}" ]; then
+  # shellcheck disable=SC2034
+  name="Minecraft Server (${INSTANCE})"
+  # shellcheck disable=SC2034
+  description="Minecraft server ${INSTANCE} in Podman container"
+else
+  # shellcheck disable=SC2034
+  name="Minecraft Server"
+  # shellcheck disable=SC2034
+  description="Minecraft server in Podman container"
+fi
+
+# Default configuration values (can be overridden in /etc/conf.d/${RC_SVCNAME})
+# When using symlinks, each instance gets its own config file
+CONTAINER_NAME="${CONTAINER_NAME:-mc${INSTANCE:+-${INSTANCE}}}"
 CONTAINER_IMAGE="${CONTAINER_IMAGE:-ghcr.io/miikkak/mc-server-container:latest}"
 CONTAINER_MEMORY="${CONTAINER_MEMORY:-24G}"
 CONTAINER_STOP_TIMEOUT="${CONTAINER_STOP_TIMEOUT:-120}"
 
-NETWORK_NAME="${NETWORK_NAME:-minecraft-net}"
+NETWORK_NAME="${NETWORK_NAME:-minecraft${INSTANCE:+-${INSTANCE}}-net}"
 NETWORK_SUBNET="${NETWORK_SUBNET:-10.10.10.0/24}"
 NETWORK_GATEWAY="${NETWORK_GATEWAY:-10.10.10.1}"
 CONTAINER_IP="${CONTAINER_IP:-10.10.10.10}"
 CONTAINER_IPv6="${CONTAINER_IPv6:-2a01:4f9:3070:1169::b10c:cafe}"
 CONTAINER_INTERFACE="${CONTAINER_INTERFACE:-}"
 
-CONTAINER_VOLUMES="${CONTAINER_VOLUMES:-/srv/minecraft:/data /srv/bluemap:/data/bluemap}"
+CONTAINER_VOLUMES="${CONTAINER_VOLUMES:-/srv/minecraft${INSTANCE:+/${INSTANCE}}:/data /srv/bluemap${INSTANCE:+/${INSTANCE}}:/data/bluemap}"
 CONTAINER_PORTS="${CONTAINER_PORTS:-127.0.0.1:8100:8100 127.0.0.1:9000:9000 127.0.0.1:9940:9940 19132:19132/udp 25565:25565/udp 25565:25565/tcp}"
 CONTAINER_ENV="${CONTAINER_ENV:-OTEL_JAVAAGENT_CONFIGURATION_FILE=/data/otel-config.properties}"
 CONTAINER_LABELS="${CONTAINER_LABELS:-minecraft.server=true
-minecraft.name=CubeSchool}"
+minecraft.name=${INSTANCE:-default}}"
 NETWORK_DISABLE_DNS="${NETWORK_DISABLE_DNS:-true}"
 
 depend() {
@@ -58,6 +73,24 @@ validate_config() {
 }
 
 start_pre() {
+  # Validate instance name (if present)
+  # Reject service names with trailing dots (e.g., minecraft.) to prevent conflicts with base service
+  if [ "${RC_SVCNAME}" != "minecraft" ] && [ -z "${INSTANCE}" ]; then
+    eerror "Invalid service name '${RC_SVCNAME}': must be 'minecraft' or 'minecraft.NAME'"
+    eerror "Service name cannot have trailing dots"
+    return 1
+  fi
+
+  if [ -n "${INSTANCE}" ]; then
+    # Instance name should only contain lowercase letters, numbers, and hyphens
+    # No dots, no leading/trailing hyphens
+    if ! echo "${INSTANCE}" | grep -Eq '^[a-z0-9]+(-[a-z0-9]+)*$'; then
+      eerror "Invalid instance name '${INSTANCE}': must contain only lowercase letters, numbers, and hyphens"
+      eerror "Examples: survival, creative, world-1, lobby-server"
+      return 1
+    fi
+  fi
+
   # Validate required configuration
   if [ -z "${CONTAINER_NAME}" ] || [ -z "${CONTAINER_IMAGE}" ] || [ -z "${NETWORK_NAME}" ]; then
     eerror "Required configuration variables are not set"
@@ -75,16 +108,38 @@ start_pre() {
     return 1
   fi
   
-  # CONTAINER_ENV: KEY=value pairs with spaces
-  if ! validate_config "CONTAINER_ENV" "${CONTAINER_ENV}" "[a-zA-Z0-9_=/.@:+-]*"; then
+  # CONTAINER_ENV: KEY=value pairs with newlines (multiline values supported)
+  # Pattern explicitly allows newlines using $'...\n...' syntax
+  local env_pattern=$'[a-zA-Z0-9_=/.@:+\n -]*'
+  if ! validate_config "CONTAINER_ENV" "${CONTAINER_ENV}" "$env_pattern"; then
+    return 1
+  fi
+
+  # CONTAINER_LABELS: key=value pairs with newlines (multiline values supported)
+  # Pattern explicitly allows newlines and spaces in values
+  local label_pattern=$'[a-zA-Z0-9_.=:\n -]*'
+  if ! validate_config "CONTAINER_LABELS" "${CONTAINER_LABELS}" "$label_pattern"; then
     return 1
   fi
   
-  # CONTAINER_LABELS: key=value pairs with spaces
-  if ! validate_config "CONTAINER_LABELS" "${CONTAINER_LABELS}" "[a-zA-Z0-9_.=: -]*"; then
-    return 1
+  # Check for IP conflicts on the same network (excluding this container)
+  if podman network exists "${NETWORK_NAME}" >/dev/null 2>&1; then
+    # Extract subnet mask from NETWORK_SUBNET (e.g., "10.10.10.0/24" -> "24")
+    local subnet_mask="${NETWORK_SUBNET##*/}"
+
+    # Build target IP with subnet mask for podman template matching
+    # Note: Shell expands variables before podman sees the Go template
+    local target_ip="${CONTAINER_IP}/${subnet_mask}"
+
+    # Find which container (if any) is using this IP address
+    local ip_owner
+    ip_owner=$(podman network inspect "${NETWORK_NAME}" --format '{{range .Containers}}{{if eq .IPv4Address "'"${target_ip}"'"}}{{.Name}}{{end}}{{end}}' 2>/dev/null)
+    if [ -n "${ip_owner}" ] && [ "${ip_owner}" != "${CONTAINER_NAME}" ]; then
+      ewarn "IP address ${CONTAINER_IP} is already in use by container '${ip_owner}' on network ${NETWORK_NAME}"
+      ewarn "Please assign a unique IP address to avoid conflicts"
+    fi
   fi
-  
+
   # Ensure network exists
   if ! podman network exists "${NETWORK_NAME}" >/dev/null 2>&1; then
     ebegin "Creating Podman network ${NETWORK_NAME}"
@@ -161,11 +216,18 @@ start() {
   if [ $ret -eq 0 ]; then
     # Wait for container to be running (with timeout)
     if timeout 30 podman wait --condition=running "${CONTAINER_NAME}"; then
-      # Setup IPv6
-      setup_ipv6
-      local ipv6_ret=$?
-      if [ $ipv6_ret -ne 0 ]; then
-        ewarn "IPv6 setup failed (code $ipv6_ret), continuing without IPv6."
+      # Setup IPv6 if CONTAINER_IPv6 is set
+      if [ -n "${CONTAINER_IPv6}" ]; then
+        setup_ipv6
+        local ipv6_ret=$?
+        if [ $ipv6_ret -ne 0 ]; then
+          ewarn "IPv6 setup failed (code $ipv6_ret), continuing without IPv6."
+        else
+          # Store IPv6 address in state file for cleanup on config change
+          echo "${CONTAINER_IPv6}" > "/var/run/openrc/${RC_SVCNAME}-ipv6" 2>/dev/null || true
+        fi
+      else
+        einfo "IPv6 address not set, skipping IPv6 configuration"
       fi
     else
       ewarn "Container did not reach running state within 30 seconds"
@@ -242,14 +304,28 @@ stop() {
 
 stop_post() {
   # Clean up IPv6 route (ndppd handles NDP proxy cleanup automatically)
-  ebegin "Cleaning up IPv6 configuration"
-  ip -6 route del "${CONTAINER_IPv6}" dev "${NETWORK_NAME}" 2>/dev/null
-  rc=$?
-  # Exit code 2 means the route did not exist, which is acceptable for idempotency
-  if [ $rc -eq 0 ] || [ $rc -eq 2 ]; then
-    eend 0
-  else
-    eend $rc
+  # Check both current config and state file to handle config changes
+  local ipv6_to_cleanup="${CONTAINER_IPv6}"
+
+  # If current config has no IPv6, check state file for previously configured address
+  if [ -z "${ipv6_to_cleanup}" ] && [ -f "/var/run/openrc/${RC_SVCNAME}-ipv6" ]; then
+    ipv6_to_cleanup=$(cat "/var/run/openrc/${RC_SVCNAME}-ipv6" 2>/dev/null)
+  fi
+
+  # Clean up if we have an IPv6 address to clean
+  if [ -n "${ipv6_to_cleanup}" ]; then
+    ebegin "Cleaning up IPv6 configuration"
+    ip -6 route del "${ipv6_to_cleanup}" dev "${NETWORK_NAME}" 2>/dev/null
+    rc=$?
+    # Exit code 2 means the route did not exist, which is acceptable for idempotency
+    if [ $rc -eq 0 ] || [ $rc -eq 2 ]; then
+      eend 0
+    else
+      eend $rc
+    fi
+
+    # Remove state file after cleanup
+    rm -f "/var/run/openrc/${RC_SVCNAME}-ipv6" 2>/dev/null
   fi
 }
 

@@ -1,19 +1,62 @@
 # shellcheck shell=bash
-# Configuration for Minecraft Server OpenRC init script
-# This file should be installed to /etc/conf.d/minecraft
+# Configuration template for Minecraft Server OpenRC init script
+#
+# SINGLE SERVER SETUP:
+#   Install this file to: /etc/conf.d/minecraft
+#
+# MULTIPLE SERVER SETUP (symlink-based, like net.lo):
+#   1. Create symlinks: ln -s /etc/init.d/minecraft /etc/init.d/minecraft.survival
+#   2. Copy this file for each instance:
+#      - /etc/conf.d/minecraft.survival
+#      - /etc/conf.d/minecraft.creative
+#      - /etc/conf.d/minecraft.modded
+#   3. Edit each config file with unique values (IPs, ports, etc.)
+#
+# INSTANCE-AWARE DEFAULTS:
+#   When using symlinks, the init script automatically adjusts defaults:
+#   - minecraft         → container: mc,          network: minecraft-net,          volumes: /srv/minecraft:/data
+#   - minecraft.survival → container: mc-survival, network: minecraft-survival-net, volumes: /srv/minecraft/survival:/data
+#   - minecraft.creative → container: mc-creative, network: minecraft-creative-net, volumes: /srv/minecraft/creative:/data
+#
+# You can override any default by uncommenting and setting the value below.
 
 # Container configuration
-CONTAINER_NAME="${CONTAINER_NAME:-mc}"
+# CONTAINER_NAME - Auto-set to mc or mc-<instance>, override only if needed
+# WARNING: Uncommenting this will override the instance-aware default
+#CONTAINER_NAME="my-custom-name"
 CONTAINER_IMAGE="${CONTAINER_IMAGE:-ghcr.io/miikkak/mc-server-container:latest}"
 CONTAINER_MEMORY="${CONTAINER_MEMORY:-24G}"
 CONTAINER_STOP_TIMEOUT="${CONTAINER_STOP_TIMEOUT:-120}"
 
 # Network configuration
-NETWORK_NAME="${NETWORK_NAME:-minecraft-net}"
+# NETWORK_NAME - Auto-set to minecraft-net or minecraft-<instance>-net, override only if needed
+# IMPORTANT: When sharing a network between instances (e.g., for Velocity proxy setup),
+# all instances using the same NETWORK_NAME must also use the same NETWORK_SUBNET and NETWORK_GATEWAY
+# WARNING: Uncommenting this will override the instance-aware default
+# Example for shared network: NETWORK_NAME="minecraft-net"
+#NETWORK_NAME="minecraft-net"
 NETWORK_SUBNET="${NETWORK_SUBNET:-10.10.10.0/24}"
 NETWORK_GATEWAY="${NETWORK_GATEWAY:-10.10.10.1}"
-CONTAINER_IP="${CONTAINER_IP:-10.10.10.10}"
-CONTAINER_IPv6="${CONTAINER_IPv6:-2a01:4f9:3070:1169::b10c:cafe}"
+# IMPORTANT: When running multiple instances, each needs a unique IP address
+# Example: CONTAINER_IP="10.10.10.11" for second server, "10.10.10.12" for third, etc.
+#
+# Recommended IP allocation for Velocity proxy + backend servers:
+#   10.10.10.10  - Velocity proxy (Internet-facing)
+#   10.10.10.20  - Lobby server
+#   10.10.10.21+ - World servers (survival, creative, minigames, etc.)
+# Fixed IPs make Velocity configuration stable and predictable.
+#
+# NOTE: This is commented out to force explicit IP assignment for each instance
+# Uncomment and set a unique IP for your server
+#CONTAINER_IP="10.10.10.10"
+
+# IMPORTANT: When running multiple instances, each needs a unique IPv6 address
+# Example: CONTAINER_IPv6="2a01:4f9:3070:1169::b10c:caf1" for second server, etc.
+# Set to empty string (CONTAINER_IPv6="") to skip IPv6 configuration (useful for internal-only servers)
+#
+# NOTE: This is commented out to force explicit IPv6 assignment for each instance
+# Uncomment and set a unique IPv6 address, or set to "" to skip IPv6
+#CONTAINER_IPv6="2a01:4f9:3070:1169::b10c:cafe"
 
 # Container network interface name (leave empty for auto-detection)
 # Only set this if you need to override the default detection
@@ -21,10 +64,15 @@ CONTAINER_IPv6="${CONTAINER_IPv6:-2a01:4f9:3070:1169::b10c:cafe}"
 
 # Volume mounts
 # Space-separated list of volume mounts in format "host:container"
-CONTAINER_VOLUMES="${CONTAINER_VOLUMES:-/srv/minecraft:/data /srv/bluemap:/data/bluemap}"
+# CONTAINER_VOLUMES - Auto-set with instance-aware paths, override to customize
+# Default for base service:     /srv/minecraft:/data /srv/bluemap:/data/bluemap
+# Default for symlinked service: /srv/minecraft/<instance>:/data /srv/bluemap/<instance>:/data/bluemap
+#CONTAINER_VOLUMES="${CONTAINER_VOLUMES:-/srv/minecraft:/data /srv/bluemap:/data/bluemap}"
 
 # Port mappings
 # Space-separated list of port mappings in format "host:container/protocol"
+# IMPORTANT: When running multiple instances, each needs unique port numbers
+# Example for second server: CONTAINER_PORTS="25566:25565/tcp 25566:25565/udp"
 CONTAINER_PORTS="${CONTAINER_PORTS:-127.0.0.1:8100:8100 127.0.0.1:9000:9000 127.0.0.1:9940:9940 19132:19132/udp 25565:25565/udp 25565:25565/tcp}"
 
 # Environment variables
@@ -39,8 +87,10 @@ CONTAINER_ENV="${CONTAINER_ENV:-OTEL_JAVAAGENT_CONFIGURATION_FILE=/data/otel-con
 # Values may contain spaces. Use newlines to separate multiple entries.
 #   e.g. CONTAINER_LABELS="key1=value with spaces
 # key2=another value"
-CONTAINER_LABELS="${CONTAINER_LABELS:-minecraft.server=true
-minecraft.name=CubeSchool}"
+# Note: The init script automatically sets minecraft.name to the instance name or "default"
+# Uncomment and customize if you want to override the automatic labels
+#CONTAINER_LABELS="minecraft.server=true
+#minecraft.name=my-custom-name"
 
 # Network settings
 NETWORK_DISABLE_DNS="${NETWORK_DISABLE_DNS:-true}"
