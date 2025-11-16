@@ -66,7 +66,7 @@ start() {
 
   if [ $ret -eq 0 ]; then
     # Wait for container to be running
-    sleep 2
+    podman wait --condition=running "${CONTAINER_NAME}"
 
     # Setup IPv6
     setup_ipv6
