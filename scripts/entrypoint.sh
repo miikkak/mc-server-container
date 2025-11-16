@@ -27,18 +27,16 @@ cd /data
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "🎮 Custom Minecraft/Velocity Server Container"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-if latest_paper="$(find /data -maxdepth 1 -type f -name 'paper-*.jar' |
+latest_paper="$(find /data -maxdepth 1 -type f -name 'paper-*.jar' |
   grep -E 'paper-[0-9]+\.[0-9]+(\.[0-9]+)?-[0-9]+\.jar$' |
   sort -V |
-  tail -n 1)"; then
-  echo "Found Paper JAR"
-fi
-if latest_velocity="$(find /data -maxdepth 1 -type f -name 'velocity-*.jar' |
+  tail -n 1)"
+[[ -n "${latest_paper:-}" ]] && echo "Paper JAR found"
+latest_velocity="$(find /data -maxdepth 1 -type f -name 'velocity-*.jar' |
   grep -E 'velocity-[0-9]+\.[0-9]+(\.[0-9]+)?(-SNAPSHOT)?-[0-9]+\.jar$' |
   sort -V |
-  tail -n 1)"; then
-  echo "Found Velocity JAR"
-fi
+  tail -n 1)"
+[[ -n "${latest_velocity:-}" ]] && echo "Velocity JAR found"
 
 # Entrypoint will always prefer Paper if it is found, user is not supposed to
 # keep both Paper and Velocity in the /data folder
