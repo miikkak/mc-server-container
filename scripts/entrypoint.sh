@@ -124,7 +124,7 @@ JAVA_OPTS="$JAVA_OPTS -Dterminal.ansi=true"
 # Note: These flags are optimized for Paper/Minecraft servers and are not
 #       applied to Velocity proxy servers due to different performance characteristics
 # ============================================================================
-if [ "${DISABLE_MEOWICE_FLAGS:-false}" != "true" ] && [ "${TYPE}" = "paper" ]; then
+if [ "${DISABLE_MEOWICE_FLAGS:-false}" != "true" ] && [ "${TYPE:-}" = "paper" ]; then
   echo "🚀 MeowIce optimization flags: ENABLED"
 
   # Note: --add-modules=jdk.incubator.vector is NOT included
@@ -221,7 +221,7 @@ if [ "${DISABLE_MEOWICE_FLAGS:-false}" != "true" ] && [ "${TYPE}" = "paper" ]; t
 
   # System properties
   JAVA_OPTS="$JAVA_OPTS -Djdk.nio.maxCachedBufferSize=262144"
-elif [ "${TYPE}" = "velocity" ]; then
+elif [ "${TYPE:-}" = "velocity" ]; then
   echo "⚙️  MeowIce optimization flags: DISABLED (not applicable for Velocity proxy)"
 else
   echo "⚙️  MeowIce optimization flags: DISABLED (using JVM defaults)"
@@ -236,7 +236,7 @@ fi
 # ============================================================================
 if [ "${DISABLE_MEOWICE_FLAGS:-false}" != "true" ] &&
   [ "${DISABLE_MEOWICE_GRAALVM_FLAGS:-false}" != "true" ] &&
-  [ "${TYPE}" = "paper" ]; then
+  [ "${TYPE:-}" = "paper" ]; then
   echo "🚀 GraalVM-specific optimization flags: ENABLED"
 
   JAVA_OPTS="$JAVA_OPTS -Djdk.graal.UsePriorityInlining=true"
@@ -254,9 +254,9 @@ if [ "${DISABLE_MEOWICE_FLAGS:-false}" != "true" ] &&
   JAVA_OPTS="$JAVA_OPTS -Djdk.graal.CompilerConfiguration=enterprise"
 elif [ "${DISABLE_MEOWICE_FLAGS:-false}" != "true" ] &&
   [ "${DISABLE_MEOWICE_GRAALVM_FLAGS:-false}" = "true" ] &&
-  [ "${TYPE}" = "paper" ]; then
+  [ "${TYPE:-}" = "paper" ]; then
   echo "⚙️  GraalVM-specific optimization flags: DISABLED"
-elif [ "${TYPE}" = "velocity" ]; then
+elif [ "${TYPE:-}" = "velocity" ]; then
   echo "⚠️  GraalVM-specific optimization flags: NOT APPLICABLE for Velocity proxy servers"
 fi
 
