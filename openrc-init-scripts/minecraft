@@ -1,0 +1,135 @@
+#!/sbin/openrc-run
+# Copyright 2025 Gentoo Authors
+# Distributed under the terms of the GNU General Public License v2
+
+name="Minecraft Server"
+description="Minecraft server in Podman container"
+
+CONTAINER_NAME="mc"
+CONTAINER_IMAGE="ghcr.io/miikkak/mc-server-container:latest"
+NETWORK_NAME="minecraft-net"
+CONTAINER_IP="10.10.10.10"
+CONTAINER_IPv6="2a01:4f9:3070:1169::b10c:cafe"
+HOST_IPv6_GW="2a01:4f9:3070:1169::1"
+EXTERNAL_IF="enp5s0"
+
+depend() {
+  need net
+  use podman ndppd
+  after firewall
+}
+
+start_pre() {
+  # Ensure network exists
+  if ! podman network exists "${NETWORK_NAME}" >/dev/null 2>&1; then
+    ebegin "Creating Podman network ${NETWORK_NAME}"
+    podman network create \
+      --subnet 10.10.10.0/24 \
+      --gateway 10.10.10.1 \
+      --interface-name "${NETWORK_NAME}" \
+      --disable-dns \
+      "${NETWORK_NAME}"
+    eend $?
+  fi
+}
+
+start() {
+  ebegin "Starting ${name}"
+
+  # Check if container already exists
+  if podman container exists "${CONTAINER_NAME}"; then
+    # Container exists, just start it
+    podman start "${CONTAINER_NAME}"
+    local ret=$?
+  else
+    # Create and start new container
+    podman run -d \
+      --name "${CONTAINER_NAME}" \
+      --memory 24G \
+      --network "${NETWORK_NAME}" \
+      --ip "${CONTAINER_IP}" \
+      --stop-timeout 120 \
+      -v /srv/minecraft:/data \
+      -v /srv/bluemap:/data/bluemap \
+      -p 127.0.0.1:8100:8100 \
+      -p 127.0.0.1:9000:9000 \
+      -p 127.0.0.1:9940:9940 \
+      -p 19132:19132/udp \
+      -p 25565:25565/udp \
+      -p 25565:25565/tcp \
+      -e OTEL_JAVAAGENT_CONFIGURATION_FILE=/data/otel-config.properties \
+      --label minecraft.server=true \
+      --label minecraft.name=CubeSchool \
+      --restart unless-stopped \
+      "${CONTAINER_IMAGE}"
+    local ret=$?
+  fi
+
+  if [ $ret -eq 0 ]; then
+    # Wait for container to be running
+    sleep 2
+
+    # Setup IPv6
+    setup_ipv6
+  fi
+
+  eend $ret
+}
+
+setup_ipv6() {
+  local container_pid bridge_ll_addr
+  container_pid=$(podman inspect "${CONTAINER_NAME}" --format '{{.State.Pid}}')
+
+  if [ -n "$container_pid" ] && [ "$container_pid" -gt 0 ]; then
+    ebegin "Configuring IPv6 for ${name}"
+
+    # Add route to container (ndppd handles NDP proxy)
+    ip -6 route replace "${CONTAINER_IPv6}" dev "${NETWORK_NAME}" 2>/dev/null || true
+
+    # Get bridge link-local address
+    bridge_ll_addr=$(ip -6 addr show dev "${NETWORK_NAME}" | grep "inet6 fe80" | awk '{print $2}' | cut -d/ -f1)
+
+    # Configure container IPv6 as /128
+    nsenter -t "$container_pid" -n ip -6 addr add "${CONTAINER_IPv6}/128" dev eth0 2>/dev/null || true
+
+    # Add default route via bridge link-local address
+    if [ -n "$bridge_ll_addr" ]; then
+      nsenter -t "$container_pid" -n ip -6 route add default via "$bridge_ll_addr" dev eth0 2>/dev/null || true
+    fi
+
+    eend $?
+  else
+    ewarn "Could not get container PID for IPv6 setup"
+  fi
+}
+
+stop() {
+  ebegin "Stopping ${name}"
+  podman stop "${CONTAINER_NAME}"
+  eend $?
+}
+
+stop_post() {
+  # Clean up IPv6 route (ndppd handles NDP proxy cleanup automatically)
+  ebegin "Cleaning up IPv6 configuration"
+  ip -6 route del "${CONTAINER_IPv6}" dev "${NETWORK_NAME}" 2>/dev/null || true
+  eend 0
+}
+
+remove() {
+  # Remove old container
+  podman rm "${CONTAINER_NAME}"
+  eend $?
+}
+
+status() {
+  if podman container exists "${CONTAINER_NAME}"; then
+    local state
+    state=$(podman inspect "${CONTAINER_NAME}" --format '{{.State.Status}}')
+    einfo "Container ${CONTAINER_NAME}: ${state}"
+    return 0
+  else
+    eerror "Container ${CONTAINER_NAME} does not exist"
+    return 1
+  fi
+}
