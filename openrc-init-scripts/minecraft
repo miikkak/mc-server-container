@@ -105,8 +105,11 @@ start() {
   fi
 
   if [ $ret -eq 0 ]; then
-    # Wait for container to be running
-    podman wait --condition=running "${CONTAINER_NAME}" || ret=1
+    # Wait for container to be running (with timeout)
+    if ! timeout 30 podman wait --condition=running "${CONTAINER_NAME}"; then
+      ewarn "Container did not reach running state within 30 seconds"
+      ret=1
+    fi
 
     if [ $ret -eq 0 ]; then
       # Setup IPv6
