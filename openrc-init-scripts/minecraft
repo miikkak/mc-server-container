@@ -32,13 +32,14 @@ start_pre() {
 }
 
 start() {
+  local ret=1
   ebegin "Starting ${name}"
 
   # Check if container already exists
   if podman container exists "${CONTAINER_NAME}"; then
     # Container exists, just start it
     podman start "${CONTAINER_NAME}"
-    local ret=$?
+    ret=$?
   else
     # Create and start new container
     podman run -d \
@@ -59,7 +60,7 @@ start() {
       --label minecraft.server=true \
       --label minecraft.name=CubeSchool \
       "${CONTAINER_IMAGE}"
-    local ret=$?
+    ret=$?
   fi
 
   if [ $ret -eq 0 ]; then
