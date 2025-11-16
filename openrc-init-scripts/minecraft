@@ -1,15 +1,30 @@
 #!/sbin/openrc-run
+# shellcheck shell=bash
 # Copyright 2025 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
+# shellcheck disable=SC2034
 name="Minecraft Server"
+# shellcheck disable=SC2034
 description="Minecraft server in Podman container"
 
-CONTAINER_NAME="mc"
-CONTAINER_IMAGE="ghcr.io/miikkak/mc-server-container:latest"
-NETWORK_NAME="minecraft-net"
-CONTAINER_IP="10.10.10.10"
-CONTAINER_IPv6="2a01:4f9:3070:1169::b10c:cafe"
+# Default configuration values (can be overridden in /etc/conf.d/minecraft)
+CONTAINER_NAME="${CONTAINER_NAME:-mc}"
+CONTAINER_IMAGE="${CONTAINER_IMAGE:-ghcr.io/miikkak/mc-server-container:latest}"
+CONTAINER_MEMORY="${CONTAINER_MEMORY:-24G}"
+CONTAINER_STOP_TIMEOUT="${CONTAINER_STOP_TIMEOUT:-120}"
+
+NETWORK_NAME="${NETWORK_NAME:-minecraft-net}"
+NETWORK_SUBNET="${NETWORK_SUBNET:-10.10.10.0/24}"
+NETWORK_GATEWAY="${NETWORK_GATEWAY:-10.10.10.1}"
+CONTAINER_IP="${CONTAINER_IP:-10.10.10.10}"
+CONTAINER_IPv6="${CONTAINER_IPv6:-2a01:4f9:3070:1169::b10c:cafe}"
+
+CONTAINER_VOLUMES="${CONTAINER_VOLUMES:-/srv/minecraft:/data /srv/bluemap:/data/bluemap}"
+CONTAINER_PORTS="${CONTAINER_PORTS:-127.0.0.1:8100:8100 127.0.0.1:9000:9000 127.0.0.1:9940:9940 19132:19132/udp 25565:25565/udp 25565:25565/tcp}"
+CONTAINER_ENV="${CONTAINER_ENV:-OTEL_JAVAAGENT_CONFIGURATION_FILE=/data/otel-config.properties}"
+CONTAINER_LABELS="${CONTAINER_LABELS:-minecraft.server=true minecraft.name=CubeSchool}"
+NETWORK_DISABLE_DNS="${NETWORK_DISABLE_DNS:-true}"
 
 depend() {
   need net
@@ -21,11 +36,15 @@ start_pre() {
   # Ensure network exists
   if ! podman network exists "${NETWORK_NAME}" >/dev/null 2>&1; then
     ebegin "Creating Podman network ${NETWORK_NAME}"
+    local disable_dns_flag=""
+    if [ "${NETWORK_DISABLE_DNS}" = "true" ]; then
+      disable_dns_flag="--disable-dns"
+    fi
     podman network create \
-      --subnet 10.10.10.0/24 \
-      --gateway 10.10.10.1 \
+      --subnet "${NETWORK_SUBNET}" \
+      --gateway "${NETWORK_GATEWAY}" \
       --interface-name "${NETWORK_NAME}" \
-      --disable-dns \
+      ${disable_dns_flag} \
       "${NETWORK_NAME}"
     local net_ret=$?
     eend $net_ret
@@ -45,24 +64,42 @@ start() {
     podman start "${CONTAINER_NAME}"
     ret=$?
   else
+    # Build volume arguments
+    local volume_args=""
+    for vol in ${CONTAINER_VOLUMES}; do
+      volume_args="${volume_args} -v ${vol}"
+    done
+
+    # Build port arguments
+    local port_args=""
+    for port in ${CONTAINER_PORTS}; do
+      port_args="${port_args} -p ${port}"
+    done
+
+    # Build environment arguments
+    local env_args=""
+    for env in ${CONTAINER_ENV}; do
+      env_args="${env_args} -e ${env}"
+    done
+
+    # Build label arguments
+    local label_args=""
+    for label in ${CONTAINER_LABELS}; do
+      label_args="${label_args} --label ${label}"
+    done
+
     # Create and start new container
+    # shellcheck disable=SC2086
     podman run -d \
       --name "${CONTAINER_NAME}" \
-      --memory 24G \
+      --memory "${CONTAINER_MEMORY}" \
       --network "${NETWORK_NAME}" \
       --ip "${CONTAINER_IP}" \
-      --stop-timeout 120 \
-      -v /srv/minecraft:/data \
-      -v /srv/bluemap:/data/bluemap \
-      -p 127.0.0.1:8100:8100 \
-      -p 127.0.0.1:9000:9000 \
-      -p 127.0.0.1:9940:9940 \
-      -p 19132:19132/udp \
-      -p 25565:25565/udp \
-      -p 25565:25565/tcp \
-      -e OTEL_JAVAAGENT_CONFIGURATION_FILE=/data/otel-config.properties \
-      --label minecraft.server=true \
-      --label minecraft.name=CubeSchool \
+      --stop-timeout "${CONTAINER_STOP_TIMEOUT}" \
+      ${volume_args} \
+      ${port_args} \
+      ${env_args} \
+      ${label_args} \
       "${CONTAINER_IMAGE}"
     ret=$?
   fi
