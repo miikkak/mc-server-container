@@ -65,13 +65,14 @@ start() {
 
   if [ $ret -eq 0 ]; then
     # Wait for container to be running
-    podman wait --condition=running "${CONTAINER_NAME}"
+    podman wait --condition=running "${CONTAINER_NAME}" || ret=1
 
-    # Setup IPv6
-    setup_ipv6
-    local ipv6_ret=$?
-    ret=$(( ret | ipv6_ret ))
-  fi
+    if [ $ret -eq 0 ]; then
+      # Setup IPv6
+      setup_ipv6
+      local ipv6_ret=$?
+      ret=$(( ret | ipv6_ret ))
+    fi
 
   eend $ret
 }
