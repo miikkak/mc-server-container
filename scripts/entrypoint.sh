@@ -32,7 +32,7 @@ latest_paper=$(find /data -maxdepth 1 -type f -name 'paper-*.jar' |
   sort -V |
   tail -n 1)
 latest_velocity=$(find /data -maxdepth 1 -type f -name 'velocity-*.jar' |
-  grep -E 'velocity-[0-9]+\.[0-9]+\.[0-9]+(-SNAPSHOT)?-[0-9]+\.jar$' |
+  grep -E 'velocity-[0-9]+\.[0-9]+(\.[0-9]+)?(-SNAPSHOT)?-[0-9]+\.jar$' |
   sort -V |
   tail -n 1)
 
