@@ -103,7 +103,7 @@ setup_ipv6() {
   local status1=$?
 
   # Get bridge link-local address
-  bridge_ll_addr=$(ip -6 addr show dev "${NETWORK_NAME}" | grep "inet6 fe80" | awk '{print $2}' | cut -d/ -f1)
+  bridge_ll_addr=$(ip -6 addr show dev "${NETWORK_NAME}" scope link | awk '/inet6 fe80/ {split($2, a, "/"); print a[1]; exit}')
 
   # Configure container IPv6 as /128
   nsenter -t "$container_pid" -n ip -6 addr add "${CONTAINER_IPv6}/128" dev eth0
