@@ -27,8 +27,11 @@ start_pre() {
       --interface-name "${NETWORK_NAME}" \
       --disable-dns \
       "${NETWORK_NAME}"
-    eend $?
-  fi
+    local net_ret=$?
+    eend $net_ret
+    if [ $net_ret -ne 0 ]; then
+      return $net_ret
+    fi
 }
 
 start() {
