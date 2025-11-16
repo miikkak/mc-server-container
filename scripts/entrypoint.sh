@@ -27,24 +27,26 @@ cd /data
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "🎮 Custom Minecraft/Velocity Server Container"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-latest_paper=$(find /data -maxdepth 1 -type f -name 'paper-*.jar' |
+latest_paper="$(find /data -maxdepth 1 -type f -name 'paper-*.jar' |
   { grep -E 'paper-[0-9]+\.[0-9]+(\.[0-9]+)?-[0-9]+\.jar$' || true; } |
   sort -V |
-  tail -n 1)
-latest_velocity=$(find /data -maxdepth 1 -type f -name 'velocity-*.jar' |
+  tail -n 1)"
+[[ -n "${latest_paper:-}" ]] && echo "Paper JAR found"
+latest_velocity="$(find /data -maxdepth 1 -type f -name 'velocity-*.jar' |
   { grep -E 'velocity-[0-9]+\.[0-9]+(\.[0-9]+)?(-SNAPSHOT)?-[0-9]+\.jar$' || true; } |
   sort -V |
-  tail -n 1)
+  tail -n 1)"
+[[ -n "${latest_velocity:-}" ]] && echo "Velocity JAR found"
 
 # Entrypoint will always prefer Paper if it is found, user is not supposed to
 # keep both Paper and Velocity in the /data folder
 #
 # First, try to find latest Paper JAR with version numbers
-if [ -z "$latest_paper" ]; then
+if [ -z "${latest_paper:-}" ]; then
   # Check for paper.jar instead of versioned filename
   if [ ! -f /data/paper.jar ]; then
     # Paper isn't found, check for Velocity
-    if [ -z "$latest_velocity" ]; then
+    if [ -z "${latest_velocity:-}" ]; then
       if [ ! -f /data/velocity.jar ]; then
         echo "❌ ERROR: neither Paper nor Velocity found"
         echo ""
@@ -68,8 +70,9 @@ else
   JAR="${latest_paper}"
   TYPE="paper"
 fi
+echo "✅ Server (${TYPE:-unknown}) JAR found: ${JAR}"
 
-if [ "${TYPE}" = "paper" ]; then
+if [ "${TYPE:-}" = "paper" ]; then
   # Check EULA
   if [ ! -f /data/eula.txt ]; then
     echo "❌ ERROR: /data/eula.txt not found"
@@ -91,8 +94,6 @@ if [ "${TYPE}" = "paper" ]; then
 
   echo "✅ EULA accepted"
 fi
-
-echo "✅ Server JAR found: ${JAR}"
 
 # ============================================================================
 # Build Java Command
@@ -124,7 +125,7 @@ JAVA_OPTS="$JAVA_OPTS -Dterminal.ansi=true"
 # Note: These flags are optimized for Paper/Minecraft servers and are not
 #       applied to Velocity proxy servers due to different performance characteristics
 # ============================================================================
-if [ "${DISABLE_MEOWICE_FLAGS:-false}" != "true" ] && [ "${TYPE}" = "paper" ]; then
+if [ "${DISABLE_MEOWICE_FLAGS:-false}" != "true" ] && [ "${TYPE:-}" = "paper" ]; then
   echo "🚀 MeowIce optimization flags: ENABLED"
 
   # Note: --add-modules=jdk.incubator.vector is NOT included
@@ -221,7 +222,7 @@ if [ "${DISABLE_MEOWICE_FLAGS:-false}" != "true" ] && [ "${TYPE}" = "paper" ]; t
 
   # System properties
   JAVA_OPTS="$JAVA_OPTS -Djdk.nio.maxCachedBufferSize=262144"
-elif [ "${TYPE}" = "velocity" ]; then
+elif [ "${TYPE:-}" = "velocity" ]; then
   echo "⚙️  MeowIce optimization flags: DISABLED (not applicable for Velocity proxy)"
 else
   echo "⚙️  MeowIce optimization flags: DISABLED (using JVM defaults)"
@@ -236,7 +237,7 @@ fi
 # ============================================================================
 if [ "${DISABLE_MEOWICE_FLAGS:-false}" != "true" ] &&
   [ "${DISABLE_MEOWICE_GRAALVM_FLAGS:-false}" != "true" ] &&
-  [ "${TYPE}" = "paper" ]; then
+  [ "${TYPE:-}" = "paper" ]; then
   echo "🚀 GraalVM-specific optimization flags: ENABLED"
 
   JAVA_OPTS="$JAVA_OPTS -Djdk.graal.UsePriorityInlining=true"
@@ -254,9 +255,9 @@ if [ "${DISABLE_MEOWICE_FLAGS:-false}" != "true" ] &&
   JAVA_OPTS="$JAVA_OPTS -Djdk.graal.CompilerConfiguration=enterprise"
 elif [ "${DISABLE_MEOWICE_FLAGS:-false}" != "true" ] &&
   [ "${DISABLE_MEOWICE_GRAALVM_FLAGS:-false}" = "true" ] &&
-  [ "${TYPE}" = "paper" ]; then
+  [ "${TYPE:-}" = "paper" ]; then
   echo "⚙️  GraalVM-specific optimization flags: DISABLED"
-elif [ "${TYPE}" = "velocity" ]; then
+elif [ "${TYPE:-}" = "velocity" ]; then
   echo "⚠️  GraalVM-specific optimization flags: NOT APPLICABLE for Velocity proxy servers"
 fi
 
