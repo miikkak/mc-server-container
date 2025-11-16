@@ -25,7 +25,7 @@ cd /data
 # ============================================================================
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "🎮 Custom Minecraft Server Container"
+echo "🎮 Custom Minecraft/Velocity Server Container"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 latest_paper=$(find /data -maxdepth 1 -type f -name 'paper-*.jar' |
   grep -E 'paper-[0-9]+\.[0-9]+(\.[0-9]+)?-[0-9]+\.jar$' |
@@ -36,6 +36,9 @@ latest_velocity=$(find /data -maxdepth 1 -type f -name 'velocity-*.jar' |
   sort -V |
   tail -n 1)
 
+# Entrypoint will prefer always Paper if it is found, user is not supposed to
+# keep both Paper and Velocity in the /data folder
+#
 # First, try to find latest Paper JAR with version numbers
 if [ -z "$latest_paper" ]; then
   # Check for paper.jar instead of versioned filename
