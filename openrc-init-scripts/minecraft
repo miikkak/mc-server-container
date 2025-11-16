@@ -109,16 +109,20 @@ start_pre() {
   fi
   
   # CONTAINER_ENV: KEY=value pairs with newlines (multiline values supported)
-  # Pattern explicitly allows newlines using $'...\n...' syntax
-  local env_pattern=$'[a-zA-Z0-9_=/.@:+\n -]*'
-  if ! validate_config "CONTAINER_ENV" "${CONTAINER_ENV}" "$env_pattern"; then
+  # Validate by removing newlines first, then checking allowed characters
+  # This is safe because: spaces are already allowed in the pattern, so replacing
+  # newlines with spaces doesn't change validation semantics (e.g., "KEY1=val1\nKEY2=val2"
+  # becomes "KEY1=val1 KEY2=val2" which is valid since both spaces and = are allowed)
+  local env_cleaned="${CONTAINER_ENV//$'\n'/ }"
+  if ! validate_config "CONTAINER_ENV" "${env_cleaned}" "[a-zA-Z0-9_=/.@:+ -]*"; then
     return 1
   fi
 
   # CONTAINER_LABELS: key=value pairs with newlines (multiline values supported)
-  # Pattern explicitly allows newlines and spaces in values
-  local label_pattern=$'[a-zA-Z0-9_.=:\n -]*'
-  if ! validate_config "CONTAINER_LABELS" "${CONTAINER_LABELS}" "$label_pattern"; then
+  # Validate by removing newlines first, then checking allowed characters
+  # Same reasoning as CONTAINER_ENV: spaces are allowed, so newline→space is safe
+  local labels_cleaned="${CONTAINER_LABELS//$'\n'/ }"
+  if ! validate_config "CONTAINER_LABELS" "${labels_cleaned}" "[a-zA-Z0-9_.=: -]*"; then
     return 1
   fi
   
@@ -146,13 +150,32 @@ start_pre() {
     local network_args=(
       --subnet "${NETWORK_SUBNET}"
       --gateway "${NETWORK_GATEWAY}"
-      --interface-name "${NETWORK_NAME}"
     )
+
+    # Only set interface name if it's 15 characters or less (IFNAMSIZ kernel limit: 16 bytes including null terminator)
+    # Otherwise, let Podman auto-generate an interface name
+    if [ ${#NETWORK_NAME} -le 15 ]; then
+      network_args+=(--interface-name "${NETWORK_NAME}")
+    fi
+
     if [ "${NETWORK_DISABLE_DNS}" = "true" ]; then
       network_args+=(--disable-dns)
     fi
-    podman network create "${network_args[@]}" "${NETWORK_NAME}"
-    eend $?
+
+    if ! podman network create "${network_args[@]}" "${NETWORK_NAME}" >/dev/null; then
+      eend 1
+      eerror "Failed to create Podman network ${NETWORK_NAME}"
+      eerror "This usually means the subnet ${NETWORK_SUBNET} is already in use."
+      eerror ""
+      eerror "To diagnose:"
+      eerror "  podman network ls"
+      eerror "  podman network inspect <network-name>"
+      eerror ""
+      eerror "To clean up unused networks from previous instances:"
+      eerror "  rc-service ${RC_SVCNAME} remove_network"
+      return 1
+    fi
+    eend 0
   fi
 }
 
@@ -163,7 +186,7 @@ start() {
   # Check if container already exists
   if podman container exists "${CONTAINER_NAME}"; then
     # Container exists, just start it
-    podman start "${CONTAINER_NAME}"
+    podman start "${CONTAINER_NAME}" >/dev/null
     ret=$?
   else
     # Build volume arguments
@@ -209,13 +232,13 @@ start() {
       "${port_args[@]}" \
       "${env_args[@]}" \
       "${label_args[@]}" \
-      "${CONTAINER_IMAGE}"
+      "${CONTAINER_IMAGE}" >/dev/null
     ret=$?
   fi
 
   if [ $ret -eq 0 ]; then
     # Wait for container to be running (with timeout)
-    if timeout 30 podman wait --condition=running "${CONTAINER_NAME}"; then
+    if timeout 30 podman wait --condition=running "${CONTAINER_NAME}" >/dev/null; then
       # Setup IPv6 if CONTAINER_IPv6 is set
       if [ -n "${CONTAINER_IPv6}" ]; then
         setup_ipv6
@@ -223,8 +246,14 @@ start() {
         if [ $ipv6_ret -ne 0 ]; then
           ewarn "IPv6 setup failed (code $ipv6_ret), continuing without IPv6."
         else
-          # Store IPv6 address in state file for cleanup on config change
-          echo "${CONTAINER_IPv6}" > "/var/run/openrc/${RC_SVCNAME}-ipv6" 2>/dev/null || true
+          # Store IPv6 info in state file for cleanup on config change
+          # Get bridge interface name for cleanup
+          local cleanup_bridge
+          cleanup_bridge=$(podman network inspect "${NETWORK_NAME}" --format '{{.NetworkInterface}}' 2>/dev/null)
+          # Only write state file if we have both IPv6 and bridge interface
+          if [ -n "${cleanup_bridge}" ]; then
+            echo "${CONTAINER_IPv6} ${cleanup_bridge}" > "/var/run/openrc/${RC_SVCNAME}-ipv6" 2>/dev/null || true
+          fi
         fi
       else
         einfo "IPv6 address not set, skipping IPv6 configuration"
@@ -254,47 +283,63 @@ setup_ipv6() {
     # Use explicitly configured interface
     container_iface="${CONTAINER_INTERFACE}"
   else
-    # Detect the first non-loopback interface dynamically
-    container_iface=$(nsenter -t "$container_pid" -n ip -o link show | awk '$2 != "lo:" {gsub(/:$/, "", $2); print $2; exit}')
+    # Detect the first non-loopback, non-tunnel interface dynamically
+    # Filter out tunnel interfaces: sit*, ip6tnl*, ip6_vti*, ip_vti*, gre*, ipip*, tunl*
+    # Strip @... suffixes (e.g., sit0@NONE -> sit0)
+    container_iface=$(nsenter -t "$container_pid" -n ip -o link show | awk '
+      $2 != "lo:" {
+        gsub(/:$/, "", $2)
+        gsub(/@.*$/, "", $2)
+        if ($2 !~ /^(sit|ip6tnl|ip6_vti|ip_vti|gre|ipip|tunl)[0-9]*$/) {
+          print $2
+          exit
+        }
+      }
+    ')
     if [ -z "$container_iface" ]; then
       ewarn "Could not detect container network interface"
       return 1
     fi
   fi
 
-  ebegin "Configuring IPv6 for ${name} (interface: ${container_iface})"
+  # Get actual bridge interface name from Podman network
+  local bridge_iface
+  bridge_iface=$(podman network inspect "${NETWORK_NAME}" --format '{{.NetworkInterface}}' 2>/dev/null)
+  if [ -z "$bridge_iface" ]; then
+    ewarn "Could not determine bridge interface for network ${NETWORK_NAME}"
+    return 1
+  fi
 
   # Add route to container (ndppd handles NDP proxy)
-  if ! ip -6 route replace "${CONTAINER_IPv6}" dev "${NETWORK_NAME}"; then
-    eend 1 "Failed to add IPv6 route"
+  if ! ip -6 route replace "${CONTAINER_IPv6}" dev "${bridge_iface}" 2>/dev/null; then
+    ewarn "Failed to add IPv6 route for ${CONTAINER_IPv6}"
     return 1
   fi
 
   # Get bridge link-local address
-  bridge_ll_addr=$(ip -6 addr show dev "${NETWORK_NAME}" scope link | awk '/inet6 fe80/ {split($2, a, "/"); print a[1]; exit}')
+  bridge_ll_addr=$(ip -6 addr show dev "${bridge_iface}" scope link | awk '/inet6 fe80/ {split($2, a, "/"); print a[1]; exit}')
 
   # Configure container IPv6 as /128
-  if ! nsenter -t "$container_pid" -n ip -6 addr replace "${CONTAINER_IPv6}/128" dev "$container_iface"; then
-    eend 1 "Failed to configure container IPv6 address"
+  if ! nsenter -t "$container_pid" -n ip -6 addr replace "${CONTAINER_IPv6}/128" dev "$container_iface" 2>/dev/null; then
+    ewarn "Failed to configure container IPv6 address"
     return 1
   fi
 
   # Add default route via bridge link-local address
   if [ -n "$bridge_ll_addr" ]; then
-    if ! nsenter -t "$container_pid" -n ip -6 route replace default via "$bridge_ll_addr" dev "$container_iface"; then
-      eend 1 "Failed to add default IPv6 route"
+    if ! nsenter -t "$container_pid" -n ip -6 route replace default via "$bridge_ll_addr" dev "$container_iface" 2>/dev/null; then
+      ewarn "Failed to add default IPv6 route"
       return 1
     fi
   fi
 
-  eend 0
   return 0
 }
 
 stop() {
   ebegin "Stopping ${name}"
   if podman container exists "${CONTAINER_NAME}"; then
-    podman stop "${CONTAINER_NAME}"
+    podman stop "${CONTAINER_NAME}" >/dev/null
     eend $?
   else
     einfo "Container ${CONTAINER_NAME} does not exist"
@@ -306,25 +351,32 @@ stop_post() {
   # Clean up IPv6 route (ndppd handles NDP proxy cleanup automatically)
   # Check both current config and state file to handle config changes
   local ipv6_to_cleanup="${CONTAINER_IPv6}"
+  local bridge_to_cleanup
+
+  # Try to get current bridge interface
+  if [ -n "${ipv6_to_cleanup}" ]; then
+    bridge_to_cleanup=$(podman network inspect "${NETWORK_NAME}" --format '{{.NetworkInterface}}' 2>/dev/null)
+  fi
 
   # If current config has no IPv6, check state file for previously configured address
   if [ -z "${ipv6_to_cleanup}" ] && [ -f "/var/run/openrc/${RC_SVCNAME}-ipv6" ]; then
-    ipv6_to_cleanup=$(cat "/var/run/openrc/${RC_SVCNAME}-ipv6" 2>/dev/null)
+    local state_info
+    state_info=$(cat "/var/run/openrc/${RC_SVCNAME}-ipv6" 2>/dev/null)
+    # State file format: "IPv6_ADDR BRIDGE_IFACE"
+    ipv6_to_cleanup=$(echo "$state_info" | awk '{print $1}')
+    bridge_to_cleanup=$(echo "$state_info" | awk '{print $2}')
   fi
 
   # Clean up if we have an IPv6 address to clean
-  if [ -n "${ipv6_to_cleanup}" ]; then
-    ebegin "Cleaning up IPv6 configuration"
-    ip -6 route del "${ipv6_to_cleanup}" dev "${NETWORK_NAME}" 2>/dev/null
-    rc=$?
-    # Exit code 2 means the route did not exist, which is acceptable for idempotency
-    if [ $rc -eq 0 ] || [ $rc -eq 2 ]; then
-      eend 0
-    else
-      eend $rc
+  if [ -n "${ipv6_to_cleanup}" ] && [ -n "${bridge_to_cleanup}" ]; then
+    # Check if bridge interface still exists before attempting cleanup
+    if ip link show "${bridge_to_cleanup}" >/dev/null 2>&1; then
+      # Best-effort cleanup: delete route if it exists silently
+      # Don't fail the stop operation if cleanup fails
+      ip -6 route del "${ipv6_to_cleanup}" dev "${bridge_to_cleanup}" 2>/dev/null
     fi
 
-    # Remove state file after cleanup
+    # Remove state file after cleanup (or attempted cleanup)
     rm -f "/var/run/openrc/${RC_SVCNAME}-ipv6" 2>/dev/null
   fi
 }
@@ -333,7 +385,7 @@ remove() {
   # Remove old container
   ebegin "Removing container ${CONTAINER_NAME}"
   if podman container exists "${CONTAINER_NAME}"; then
-    podman rm -f "${CONTAINER_NAME}"
+    podman rm -f "${CONTAINER_NAME}" >/dev/null
     eend $?
   else
     einfo "Container ${CONTAINER_NAME} does not exist"
@@ -352,3 +404,43 @@ status() {
     return 1
   fi
 }
+
+remove_network() {
+  # Remove network (checks if it's safe to remove)
+  ebegin "Removing network ${NETWORK_NAME}"
+
+  if ! podman network exists "${NETWORK_NAME}" >/dev/null 2>&1; then
+    einfo "Network ${NETWORK_NAME} does not exist"
+    eend 0
+    return 0
+  fi
+
+  # Check if any containers are using this network
+  local containers_using_network
+  containers_using_network=$(podman network inspect "${NETWORK_NAME}" --format '{{len .Containers}}' 2>/dev/null)
+
+  # Validate we got a numeric value and check if > 0
+  # Use case statement for POSIX-compliant integer validation
+  case "${containers_using_network}" in
+    ''|*[!0-9]*)
+      # Empty or non-numeric - skip check and try removal (will fail if in use)
+      ;;
+    *)
+      # Valid number - check if network is in use
+      if [ "${containers_using_network}" -gt 0 ]; then
+        eend 1
+        eerror "Network ${NETWORK_NAME} is still in use by ${containers_using_network} container(s)"
+        eerror "Stop and remove all containers first:"
+        eerror "  rc-service ${RC_SVCNAME} stop"
+        eerror "  rc-service ${RC_SVCNAME} remove"
+        return 1
+      fi
+      ;;
+  esac
+
+  podman network rm "${NETWORK_NAME}" >/dev/null
+  eend $?
+}
+
+extra_commands="remove remove_network"
+extra_started_commands=""
