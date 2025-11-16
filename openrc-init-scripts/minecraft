@@ -158,7 +158,7 @@ start_pre() {
       network_args+=(--disable-dns)
     fi
 
-    if ! podman network create "${network_args[@]}" "${NETWORK_NAME}"; then
+    if ! podman network create "${network_args[@]}" "${NETWORK_NAME}" >/dev/null; then
       eend 1
       eerror "Failed to create Podman network ${NETWORK_NAME}"
       eerror "This usually means the subnet ${NETWORK_SUBNET} is already in use."
@@ -182,7 +182,7 @@ start() {
   # Check if container already exists
   if podman container exists "${CONTAINER_NAME}"; then
     # Container exists, just start it
-    podman start "${CONTAINER_NAME}"
+    podman start "${CONTAINER_NAME}" >/dev/null
     ret=$?
   else
     # Build volume arguments
@@ -228,13 +228,13 @@ start() {
       "${port_args[@]}" \
       "${env_args[@]}" \
       "${label_args[@]}" \
-      "${CONTAINER_IMAGE}"
+      "${CONTAINER_IMAGE}" >/dev/null
     ret=$?
   fi
 
   if [ $ret -eq 0 ]; then
     # Wait for container to be running (with timeout)
-    if timeout 30 podman wait --condition=running "${CONTAINER_NAME}"; then
+    if timeout 30 podman wait --condition=running "${CONTAINER_NAME}" >/dev/null; then
       # Setup IPv6 if CONTAINER_IPv6 is set
       if [ -n "${CONTAINER_IPv6}" ]; then
         setup_ipv6
