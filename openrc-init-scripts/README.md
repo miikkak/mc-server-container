@@ -54,7 +54,14 @@ This init script uses the same pattern as OpenRC's `net.lo` service: a single ge
 
 ## How It Works
 
-The init script detects its service name (via `$RC_SVCNAME`) and extracts the instance identifier:
+The init script detects its service name (via `$RC_SVCNAME`) and extracts the instance identifier.
+
+**Instance naming rules:**
+- Use only lowercase letters, numbers, and hyphens
+- No dots, spaces, or special characters
+- No leading or trailing hyphens
+- Valid examples: `survival`, `creative`, `world-1`, `lobby-server`
+- Invalid examples: `World.1`, `server_1`, `.survival`, `-lobby`
 
 - Service name: `minecraft` → Instance: (default/empty)
   - Container name: `mc`
@@ -206,7 +213,9 @@ rc-update add minecraft.creative default
 rc-update add minecraft.modded default
 
 # Start all Minecraft servers
-rc-service --ifstarted minecraft.*
+for svc in /etc/init.d/minecraft.*; do
+  rc-service "$(basename "$svc")" start
+done
 ```
 
 ## Example Configuration

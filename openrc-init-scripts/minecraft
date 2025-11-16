@@ -73,6 +73,17 @@ validate_config() {
 }
 
 start_pre() {
+  # Validate instance name (if present)
+  if [ -n "${INSTANCE}" ]; then
+    # Instance name should only contain lowercase letters, numbers, and hyphens
+    # No dots, no leading/trailing hyphens
+    if ! echo "${INSTANCE}" | grep -Eq '^[a-z0-9]+(-[a-z0-9]+)*$'; then
+      eerror "Invalid instance name '${INSTANCE}': must contain only lowercase letters, numbers, and hyphens"
+      eerror "Examples: survival, creative, world-1, lobby-server"
+      return 1
+    fi
+  fi
+
   # Validate required configuration
   if [ -z "${CONTAINER_NAME}" ] || [ -z "${CONTAINER_IMAGE}" ] || [ -z "${NETWORK_NAME}" ]; then
     eerror "Required configuration variables are not set"
@@ -90,16 +101,33 @@ start_pre() {
     return 1
   fi
   
-  # CONTAINER_ENV: KEY=value pairs with spaces
-  if ! validate_config "CONTAINER_ENV" "${CONTAINER_ENV}" "[a-zA-Z0-9_=/.@:+-]*"; then
+  # CONTAINER_ENV: KEY=value pairs with newlines (multiline values supported)
+  # Pattern allows newlines by using a more permissive check
+  if ! validate_config "CONTAINER_ENV" "${CONTAINER_ENV}" "[a-zA-Z0-9_=/.@:+
+ -]*"; then
+    return 1
+  fi
+
+  # CONTAINER_LABELS: key=value pairs with newlines (multiline values supported)
+  # Pattern allows newlines and spaces in values
+  if ! validate_config "CONTAINER_LABELS" "${CONTAINER_LABELS}" "[a-zA-Z0-9_.=:
+ -]*"; then
     return 1
   fi
   
-  # CONTAINER_LABELS: key=value pairs with spaces
-  if ! validate_config "CONTAINER_LABELS" "${CONTAINER_LABELS}" "[a-zA-Z0-9_.=: -]*"; then
-    return 1
+  # Check for IP conflicts on the same network (excluding this container)
+  if podman network exists "${NETWORK_NAME}" >/dev/null 2>&1; then
+    local existing_ips
+    existing_ips=$(podman network inspect "${NETWORK_NAME}" --format '{{range .Containers}}{{.IPv4Address}} {{end}}' 2>/dev/null)
+    if echo "${existing_ips}" | grep -q "${CONTAINER_IP}/"; then
+      # IP exists, check if it's not our own container
+      if ! podman container exists "${CONTAINER_NAME}" 2>/dev/null; then
+        ewarn "IP address ${CONTAINER_IP} is already in use on network ${NETWORK_NAME}"
+        ewarn "Please assign a unique IP address to avoid conflicts"
+      fi
+    fi
   fi
-  
+
   # Ensure network exists
   if ! podman network exists "${NETWORK_NAME}" >/dev/null 2>&1; then
     ebegin "Creating Podman network ${NETWORK_NAME}"
@@ -262,6 +290,8 @@ stop() {
 stop_post() {
   # Clean up IPv6 route (ndppd handles NDP proxy cleanup automatically)
   # Only clean up if IPv6 was configured
+  # Note: If you change config from having IPv6 to not having it (set to empty),
+  # the old route will remain. Manually remove it with: ip -6 route del <old-ipv6> dev <network-name>
   if [ -n "${CONTAINER_IPv6}" ]; then
     ebegin "Cleaning up IPv6 configuration"
     ip -6 route del "${CONTAINER_IPv6}" dev "${NETWORK_NAME}" 2>/dev/null
