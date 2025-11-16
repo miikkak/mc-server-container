@@ -40,11 +40,11 @@ latest_velocity=$(find /data -maxdepth 1 -type f -name 'velocity-*.jar' |
 # keep both Paper and Velocity in the /data folder
 #
 # First, try to find latest Paper JAR with version numbers
-if [ -z "$latest_paper" ]; then
+if [ -z "${latest_paper:-}" ]; then
   # Check for paper.jar instead of versioned filename
   if [ ! -f /data/paper.jar ]; then
     # Paper isn't found, check for Velocity
-    if [ -z "$latest_velocity" ]; then
+    if [ -z "${latest_velocity:-}" ]; then
       if [ ! -f /data/velocity.jar ]; then
         echo "❌ ERROR: neither Paper nor Velocity found"
         echo ""
@@ -69,7 +69,7 @@ else
   TYPE="paper"
 fi
 
-if [ "${TYPE}" = "paper" ]; then
+if [ "${TYPE:-}" = "paper" ]; then
   # Check EULA
   if [ ! -f /data/eula.txt ]; then
     echo "❌ ERROR: /data/eula.txt not found"
