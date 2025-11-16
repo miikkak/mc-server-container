@@ -84,7 +84,7 @@ setup_ipv6() {
   local container_pid bridge_ll_addr
   container_pid=$(podman inspect "${CONTAINER_NAME}" --format '{{.State.Pid}}')
 
-  if [ -n "$container_pid" ] && [ "$container_pid" -gt 0 ]; then
+  if [ -n "$container_pid" ] && [[ "$container_pid" =~ ^[0-9]+$ ]] && [ "$container_pid" -gt 0 ]; then
     ebegin "Configuring IPv6 for ${name}"
 
     # Add route to container (ndppd handles NDP proxy)
