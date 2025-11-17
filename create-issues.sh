@@ -64,16 +64,26 @@ if [ $# -eq 0 ]; then
 else
   # Create specific issue
   issue_num=$(printf "%03d" "$1")
-  file="issue-${issue_num}-*.md"
 
-  # Find matching file
-  matched_file=$(ls $file 2>/dev/null | head -1 || echo "")
+  # Find matching file using shell glob
+  matched_file=""
+  for f in issue-"${issue_num}"-*.md; do
+    if [ -f "$f" ]; then
+      matched_file="$f"
+      break
+    fi
+  done
 
   if [ -z "$matched_file" ]; then
-    echo "Error: No file found matching pattern: $file"
+    echo "Error: No file found matching pattern: issue-${issue_num}-*.md"
     echo ""
     echo "Available issues:"
-    ls issue-*.md 2>/dev/null | sed 's/issue-/  /' | sed 's/-.*//' | sort -u
+    for f in issue-*.md; do
+      [ -f "$f" ] || continue
+      # Extract issue number (e.g., "issue-001-foo.md" -> "001")
+      num=$(echo "$f" | sed 's/^issue-//' | sed 's/-.*//')
+      echo "  $num"
+    done | sort -u
     exit 1
   fi
 
