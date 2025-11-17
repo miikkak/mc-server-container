@@ -20,7 +20,7 @@ ADD https://github.com/itzg/rcon-cli/releases/download/${RCON_CLI_VERSION}/rcon-
 RUN tar -xzf rcon-cli.tar.gz && chmod +x rcon-cli
 
 # Download and extract mc-monitor
-ARG MC_MONITOR_VERSION=0.15.8
+ARG MC_MONITOR_VERSION=0.16.0
 ADD https://github.com/itzg/mc-monitor/releases/download/${MC_MONITOR_VERSION}/mc-monitor_${MC_MONITOR_VERSION}_linux_amd64.tar.gz mc-monitor.tar.gz
 RUN tar -xzf mc-monitor.tar.gz && chmod +x mc-monitor
 
