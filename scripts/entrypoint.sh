@@ -277,7 +277,7 @@ fi
 # ============================================================================
 # Custom JVM Options
 # ============================================================================
-if [ -n "${JAVA_OPTS_CUSTOM:-}" ]; then
+if [[ -n "${JAVA_OPTS_CUSTOM:-}" ]]; then
   echo "🔧 Custom JVM opts: $JAVA_OPTS_CUSTOM"
   JAVA_OPTS="$JAVA_OPTS $JAVA_OPTS_CUSTOM"
 fi
@@ -315,7 +315,7 @@ else
   echo "Server JAR:    not found"
 fi
 # Count only JAR files in plugins/ directory (not in subdirectories)
-if [ -d plugins ]; then
+if [[ -d plugins ]]; then
   PLUGIN_COUNT=$(find plugins -maxdepth 1 -name '*.jar' -type f 2>/dev/null | wc -l)
 else
   PLUGIN_COUNT=0
