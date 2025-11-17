@@ -105,16 +105,20 @@ calculate_jvm_memory() {
 
   # Validate: JVM heap must be smaller than container memory limit
   # JVM needs additional memory for metaspace, code cache, native memory, etc.
+  # Note: CONTAINER_MEMORY_JVM_PERCENT validation (lines 203-214) enforces max 80%,
+  # so this check only triggers if user manually overrides MEMORY in CONTAINER_ENV
   if [ "$jvm_mb" -ge "$container_mb" ]; then
     eerror "Calculated JVM heap (${jvm_mb}M) is >= container memory limit (${container_mb}M)"
     eerror "JVM requires additional memory beyond heap for metaspace, native memory, etc."
     eerror "Current config: CONTAINER_MEMORY=${container_mem}, JVM_PERCENT=${jvm_percent}%"
-    eerror "Fix: Reduce CONTAINER_MEMORY_JVM_PERCENT to 90 or lower (recommended: 70-80)"
+    eerror "Fix: Reduce CONTAINER_MEMORY_JVM_PERCENT to 80 or lower (recommended: 70-75)"
     return 1
   fi
 
-  # Convert back to appropriate unit (prefer G if >= 1024M, otherwise M)
-  if [ $jvm_mb -ge 1024 ]; then
+  # Convert back to appropriate unit
+  # Only convert to G when evenly divisible by 1024 to avoid precision loss
+  # Example: 1536M → keep as "1536M" (not "1G" which would lose 512M)
+  if [ $jvm_mb -ge 1024 ] && [ $((jvm_mb % 1024)) -eq 0 ]; then
     local jvm_g=$((jvm_mb / 1024))
     echo "${jvm_g}G"
   else
@@ -207,7 +211,7 @@ start_pre() {
       ;;
   esac
   if [ "${CONTAINER_MEMORY_JVM_PERCENT}" -gt 80 ]; then
-    eerror "CONTAINER_MEMORY_JVM_PERCENT must be <= 80 (recommended: 70-80), got: ${CONTAINER_MEMORY_JVM_PERCENT}"
+    eerror "CONTAINER_MEMORY_JVM_PERCENT must be <= 80 (recommended: 70-75), got: ${CONTAINER_MEMORY_JVM_PERCENT}"
     eerror "JVM needs at least 20% overhead for metaspace, code cache, thread stacks, and native memory"
     eerror "Values > 80% will likely cause OOM during operation even if startup succeeds"
     return 1
@@ -229,7 +233,10 @@ MEMORY=${calculated_memory}"
       fi
       einfo "Auto-calculated JVM memory: ${calculated_memory} (${CONTAINER_MEMORY_JVM_PERCENT}% of ${CONTAINER_MEMORY} container limit)"
     else
-      ewarn "Failed to calculate JVM memory, container will use entrypoint default (16G)"
+      eerror "Failed to calculate JVM memory"
+      eerror "Cannot safely start container - entrypoint default (16G) may exceed CONTAINER_MEMORY=${CONTAINER_MEMORY}"
+      eerror "Fix configuration and try again"
+      return 1
     fi
   else
     einfo "MEMORY already configured in CONTAINER_ENV, skipping auto-calculation"
