@@ -359,6 +359,10 @@ fi
 read -r -a JAVA_OPTS <<<"${JAVA_OPTS}"
 read -r -a MC_SERVER_RUNNER_ARGS <<<"${MC_SERVER_RUNNER_ARGS}"
 
+# Set umask, in the host side anyone in the minecraft group would be able to
+# edit the config files and update plugins etc.
+umask 002
+
 exec mc-server-runner \
   "${MC_SERVER_RUNNER_ARGS[@]}" \
   java \
