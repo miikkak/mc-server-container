@@ -94,7 +94,7 @@ All configuration is done through `/etc/conf.d/${RC_SVCNAME}`. The init script i
   - The init script automatically calculates the JVM heap size (`MEMORY` environment variable) as a percentage of this value
   - Default calculation: 75% of `CONTAINER_MEMORY` is allocated to JVM heap (configurable via `CONTAINER_MEMORY_JVM_PERCENT`)
   - Example: `CONTAINER_MEMORY="24G"` → auto-calculates `MEMORY="18G"` for JVM heap
-  - **Warning**: If you set `CONTAINER_MEMORY="3G"`, the JVM will get ~2.2G (75%), not the entrypoint default of 16G
+  - **Warning**: If you set `CONTAINER_MEMORY="3G"`, the JVM will get 2G (75%), not the entrypoint default of 16G
 - `CONTAINER_MEMORY_JVM_PERCENT` - Percentage of container memory allocated to JVM heap (default: `75`)
   - This controls how much of `CONTAINER_MEMORY` is allocated to the JVM heap
   - The remaining percentage is headroom for JVM metaspace, native memory, and container overhead
