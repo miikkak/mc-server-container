@@ -91,15 +91,17 @@ All configuration is done through `/etc/conf.d/${RC_SVCNAME}`. The init script i
 - `CONTAINER_IMAGE` - Container image to use (default: `ghcr.io/miikkak/mc-server-container:latest`)
 - `CONTAINER_MEMORY` - Total memory limit for the container (default: `24G`)
   - **Important**: This is the total container memory limit (includes JVM heap + JVM overhead + container processes)
+  - **Minimum**: 2G required (Paper server needs 1G heap + overhead)
   - The init script automatically calculates the JVM heap size (`MEMORY` environment variable) as a percentage of this value
   - Default calculation: 75% of `CONTAINER_MEMORY` is allocated to JVM heap (configurable via `CONTAINER_MEMORY_JVM_PERCENT`)
   - Example: `CONTAINER_MEMORY="24G"` → auto-calculates `MEMORY="18G"` for JVM heap
-  - **Warning**: If you set `CONTAINER_MEMORY="3G"`, the JVM will get 2G (75%), not the entrypoint default of 16G
+  - **Validation**: Service start fails if calculated heap < 1G or >= container limit
 - `CONTAINER_MEMORY_JVM_PERCENT` - Percentage of container memory allocated to JVM heap (default: `75`)
   - This controls how much of `CONTAINER_MEMORY` is allocated to the JVM heap
   - The remaining percentage is headroom for JVM metaspace, native memory, and container overhead
-  - Valid range: 1-100 (recommended: 70-80)
+  - Valid range: 1-100 (recommended: 70-80, max practical: 90)
   - Example: `CONTAINER_MEMORY="24G"` with `CONTAINER_MEMORY_JVM_PERCENT="80"` → `MEMORY="19G"`
+  - **Note**: Setting to 100 will cause service start failure (heap must be < container limit)
 - `CONTAINER_STOP_TIMEOUT` - Graceful shutdown timeout in seconds (default: `120`)
 
 ### Network Settings

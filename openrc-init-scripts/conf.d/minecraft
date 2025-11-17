@@ -30,14 +30,16 @@ CONTAINER_IMAGE="${CONTAINER_IMAGE:-ghcr.io/miikkak/mc-server-container:latest}"
 # CONTAINER_MEMORY - Total memory limit for the container (includes JVM heap + overhead)
 # Default: 24G
 # Supported units: G (gigabytes), M (megabytes)
+# IMPORTANT: Minimum 2G required (Paper needs 1G heap + overhead)
 # The init script automatically calculates JVM heap size (MEMORY env var) as a percentage
 # of CONTAINER_MEMORY to leave headroom for JVM metaspace, native memory, and container overhead.
 CONTAINER_MEMORY="${CONTAINER_MEMORY:-24G}"
 
 # CONTAINER_MEMORY_JVM_PERCENT - Percentage of container memory allocated to JVM heap
 # Default: 75 (leaves ~25% headroom for JVM overhead and container processes)
-# Valid range: 1-100 (recommended: 70-80)
+# Valid range: 1-100 (recommended: 70-80, max practical: 90)
 # Example: CONTAINER_MEMORY=24G with 75% → MEMORY=18G passed to container
+# IMPORTANT: Calculated heap must be >= 1G (Paper requirement) and < container limit
 # You can override the auto-calculated MEMORY by setting it explicitly in CONTAINER_ENV below
 #CONTAINER_MEMORY_JVM_PERCENT="75"
 

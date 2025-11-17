@@ -53,11 +53,12 @@ depend() {
 # Calculate JVM heap size from container memory limit
 # Allocates a percentage of container memory to JVM (default 75%, configurable via CONTAINER_MEMORY_JVM_PERCENT)
 # This leaves headroom for JVM metaspace, native memory, and container overhead
-# Returns: JVM memory value in G or M units (e.g., "18G" or "512M")
+# Returns: JVM memory value in G or M units (e.g., "18G" or "2G")
+# Note: Paper server requires minimum 1G heap - smaller values will cause startup failure
 calculate_jvm_memory() {
   local container_mem="$1"
   local jvm_percent="${CONTAINER_MEMORY_JVM_PERCENT}"
-  local min_jvm_mb=512  # Minimum JVM heap size in MB
+  local min_jvm_mb=1024  # Minimum JVM heap size for Paper server (1G)
 
   # Extract numeric value and unit (e.g., "24G" -> value=24, unit=G)
   local value unit
@@ -66,7 +67,7 @@ calculate_jvm_memory() {
 
   # Validate input
   if [ -z "$value" ] || [ -z "$unit" ]; then
-    eerror "Invalid CONTAINER_MEMORY format: $container_mem (expected format: 24G, 16G, 512M)"
+    eerror "Invalid CONTAINER_MEMORY format: $container_mem (expected format: 24G, 16G, 2048M)"
     return 1
   fi
 
@@ -79,10 +80,10 @@ calculate_jvm_memory() {
   esac
 
   # Convert to MB for calculation
-  local mb
+  local container_mb
   case "$unit" in
-    G|g) mb=$((value * 1024)) ;;
-    M|m) mb=$value ;;
+    G|g) container_mb=$((value * 1024)) ;;
+    M|m) container_mb=$value ;;
     *)
       eerror "Unsupported memory unit in CONTAINER_MEMORY: $unit (supported: G, M)"
       return 1
@@ -90,12 +91,25 @@ calculate_jvm_memory() {
   esac
 
   # Calculate JVM memory (apply percentage)
-  local jvm_mb=$((mb * jvm_percent / 100))
+  local jvm_mb=$((container_mb * jvm_percent / 100))
 
-  # Ensure minimum JVM heap size
+  # Validate: JVM heap must be at least 1G for Paper server
   if [ $jvm_mb -lt $min_jvm_mb ]; then
-    ewarn "Calculated JVM memory ${jvm_mb}M is below minimum ${min_jvm_mb}M, using ${min_jvm_mb}M"
-    jvm_mb=$min_jvm_mb
+    eerror "Calculated JVM heap (${jvm_mb}M) is below minimum requirement (${min_jvm_mb}M / 1G)"
+    eerror "Paper server requires at least 1G heap to start"
+    eerror "Current config: CONTAINER_MEMORY=${container_mem}, JVM_PERCENT=${jvm_percent}%"
+    eerror "Minimum required: CONTAINER_MEMORY >= 2G (with 75% allocation) or adjust CONTAINER_MEMORY_JVM_PERCENT"
+    return 1
+  fi
+
+  # Validate: JVM heap must be smaller than container memory limit
+  # JVM needs additional memory for metaspace, code cache, native memory, etc.
+  if [ "$jvm_mb" -ge "$container_mb" ]; then
+    eerror "Calculated JVM heap (${jvm_mb}M) is >= container memory limit (${container_mb}M)"
+    eerror "JVM requires additional memory beyond heap for metaspace, native memory, etc."
+    eerror "Current config: CONTAINER_MEMORY=${container_mem}, JVM_PERCENT=${jvm_percent}%"
+    eerror "Fix: Reduce CONTAINER_MEMORY_JVM_PERCENT to 90 or lower (recommended: 70-80)"
+    return 1
   fi
 
   # Convert back to appropriate unit (prefer G if >= 1024M, otherwise M)
@@ -199,7 +213,8 @@ start_pre() {
   # Calculate JVM memory from container memory limit if MEMORY not already set in CONTAINER_ENV
   # This ensures JVM heap size is appropriate for the container's memory limit
   # Check for MEMORY= at start of line only (avoids matching CUSTOM_MEMORY= etc.)
-  if ! echo "${CONTAINER_ENV}" | grep -q '^MEMORY='; then
+  # Use printf instead of echo for portability with multiline strings
+  if ! printf '%s\n' "${CONTAINER_ENV}" | grep -q '^MEMORY='; then
     local calculated_memory
     if calculated_memory=$(calculate_jvm_memory "${CONTAINER_MEMORY}") && [ -n "${calculated_memory}" ]; then
       # Add MEMORY to CONTAINER_ENV
