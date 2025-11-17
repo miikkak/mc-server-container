@@ -5,7 +5,7 @@
 set -euo pipefail
 
 FUNCTIONS="/scripts/functions.sh"
-if [ -r "$FUNCTIONS" ]; then
+if [[ -r "$FUNCTIONS" ]]; then
   # shellcheck source=./functions.sh
   . "$FUNCTIONS"
 else
@@ -31,23 +31,27 @@ latest_paper="$(find /data -maxdepth 1 -type f -name 'paper-*.jar' |
   { grep -E 'paper-[0-9]+\.[0-9]+(\.[0-9]+)?-[0-9]+\.jar$' || true; } |
   sort -V |
   tail -n 1)"
-[[ -n "${latest_paper:-}" ]] && echo "Paper JAR found"
+if [[ -n "${latest_paper:-}" ]]; then
+  echo "Paper JAR found"
+fi
 latest_velocity="$(find /data -maxdepth 1 -type f -name 'velocity-*.jar' |
   { grep -E 'velocity-[0-9]+\.[0-9]+(\.[0-9]+)?(-SNAPSHOT)?-[0-9]+\.jar$' || true; } |
   sort -V |
   tail -n 1)"
-[[ -n "${latest_velocity:-}" ]] && echo "Velocity JAR found"
+if [[ -n "${latest_velocity:-}" ]]; then
+  echo "Velocity JAR found"
+fi
 
 # Entrypoint will always prefer Paper if it is found, user is not supposed to
 # keep both Paper and Velocity in the /data folder
 #
 # First, try to find latest Paper JAR with version numbers
-if [ -z "${latest_paper:-}" ]; then
+if [[ -z "${latest_paper:-}" ]]; then
   # Check for paper.jar instead of versioned filename
-  if [ ! -f /data/paper.jar ]; then
+  if [[ ! -f /data/paper.jar ]]; then
     # Paper isn't found, check for Velocity
-    if [ -z "${latest_velocity:-}" ]; then
-      if [ ! -f /data/velocity.jar ]; then
+    if [[ -z "${latest_velocity:-}" ]]; then
+      if [[ ! -f /data/velocity.jar ]]; then
         echo "❌ ERROR: neither Paper nor Velocity found"
         echo ""
         echo "Download Paper or Velocity to /data before starting the server"
@@ -72,9 +76,9 @@ else
 fi
 echo "✅ Server (${TYPE:-unknown}) JAR found: ${JAR}"
 
-if [ "${TYPE:-}" = "paper" ]; then
+if [[ "${TYPE:-}" == "paper" ]]; then
   # Check EULA
-  if [ ! -f /data/eula.txt ]; then
+  if [[ ! -f /data/eula.txt ]]; then
     echo "❌ ERROR: /data/eula.txt not found"
     echo ""
     echo "Create /data/eula.txt with:"
@@ -125,7 +129,7 @@ JAVA_OPTS="$JAVA_OPTS -Dterminal.ansi=true"
 # Note: These flags are optimized for Paper/Minecraft servers and are not
 #       applied to Velocity proxy servers due to different performance characteristics
 # ============================================================================
-if [ "${DISABLE_MEOWICE_FLAGS:-false}" != "true" ] && [ "${TYPE:-}" = "paper" ]; then
+if [[ "${DISABLE_MEOWICE_FLAGS:-false}" != "true" ]] && [[ "${TYPE:-}" == "paper" ]]; then
   echo "🚀 MeowIce optimization flags: ENABLED"
 
   # Note: --add-modules=jdk.incubator.vector is NOT included
@@ -156,7 +160,7 @@ if [ "${DISABLE_MEOWICE_FLAGS:-false}" != "true" ] && [ "${TYPE:-}" = "paper" ];
 
   # Auto-detect NUMA and enable optimization if available
   # NUMA is typically not available in standard containers, but detect it just in case
-  if [ -d /sys/devices/system/node/node1 ]; then
+  if [[ -d /sys/devices/system/node/node1 ]]; then
     JAVA_OPTS="$JAVA_OPTS -XX:+UseNUMA"
   fi
 
@@ -222,7 +226,7 @@ if [ "${DISABLE_MEOWICE_FLAGS:-false}" != "true" ] && [ "${TYPE:-}" = "paper" ];
 
   # System properties
   JAVA_OPTS="$JAVA_OPTS -Djdk.nio.maxCachedBufferSize=262144"
-elif [ "${TYPE:-}" = "velocity" ]; then
+elif [[ "${TYPE:-}" == "velocity" ]]; then
   echo "⚙️  MeowIce optimization flags: DISABLED (not applicable for Velocity proxy)"
 else
   echo "⚙️  MeowIce optimization flags: DISABLED (using JVM defaults)"
@@ -235,9 +239,9 @@ fi
 #       These flags are optimized for Paper/Minecraft servers and are not
 #       applied to Velocity proxy servers due to different performance characteristics
 # ============================================================================
-if [ "${DISABLE_MEOWICE_FLAGS:-false}" != "true" ] &&
-  [ "${DISABLE_MEOWICE_GRAALVM_FLAGS:-false}" != "true" ] &&
-  [ "${TYPE:-}" = "paper" ]; then
+if [[ "${DISABLE_MEOWICE_FLAGS:-false}" != "true" ]] &&
+  [[ "${DISABLE_MEOWICE_GRAALVM_FLAGS:-false}" != "true" ]] &&
+  [[ "${TYPE:-}" == "paper" ]]; then
   echo "🚀 GraalVM-specific optimization flags: ENABLED"
 
   JAVA_OPTS="$JAVA_OPTS -Djdk.graal.UsePriorityInlining=true"
@@ -253,11 +257,11 @@ if [ "${DISABLE_MEOWICE_FLAGS:-false}" != "true" ] &&
   JAVA_OPTS="$JAVA_OPTS -Djdk.graal.TuneInlinerExploration=1"
   JAVA_OPTS="$JAVA_OPTS -Djdk.graal.LoopRotation=true"
   JAVA_OPTS="$JAVA_OPTS -Djdk.graal.CompilerConfiguration=enterprise"
-elif [ "${DISABLE_MEOWICE_FLAGS:-false}" != "true" ] &&
-  [ "${DISABLE_MEOWICE_GRAALVM_FLAGS:-false}" = "true" ] &&
-  [ "${TYPE:-}" = "paper" ]; then
+elif [[ "${DISABLE_MEOWICE_FLAGS:-false}" != "true" ]] &&
+  [[ "${DISABLE_MEOWICE_GRAALVM_FLAGS:-false}" == "true" ]] &&
+  [[ "${TYPE:-}" == "paper" ]]; then
   echo "⚙️  GraalVM-specific optimization flags: DISABLED"
-elif [ "${TYPE:-}" = "velocity" ]; then
+elif [[ "${TYPE:-}" == "velocity" ]]; then
   echo "⚠️  GraalVM-specific optimization flags: NOT APPLICABLE for Velocity proxy servers"
 fi
 
@@ -266,14 +270,14 @@ fi
 # Disable with: DISABLE_OTEL_AGENT=true (for troubleshooting)
 # ============================================================================
 configure_otel_agent
-if [ "${JAVA_AGENT:-false}" = "true" ]; then
+if [[ "${JAVA_AGENT:-false}" == "true" ]]; then
   JAVA_OPTS="$JAVA_OPTS -javaagent:/opt/opentelemetry-javaagent.jar"
 fi
 
 # ============================================================================
 # Custom JVM Options
 # ============================================================================
-if [ -n "${JAVA_OPTS_CUSTOM:-}" ]; then
+if [[ -n "${JAVA_OPTS_CUSTOM:-}" ]]; then
   echo "🔧 Custom JVM opts: $JAVA_OPTS_CUSTOM"
   JAVA_OPTS="$JAVA_OPTS $JAVA_OPTS_CUSTOM"
 fi
@@ -282,7 +286,7 @@ fi
 # Log4j Configuration
 # ============================================================================
 # Specify Log4j2 configuration file location
-if [ -f /data/log4j2.xml ]; then
+if [[ -f /data/log4j2.xml ]]; then
   JAVA_OPTS="$JAVA_OPTS -Dlog4j.configurationFile=log4j2.xml"
 fi
 
@@ -303,7 +307,7 @@ echo "Memory:       ${MEMORY}"
 echo "Java:         $(java -version 2>&1 | head -n1)"
 
 # Follow symlinks (-L) to get actual JAR size and modification date
-if [ -f "${JAR}" ] || [ -L "${JAR}" ]; then
+if [[ -f "${JAR}" ]] || [[ -L "${JAR}" ]]; then
   JAR_SIZE=$(du -Lh "${JAR}" 2>/dev/null | cut -f1)
   JAR_DATE=$(stat -L -c '%y' "${JAR}" 2>/dev/null | cut -d' ' -f1)
   echo "Server JAR:    ${JAR_SIZE} (modified: ${JAR_DATE})"
@@ -311,7 +315,7 @@ else
   echo "Server JAR:    not found"
 fi
 # Count only JAR files in plugins/ directory (not in subdirectories)
-if [ -d plugins ]; then
+if [[ -d plugins ]]; then
   PLUGIN_COUNT=$(find plugins -maxdepth 1 -name '*.jar' -type f 2>/dev/null | wc -l)
 else
   PLUGIN_COUNT=0
@@ -337,12 +341,19 @@ echo ""
 MC_SERVER_RUNNER_ARGS="--named-pipe /tmp/minecraft-console"
 
 # Only add announce delay if explicitly configured
-if [ -n "${STOP_SERVER_ANNOUNCE_DELAY:-}" ]; then
+if [[ -n "${STOP_SERVER_ANNOUNCE_DELAY:-}" ]]; then
   MC_SERVER_RUNNER_ARGS="$MC_SERVER_RUNNER_ARGS --stop-server-announce-delay $STOP_SERVER_ANNOUNCE_DELAY"
 fi
 
 # Always include stop duration
 MC_SERVER_RUNNER_ARGS="$MC_SERVER_RUNNER_ARGS --stop-duration ${STOP_DURATION:-60s}"
+
+# If server is Paper then use --nogui with the startup
+if [[ "${TYPE:-}" == "paper" ]]; then
+  ADDL_OPTS=(--nogui)
+else
+  ADDL_OPTS=()
+fi
 
 # Turn all argument lists to arrays
 read -r -a JAVA_OPTS <<<"${JAVA_OPTS}"
@@ -352,4 +363,4 @@ exec mc-server-runner \
   "${MC_SERVER_RUNNER_ARGS[@]}" \
   java \
   "${JAVA_OPTS[@]}" \
-  -jar "${JAR}" --nogui
+  -jar "${JAR}" "${ADDL_OPTS[@]}"
