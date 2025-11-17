@@ -61,12 +61,12 @@ calculate_jvm_memory() {
 
   # Extract numeric value and unit (e.g., "24G" -> value=24, unit=G)
   local value unit
-  value="${container_mem%[GMKgmk]}"
+  value="${container_mem%[GMgm]}"
   unit="${container_mem#"$value"}"
 
   # Validate input
   if [ -z "$value" ] || [ -z "$unit" ]; then
-    eerror "Invalid CONTAINER_MEMORY format: $container_mem (expected format: 24G, 3G, 512M)"
+    eerror "Invalid CONTAINER_MEMORY format: $container_mem (expected format: 24G, 16G, 512M)"
     return 1
   fi
 
@@ -83,9 +83,8 @@ calculate_jvm_memory() {
   case "$unit" in
     G|g) mb=$((value * 1024)) ;;
     M|m) mb=$value ;;
-    K|k) mb=$((value / 1024)) ;;
     *)
-      eerror "Unsupported memory unit in CONTAINER_MEMORY: $unit (supported: G, M, K)"
+      eerror "Unsupported memory unit in CONTAINER_MEMORY: $unit (supported: G, M)"
       return 1
       ;;
   esac
@@ -182,6 +181,18 @@ start_pre() {
   # Same reasoning as CONTAINER_ENV: spaces are allowed, so newline→space is safe
   local labels_cleaned="${CONTAINER_LABELS//$'\n'/ }"
   if ! validate_config "CONTAINER_LABELS" "${labels_cleaned}" "[a-zA-Z0-9_.=: -]*"; then
+    return 1
+  fi
+
+  # Validate CONTAINER_MEMORY_JVM_PERCENT
+  case "${CONTAINER_MEMORY_JVM_PERCENT}" in
+    ''|*[!0-9]*|0)
+      eerror "CONTAINER_MEMORY_JVM_PERCENT must be a positive integer (1-100), got: '${CONTAINER_MEMORY_JVM_PERCENT}'"
+      return 1
+      ;;
+  esac
+  if [ "${CONTAINER_MEMORY_JVM_PERCENT}" -gt 100 ]; then
+    eerror "CONTAINER_MEMORY_JVM_PERCENT must be <= 100 (recommended: 70-80), got: ${CONTAINER_MEMORY_JVM_PERCENT}"
     return 1
   fi
 
