@@ -36,9 +36,11 @@ CONTAINER_IMAGE="${CONTAINER_IMAGE:-ghcr.io/miikkak/mc-server-container:latest}"
 CONTAINER_MEMORY="${CONTAINER_MEMORY:-24G}"
 
 # CONTAINER_MEMORY_JVM_PERCENT - Percentage of container memory allocated to JVM heap
-# Default: 75 (leaves ~25% headroom for JVM overhead and container processes)
-# Valid range: 1-100 (recommended: 70-80, max practical: 90)
+# Default: 75 (leaves 25% headroom for JVM overhead and container processes)
+# Valid range: 1-80 (recommended: 70-75, max: 80)
 # Example: CONTAINER_MEMORY=24G with 75% → MEMORY=18G passed to container
+# IMPORTANT: Maximum 80% enforced - JVM needs at least 20% overhead for
+#            metaspace, code cache, thread stacks, and native memory
 # IMPORTANT: Calculated heap must be >= 1G (Paper requirement) and < container limit
 # You can override the auto-calculated MEMORY by setting it explicitly in CONTAINER_ENV below
 #CONTAINER_MEMORY_JVM_PERCENT="75"

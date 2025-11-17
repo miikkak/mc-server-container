@@ -51,10 +51,11 @@ depend() {
 }
 
 # Calculate JVM heap size from container memory limit
-# Allocates a percentage of container memory to JVM (default 75%, configurable via CONTAINER_MEMORY_JVM_PERCENT)
+# Allocates a percentage of container memory to JVM (default 75%, max 80%)
 # This leaves headroom for JVM metaspace, native memory, and container overhead
 # Returns: JVM memory value in G or M units (e.g., "18G" or "2G")
 # Note: Paper server requires minimum 1G heap - smaller values will cause startup failure
+# Note: Maximum 80% enforced - JVM needs at least 20% overhead to prevent OOM
 calculate_jvm_memory() {
   local container_mem="$1"
   local jvm_percent="${CONTAINER_MEMORY_JVM_PERCENT}"
@@ -201,12 +202,14 @@ start_pre() {
   # Validate CONTAINER_MEMORY_JVM_PERCENT
   case "${CONTAINER_MEMORY_JVM_PERCENT}" in
     ''|*[!0-9]*|0)
-      eerror "CONTAINER_MEMORY_JVM_PERCENT must be a positive integer (1-100), got: '${CONTAINER_MEMORY_JVM_PERCENT}'"
+      eerror "CONTAINER_MEMORY_JVM_PERCENT must be a positive integer (1-80), got: '${CONTAINER_MEMORY_JVM_PERCENT}'"
       return 1
       ;;
   esac
-  if [ "${CONTAINER_MEMORY_JVM_PERCENT}" -gt 100 ]; then
-    eerror "CONTAINER_MEMORY_JVM_PERCENT must be <= 100 (recommended: 70-80), got: ${CONTAINER_MEMORY_JVM_PERCENT}"
+  if [ "${CONTAINER_MEMORY_JVM_PERCENT}" -gt 80 ]; then
+    eerror "CONTAINER_MEMORY_JVM_PERCENT must be <= 80 (recommended: 70-80), got: ${CONTAINER_MEMORY_JVM_PERCENT}"
+    eerror "JVM needs at least 20% overhead for metaspace, code cache, thread stacks, and native memory"
+    eerror "Values > 80% will likely cause OOM during operation even if startup succeeds"
     return 1
   fi
 

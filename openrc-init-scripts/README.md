@@ -99,9 +99,10 @@ All configuration is done through `/etc/conf.d/${RC_SVCNAME}`. The init script i
 - `CONTAINER_MEMORY_JVM_PERCENT` - Percentage of container memory allocated to JVM heap (default: `75`)
   - This controls how much of `CONTAINER_MEMORY` is allocated to the JVM heap
   - The remaining percentage is headroom for JVM metaspace, native memory, and container overhead
-  - Valid range: 1-100 (recommended: 70-80, max practical: 90)
+  - Valid range: 1-80 (recommended: 70-75, max: 80)
   - Example: `CONTAINER_MEMORY="24G"` with `CONTAINER_MEMORY_JVM_PERCENT="80"` → `MEMORY="19G"`
-  - **Note**: Setting to 100 will cause service start failure (heap must be < container limit)
+  - **Maximum enforced**: 80% to ensure at least 20% overhead for metaspace, code cache, thread stacks, and native memory
+  - **Note**: Values > 80% will cause service start failure to prevent OOM during operation
 - `CONTAINER_STOP_TIMEOUT` - Graceful shutdown timeout in seconds (default: `120`)
 
 ### Network Settings
