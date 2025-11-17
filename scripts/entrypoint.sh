@@ -31,16 +31,10 @@ latest_paper="$(find /data -maxdepth 1 -type f -name 'paper-*.jar' |
   { grep -E 'paper-[0-9]+\.[0-9]+(\.[0-9]+)?-[0-9]+\.jar$' || true; } |
   sort -V |
   tail -n 1)"
-if [[ -n "${latest_paper:-}" ]]; then
-  echo "Paper JAR found"
-fi
 latest_velocity="$(find /data -maxdepth 1 -type f -name 'velocity-*.jar' |
   { grep -E 'velocity-[0-9]+\.[0-9]+(\.[0-9]+)?(-SNAPSHOT)?-[0-9]+\.jar$' || true; } |
   sort -V |
   tail -n 1)"
-if [[ -n "${latest_velocity:-}" ]]; then
-  echo "Velocity JAR found"
-fi
 
 # Entrypoint will always prefer Paper if it is found, user is not supposed to
 # keep both Paper and Velocity in the /data folder
