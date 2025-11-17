@@ -350,15 +350,14 @@ MC_SERVER_RUNNER_ARGS="$MC_SERVER_RUNNER_ARGS --stop-duration ${STOP_DURATION:-6
 
 # If server is Paper then use --nogui with the startup
 if [[ "${TYPE:-}" == "paper" ]]; then
-  ADDL_OPTS="--nogui"
+  ADDL_OPTS=(--nogui)
 else
-  ADDL_OPTS=""
+  ADDL_OPTS=()
 fi
 
 # Turn all argument lists to arrays
 read -r -a JAVA_OPTS <<<"${JAVA_OPTS}"
 read -r -a MC_SERVER_RUNNER_ARGS <<<"${MC_SERVER_RUNNER_ARGS}"
-read -r -a ADDL_OPTS <<<"${ADDL_OPTS}"
 
 exec mc-server-runner \
   "${MC_SERVER_RUNNER_ARGS[@]}" \
