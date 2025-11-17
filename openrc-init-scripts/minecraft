@@ -28,6 +28,7 @@ CONTAINER_NAME="${CONTAINER_NAME:-mc${INSTANCE:+-${INSTANCE}}}"
 CONTAINER_IMAGE="${CONTAINER_IMAGE:-ghcr.io/miikkak/mc-server-container:latest}"
 CONTAINER_MEMORY="${CONTAINER_MEMORY:-24G}"
 CONTAINER_STOP_TIMEOUT="${CONTAINER_STOP_TIMEOUT:-120}"
+CONTAINER_MEMORY_JVM_PERCENT="${CONTAINER_MEMORY_JVM_PERCENT:-75}"
 
 NETWORK_NAME="${NETWORK_NAME:-minecraft${INSTANCE:+-${INSTANCE}}-net}"
 NETWORK_SUBNET="${NETWORK_SUBNET:-10.10.10.0/24}"
@@ -49,11 +50,88 @@ depend() {
   after firewall
 }
 
+# Calculate JVM heap size from container memory limit
+# Allocates a percentage of container memory to JVM (default 75%, max 80%)
+# This leaves headroom for JVM metaspace, native memory, and container overhead
+# Returns: JVM memory value in G or M units (e.g., "18G", "2G", or "1536M")
+# Note: Paper server requires minimum 1G heap - smaller values will cause startup failure
+# Note: Maximum 80% enforced - JVM needs at least 20% overhead to prevent OOM
+calculate_jvm_memory() {
+  local container_mem="$1"
+  local jvm_percent="${CONTAINER_MEMORY_JVM_PERCENT}"
+  local min_jvm_mb=1024  # Minimum JVM heap size for Paper server (1G)
+
+  # Extract numeric value and unit (e.g., "24G" -> value=24, unit=G)
+  local value unit
+  value="${container_mem%[GMgm]}"
+  unit="${container_mem#"$value"}"
+
+  # Validate input
+  if [ -z "$value" ] || [ -z "$unit" ]; then
+    eerror "Invalid CONTAINER_MEMORY format: $container_mem (expected format: 24G, 16G, 2048M)"
+    return 1
+  fi
+
+  # Validate numeric value (must be positive integer without leading zeros)
+  # Leading zeros cause octal interpretation: "024" = 20 decimal, not 24
+  case "$value" in
+    ''|*[!0-9]*|0|0[0-9]*)
+      eerror "Invalid CONTAINER_MEMORY value: $value (must be a positive integer without leading zeros)"
+      return 1
+      ;;
+  esac
+
+  # Convert to MB for calculation
+  local container_mb
+  case "$unit" in
+    G|g) container_mb=$((value * 1024)) ;;
+    M|m) container_mb=$value ;;
+    *)
+      eerror "Unsupported memory unit in CONTAINER_MEMORY: $unit (supported: G, M)"
+      return 1
+      ;;
+  esac
+
+  # Calculate JVM memory (apply percentage)
+  local jvm_mb=$((container_mb * jvm_percent / 100))
+
+  # Validate: JVM heap must be at least 1G for Paper server
+  if [ $jvm_mb -lt $min_jvm_mb ]; then
+    eerror "Calculated JVM heap (${jvm_mb}M) is below minimum requirement (${min_jvm_mb}M / 1G)"
+    eerror "Paper server requires at least 1G heap to start"
+    eerror "Current config: CONTAINER_MEMORY=${container_mem}, JVM_PERCENT=${jvm_percent}%"
+    eerror "Minimum required: CONTAINER_MEMORY >= 2G (with 75% allocation) or adjust CONTAINER_MEMORY_JVM_PERCENT"
+    return 1
+  fi
+
+  # Validate: JVM heap must be smaller than container memory limit
+  # JVM needs additional memory for metaspace, code cache, native memory, etc.
+  # Note: CONTAINER_MEMORY_JVM_PERCENT validation in start_pre() enforces max 80%,
+  # so this check only triggers if user manually overrides MEMORY in CONTAINER_ENV
+  if [ "$jvm_mb" -ge "$container_mb" ]; then
+    eerror "Calculated JVM heap (${jvm_mb}M) is >= container memory limit (${container_mb}M)"
+    eerror "JVM requires additional memory beyond heap for metaspace, native memory, etc."
+    eerror "Current config: CONTAINER_MEMORY=${container_mem}, JVM_PERCENT=${jvm_percent}%"
+    eerror "Fix: Reduce CONTAINER_MEMORY_JVM_PERCENT to 80 or lower (recommended: 70-75)"
+    return 1
+  fi
+
+  # Convert back to appropriate unit
+  # Only convert to G when evenly divisible by 1024 to avoid precision loss
+  # Example: 1536M → keep as "1536M" (not "1G" which would lose 512M)
+  if [ $jvm_mb -ge 1024 ] && [ $((jvm_mb % 1024)) -eq 0 ]; then
+    local jvm_g=$((jvm_mb / 1024))
+    echo "${jvm_g}G"
+  else
+    echo "${jvm_mb}M"
+  fi
+}
+
 validate_config() {
   local var_name="$1"
   local var_value="$2"
   local pattern="$3"
-  
+
   # Check for dangerous shell metacharacters
   # Reject: ; & | < > ` $ ( ) { } [ ] " ' \ !
   case "$var_value" in
@@ -62,13 +140,13 @@ validate_config() {
       return 1
       ;;
   esac
-  
+
   # Validate against expected pattern
   if ! echo "$var_value" | grep -Eq "^${pattern}$"; then
     eerror "Invalid format in ${var_name}: does not match expected pattern"
     return 1
   fi
-  
+
   return 0
 }
 
@@ -96,18 +174,18 @@ start_pre() {
     eerror "Required configuration variables are not set"
     return 1
   fi
-  
+
   # Validate configuration variables for security
   # CONTAINER_VOLUMES: paths with optional colon separators and spaces
   if ! validate_config "CONTAINER_VOLUMES" "${CONTAINER_VOLUMES}" "[a-zA-Z0-9/_. :-]*"; then
     return 1
   fi
-  
+
   # CONTAINER_PORTS: IP addresses, ports, protocols (tcp/udp) with spaces
   if ! validate_config "CONTAINER_PORTS" "${CONTAINER_PORTS}" "[0-9a-zA-Z.:/ -]*"; then
     return 1
   fi
-  
+
   # CONTAINER_ENV: KEY=value pairs with newlines (multiline values supported)
   # Validate by removing newlines first, then checking allowed characters
   # This is safe because: spaces are already allowed in the pattern, so replacing
@@ -125,7 +203,52 @@ start_pre() {
   if ! validate_config "CONTAINER_LABELS" "${labels_cleaned}" "[a-zA-Z0-9_.=: -]*"; then
     return 1
   fi
-  
+
+  # Validate CONTAINER_MEMORY_JVM_PERCENT
+  # Leading zeros cause octal interpretation: "075" = 61 decimal, not 75
+  case "${CONTAINER_MEMORY_JVM_PERCENT}" in
+    ''|*[!0-9]*|0|0[0-9]*)
+      eerror "CONTAINER_MEMORY_JVM_PERCENT must be a positive integer (1-80) without leading zeros, got: '${CONTAINER_MEMORY_JVM_PERCENT}'"
+      return 1
+      ;;
+  esac
+  if [ "${CONTAINER_MEMORY_JVM_PERCENT}" -gt 80 ]; then
+    eerror "CONTAINER_MEMORY_JVM_PERCENT must be <= 80 (recommended: 70-75), got: ${CONTAINER_MEMORY_JVM_PERCENT}"
+    eerror "JVM needs at least 20% overhead for metaspace, code cache, thread stacks, and native memory"
+    eerror "Values > 80% will likely cause OOM during operation even if startup succeeds"
+    return 1
+  fi
+
+  # Calculate JVM memory from container memory limit if MEMORY not already set in CONTAINER_ENV
+  # This ensures JVM heap size is appropriate for the container's memory limit
+  # Check for MEMORY= at start of line only (avoids matching CUSTOM_MEMORY= etc.)
+  # Use printf instead of echo for portability with multiline strings
+  if ! printf '%s\n' "${CONTAINER_ENV}" | grep -q '^MEMORY='; then
+    local calculated_memory
+    if calculated_memory=$(calculate_jvm_memory "${CONTAINER_MEMORY}") && [ -n "${calculated_memory}" ]; then
+      # Add MEMORY to CONTAINER_ENV
+      if [ -z "${CONTAINER_ENV}" ]; then
+        CONTAINER_ENV="MEMORY=${calculated_memory}"
+      else
+        CONTAINER_ENV="${CONTAINER_ENV}
+MEMORY=${calculated_memory}"
+      fi
+      einfo "Auto-calculated JVM memory: ${calculated_memory} (${CONTAINER_MEMORY_JVM_PERCENT}% of ${CONTAINER_MEMORY} container limit)"
+    else
+      eerror "Failed to calculate JVM memory"
+      eerror "Cannot safely start container - entrypoint default (16G) may exceed CONTAINER_MEMORY=${CONTAINER_MEMORY}"
+      eerror "Fix configuration and try again"
+      return 1
+    fi
+  elif ! printf '%s\n' "${CONTAINER_ENV}" | grep -q '^MEMORY=.'; then
+    eerror "MEMORY is set in CONTAINER_ENV but has an empty value"
+    eerror "Either remove MEMORY from CONTAINER_ENV to enable auto-calculation,"
+    eerror "or provide a valid value (e.g., MEMORY=16G)"
+    return 1
+  else
+    einfo "MEMORY already configured in CONTAINER_ENV, skipping auto-calculation"
+  fi
+
   # Check for IP conflicts on the same network (excluding this container)
   if podman network exists "${NETWORK_NAME}" >/dev/null 2>&1; then
     # Extract subnet mask from NETWORK_SUBNET (e.g., "10.10.10.0/24" -> "24")

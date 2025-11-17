@@ -89,7 +89,20 @@ All configuration is done through `/etc/conf.d/${RC_SVCNAME}`. The init script i
 - `CONTAINER_NAME` - Name of the container
   - Default: `mc` (or `mc-${INSTANCE}` for symlinked services)
 - `CONTAINER_IMAGE` - Container image to use (default: `ghcr.io/miikkak/mc-server-container:latest`)
-- `CONTAINER_MEMORY` - Memory limit for the container (default: `24G`)
+- `CONTAINER_MEMORY` - Total memory limit for the container (default: `24G`)
+  - **Important**: This is the total container memory limit (includes JVM heap + JVM overhead + container processes)
+  - **Minimum**: 2G required (Paper server needs 1G heap + overhead)
+  - The init script automatically calculates the JVM heap size (`MEMORY` environment variable) as a percentage of this value
+  - Default calculation: 75% of `CONTAINER_MEMORY` is allocated to JVM heap (configurable via `CONTAINER_MEMORY_JVM_PERCENT`)
+  - Example: `CONTAINER_MEMORY="24G"` → auto-calculates `MEMORY="18G"` for JVM heap
+  - **Validation**: Service start fails if calculated heap < 1G or >= container limit
+- `CONTAINER_MEMORY_JVM_PERCENT` - Percentage of container memory allocated to JVM heap (default: `75`)
+  - This controls how much of `CONTAINER_MEMORY` is allocated to the JVM heap
+  - The remaining percentage is headroom for JVM metaspace, native memory, and container overhead
+  - Valid range: 1-80 (recommended: 70-75, max: 80)
+  - Example: `CONTAINER_MEMORY="32G"` with `CONTAINER_MEMORY_JVM_PERCENT="75"` → `MEMORY="24G"`
+  - **Maximum enforced**: 80% to ensure at least 20% overhead for metaspace, code cache, thread stacks, and native memory
+  - **Note**: Values > 80% will cause service start failure to prevent OOM during operation
 - `CONTAINER_STOP_TIMEOUT` - Graceful shutdown timeout in seconds (default: `120`)
 
 ### Network Settings
@@ -126,7 +139,7 @@ All configuration is done through `/etc/conf.d/${RC_SVCNAME}`. The init script i
 ### Port Mappings
 
 - `CONTAINER_PORTS` - Space-separated list of port mappings in format `host:container/protocol`
-  
+
   Default:
   ```bash
   CONTAINER_PORTS="127.0.0.1:8100:8100 127.0.0.1:9000:9000 127.0.0.1:9940:9940 19132:19132/udp 25565:25565/udp 25565:25565/tcp"
@@ -137,16 +150,27 @@ All configuration is done through `/etc/conf.d/${RC_SVCNAME}`. The init script i
 - `CONTAINER_ENV` - Newline-separated list of environment variables in format `KEY=value`
   - Values may contain spaces
   - Use newlines to separate multiple entries
+  - **Note**: The `MEMORY` environment variable is automatically calculated based on `CONTAINER_MEMORY`
+    - Auto-calculated as 75% of `CONTAINER_MEMORY` (e.g., `CONTAINER_MEMORY="24G"` → `MEMORY="18G"`)
+    - To override the auto-calculated value, add `MEMORY=<value>` to `CONTAINER_ENV`
+    - Manual override is useful for fine-tuning or testing different JVM heap sizes
 
   Default:
   ```bash
   CONTAINER_ENV="OTEL_JAVAAGENT_CONFIGURATION_FILE=/data/otel-config.properties"
+  # MEMORY is auto-calculated and added by the init script
   ```
 
-  Example with multiple variables:
+  Example with manual MEMORY override:
   ```bash
-  CONTAINER_ENV="MEMORY=8G
-JAVA_OPTS=-XX:+UseG1GC
+  CONTAINER_ENV="MEMORY=20G
+OTEL_JAVAAGENT_CONFIGURATION_FILE=/data/otel-config.properties"
+  ```
+
+  Example with custom JVM options:
+  ```bash
+  CONTAINER_ENV="MEMORY=20G
+JAVA_OPTS_CUSTOM=-Xlog:gc*
 OTEL_JAVAAGENT_CONFIGURATION_FILE=/data/otel-config.properties"
   ```
 
@@ -155,13 +179,13 @@ OTEL_JAVAAGENT_CONFIGURATION_FILE=/data/otel-config.properties"
 - `CONTAINER_LABELS` - Newline-separated list of labels in format `key=value`
   - Values may contain spaces
   - Use newlines to separate multiple entries
-  
+
   Default:
   ```bash
   CONTAINER_LABELS="minecraft.server=true
 minecraft.name=CubeSchool"
   ```
-  
+
   Example with values containing spaces:
   ```bash
   CONTAINER_LABELS="minecraft.server=true
@@ -226,7 +250,7 @@ Here's an example `/etc/conf.d/minecraft` with custom settings:
 # Container configuration
 CONTAINER_NAME="my-minecraft-server"
 CONTAINER_IMAGE="ghcr.io/miikkak/mc-server-container:v1.2.3"
-CONTAINER_MEMORY="16G"
+CONTAINER_MEMORY="16G"  # Container limit; JVM will auto-calculate to 12G (75%)
 
 # Network configuration
 NETWORK_NAME="mc-network"
@@ -240,9 +264,9 @@ CONTAINER_VOLUMES="/mnt/data/minecraft:/data /mnt/data/bluemap:/data/bluemap"
 CONTAINER_PORTS="25565:25565/tcp 25565:25565/udp"
 
 # Custom environment (newline-separated)
-# Note: values cannot contain spaces or special shell characters
+# Note: MEMORY is auto-calculated from CONTAINER_MEMORY (add manually to override)
 CONTAINER_ENV="OTEL_JAVAAGENT_CONFIGURATION_FILE=/data/otel-config.properties
-JAVA_OPTS=-XX:+UseG1GC"
+JAVA_OPTS_CUSTOM=-Xlog:gc*"
 
 # Custom labels (newline-separated)
 CONTAINER_LABELS="minecraft.server=true
@@ -256,7 +280,7 @@ Here's an example of running three different server instances with different con
 
 **`/etc/conf.d/minecraft.survival`:**
 ```bash
-# Survival server with 16GB RAM
+# Survival server with 16GB container limit → 12G JVM heap (auto-calculated)
 CONTAINER_MEMORY="16G"
 CONTAINER_IP="10.10.10.10"
 CONTAINER_IPv6="2a01:4f9:3070:1169::b10c:cafe"
@@ -266,7 +290,7 @@ CONTAINER_PORTS="25565:25565/tcp 25565:25565/udp"
 
 **`/etc/conf.d/minecraft.creative`:**
 ```bash
-# Creative server with 8GB RAM on different IP and port
+# Creative server with 8GB container limit → 6G JVM heap (auto-calculated)
 CONTAINER_MEMORY="8G"
 CONTAINER_IP="10.10.10.11"
 CONTAINER_IPv6="2a01:4f9:3070:1169::b10c:caf1"
@@ -276,7 +300,7 @@ CONTAINER_PORTS="25566:25565/tcp 25566:25565/udp"
 
 **`/etc/conf.d/minecraft.modded`:**
 ```bash
-# Modded server with 32GB RAM
+# Modded server with 32GB container limit → 24G JVM heap (auto-calculated)
 CONTAINER_MEMORY="32G"
 CONTAINER_IP="10.10.10.12"
 CONTAINER_IPv6="2a01:4f9:3070:1169::b10c:caf2"
