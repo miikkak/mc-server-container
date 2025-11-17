@@ -122,7 +122,7 @@ jobs:
 
       - name: Upload container artifact
         if: steps.check_dockerfile.outputs.exists == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: container-image
           path: /tmp/mc-server-container.tar
