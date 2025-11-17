@@ -25,7 +25,20 @@
 # WARNING: Uncommenting this will override the instance-aware default
 #CONTAINER_NAME="my-custom-name"
 CONTAINER_IMAGE="${CONTAINER_IMAGE:-ghcr.io/miikkak/mc-server-container:latest}"
+
+# Memory configuration
+# CONTAINER_MEMORY - Total memory limit for the container (includes JVM heap + overhead)
+# Default: 24G
+# The init script automatically calculates JVM heap size (MEMORY env var) as a percentage
+# of CONTAINER_MEMORY to leave headroom for JVM metaspace, native memory, and container overhead.
 CONTAINER_MEMORY="${CONTAINER_MEMORY:-24G}"
+
+# CONTAINER_MEMORY_JVM_PERCENT - Percentage of container memory allocated to JVM heap
+# Default: 75 (leaves ~25% headroom for JVM overhead and container processes)
+# Example: CONTAINER_MEMORY=24G with 75% → MEMORY=18G passed to container
+# You can override the auto-calculated MEMORY by setting it explicitly in CONTAINER_ENV below
+#CONTAINER_MEMORY_JVM_PERCENT="75"
+
 CONTAINER_STOP_TIMEOUT="${CONTAINER_STOP_TIMEOUT:-120}"
 
 # Network configuration
@@ -80,6 +93,13 @@ CONTAINER_PORTS="${CONTAINER_PORTS:-127.0.0.1:8100:8100 127.0.0.1:9000:9000 127.
 # Values may contain spaces. Use newlines to separate multiple entries.
 #   e.g. CONTAINER_ENV="VAR1=value with spaces
 # VAR2=another value"
+#
+# IMPORTANT: The init script automatically calculates and sets MEMORY based on CONTAINER_MEMORY.
+# If you need to override the auto-calculated value, add MEMORY=<value> to CONTAINER_ENV:
+#   CONTAINER_ENV="MEMORY=20G
+# OTEL_JAVAAGENT_CONFIGURATION_FILE=/data/otel-config.properties"
+#
+# By default, MEMORY is auto-calculated as 75% of CONTAINER_MEMORY (configurable via CONTAINER_MEMORY_JVM_PERCENT)
 CONTAINER_ENV="${CONTAINER_ENV:-OTEL_JAVAAGENT_CONFIGURATION_FILE=/data/otel-config.properties}"
 
 # Container labels
