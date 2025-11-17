@@ -344,12 +344,20 @@ fi
 # Always include stop duration
 MC_SERVER_RUNNER_ARGS="$MC_SERVER_RUNNER_ARGS --stop-duration ${STOP_DURATION:-60s}"
 
+# If server is Velocity then do not use --nogui, with Paper, use it
+if [[ "${TYPE:-}" == "velocity" ]]; then
+  ADDL_OPTS=""
+else
+  ADDL_OPTS="--nogui"
+fi
+
 # Turn all argument lists to arrays
 read -r -a JAVA_OPTS <<<"${JAVA_OPTS}"
 read -r -a MC_SERVER_RUNNER_ARGS <<<"${MC_SERVER_RUNNER_ARGS}"
+read -r -a ADDL_OPTS <<<"${ADDL_OPTS}"
 
 exec mc-server-runner \
   "${MC_SERVER_RUNNER_ARGS[@]}" \
   java \
   "${JAVA_OPTS[@]}" \
-  -jar "${JAR}" --nogui
+  -jar "${JAR}" "${ADDL_OPTS[@]}"
