@@ -53,7 +53,7 @@ depend() {
 # Calculate JVM heap size from container memory limit
 # Allocates a percentage of container memory to JVM (default 75%, max 80%)
 # This leaves headroom for JVM metaspace, native memory, and container overhead
-# Returns: JVM memory value in G or M units (e.g., "18G" or "2G")
+# Returns: JVM memory value in G or M units (e.g., "18G", "2G", or "1536M")
 # Note: Paper server requires minimum 1G heap - smaller values will cause startup failure
 # Note: Maximum 80% enforced - JVM needs at least 20% overhead to prevent OOM
 calculate_jvm_memory() {
@@ -106,7 +106,7 @@ calculate_jvm_memory() {
 
   # Validate: JVM heap must be smaller than container memory limit
   # JVM needs additional memory for metaspace, code cache, native memory, etc.
-  # Note: CONTAINER_MEMORY_JVM_PERCENT validation (lines 203-214) enforces max 80%,
+  # Note: CONTAINER_MEMORY_JVM_PERCENT validation in start_pre() enforces max 80%,
   # so this check only triggers if user manually overrides MEMORY in CONTAINER_ENV
   if [ "$jvm_mb" -ge "$container_mb" ]; then
     eerror "Calculated JVM heap (${jvm_mb}M) is >= container memory limit (${container_mb}M)"
@@ -240,6 +240,11 @@ MEMORY=${calculated_memory}"
       eerror "Fix configuration and try again"
       return 1
     fi
+  elif ! printf '%s\n' "${CONTAINER_ENV}" | grep -q '^MEMORY=.'; then
+    eerror "MEMORY is set in CONTAINER_ENV but has an empty value"
+    eerror "Either remove MEMORY from CONTAINER_ENV to enable auto-calculation,"
+    eerror "or provide a valid value (e.g., MEMORY=16G)"
+    return 1
   else
     einfo "MEMORY already configured in CONTAINER_ENV, skipping auto-calculation"
   fi
