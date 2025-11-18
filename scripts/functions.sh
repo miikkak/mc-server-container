@@ -239,109 +239,108 @@ build_paper_jvm_opts() {
 
   # Apply MeowIce flags only if enabled
   if [[ "${enable_meowice}" == "true" ]]; then
+    # Note: --add-modules=jdk.incubator.vector is NOT included
+    # This flag only benefits Pufferfish/Purpur (SIMD map rendering), not Paper
 
-  # Note: --add-modules=jdk.incubator.vector is NOT included
-  # This flag only benefits Pufferfish/Purpur (SIMD map rendering), not Paper
+    # G1GC configuration
+    opts_array+=(
+      "-XX:+UseG1GC"
+      "-XX:MaxGCPauseMillis=200"
+      "-XX:+UnlockExperimentalVMOptions"
+      "-XX:+UnlockDiagnosticVMOptions"
+      "-XX:+DisableExplicitGC"
+      "-XX:+AlwaysPreTouch"
+      "-XX:G1NewSizePercent=28"
+      "-XX:G1MaxNewSizePercent=50"
+      "-XX:G1HeapRegionSize=16M"
+      "-XX:G1ReservePercent=15"
+      "-XX:G1MixedGCCountTarget=3"
+      "-XX:InitiatingHeapOccupancyPercent=20"
+      "-XX:G1MixedGCLiveThresholdPercent=90"
+      "-XX:SurvivorRatio=32"
+      "-XX:G1HeapWastePercent=5"
+      "-XX:MaxTenuringThreshold=1"
+      "-XX:+PerfDisableSharedMem"
+      "-XX:G1SATBBufferEnqueueingThresholdPercent=30"
+      "-XX:G1ConcMarkStepDurationMillis=5"
+      "-XX:G1RSetUpdatingPauseTimePercent=0"
+    )
 
-  # G1GC configuration
-  opts_array+=(
-    "-XX:+UseG1GC"
-    "-XX:MaxGCPauseMillis=200"
-    "-XX:+UnlockExperimentalVMOptions"
-    "-XX:+UnlockDiagnosticVMOptions"
-    "-XX:+DisableExplicitGC"
-    "-XX:+AlwaysPreTouch"
-    "-XX:G1NewSizePercent=28"
-    "-XX:G1MaxNewSizePercent=50"
-    "-XX:G1HeapRegionSize=16M"
-    "-XX:G1ReservePercent=15"
-    "-XX:G1MixedGCCountTarget=3"
-    "-XX:InitiatingHeapOccupancyPercent=20"
-    "-XX:G1MixedGCLiveThresholdPercent=90"
-    "-XX:SurvivorRatio=32"
-    "-XX:G1HeapWastePercent=5"
-    "-XX:MaxTenuringThreshold=1"
-    "-XX:+PerfDisableSharedMem"
-    "-XX:G1SATBBufferEnqueueingThresholdPercent=30"
-    "-XX:G1ConcMarkStepDurationMillis=5"
-    "-XX:G1RSetUpdatingPauseTimePercent=0"
-  )
+    # Auto-detect NUMA and enable optimization if available
+    # NUMA is typically not available in standard containers, but detect it just in case
+    if [[ -d /sys/devices/system/node/node1 ]]; then
+      opts_array+=("-XX:+UseNUMA")
+    fi
 
-  # Auto-detect NUMA and enable optimization if available
-  # NUMA is typically not available in standard containers, but detect it just in case
-  if [[ -d /sys/devices/system/node/node1 ]]; then
-    opts_array+=("-XX:+UseNUMA")
-  fi
+    # Compiler optimizations
+    opts_array+=(
+      "-XX:-DontCompileHugeMethods"
+      "-XX:MaxNodeLimit=240000"
+      "-XX:NodeLimitFudgeFactor=8000"
+      "-XX:ReservedCodeCacheSize=400M"
+      "-XX:NonNMethodCodeHeapSize=12M"
+      "-XX:ProfiledCodeHeapSize=194M"
+      "-XX:NonProfiledCodeHeapSize=194M"
+      "-XX:NmethodSweepActivity=1"
+      "-XX:+UseFastUnorderedTimeStamps"
+      "-XX:+UseCriticalJavaThreadPriority"
+      "-XX:AllocatePrefetchStyle=3"
+      "-XX:+AlwaysActAsServerClassMachine"
+    )
 
-  # Compiler optimizations
-  opts_array+=(
-    "-XX:-DontCompileHugeMethods"
-    "-XX:MaxNodeLimit=240000"
-    "-XX:NodeLimitFudgeFactor=8000"
-    "-XX:ReservedCodeCacheSize=400M"
-    "-XX:NonNMethodCodeHeapSize=12M"
-    "-XX:ProfiledCodeHeapSize=194M"
-    "-XX:NonProfiledCodeHeapSize=194M"
-    "-XX:NmethodSweepActivity=1"
-    "-XX:+UseFastUnorderedTimeStamps"
-    "-XX:+UseCriticalJavaThreadPriority"
-    "-XX:AllocatePrefetchStyle=3"
-    "-XX:+AlwaysActAsServerClassMachine"
-  )
+    # Memory optimizations
+    opts_array+=(
+      "-XX:+UseTransparentHugePages"
+      "-XX:LargePageSizeInBytes=2M"
+      "-XX:+UseLargePages"
+      "-XX:+EagerJVMCI"
+      "-XX:+UseStringDeduplication"
+    )
 
-  # Memory optimizations
-  opts_array+=(
-    "-XX:+UseTransparentHugePages"
-    "-XX:LargePageSizeInBytes=2M"
-    "-XX:+UseLargePages"
-    "-XX:+EagerJVMCI"
-    "-XX:+UseStringDeduplication"
-  )
+    # Intrinsics and optimizations
+    opts_array+=(
+      "-XX:+UseAES"
+      "-XX:+UseAESIntrinsics"
+      "-XX:+UseFMA"
+      "-XX:+UseLoopPredicate"
+      "-XX:+RangeCheckElimination"
+      "-XX:+OptimizeStringConcat"
+      "-XX:+UseCompressedOops"
+      "-XX:+UseThreadPriorities"
+      "-XX:+OmitStackTraceInFastThrow"
+      "-XX:+RewriteBytecodes"
+      "-XX:+RewriteFrequentPairs"
+      "-XX:+UseFPUForSpilling"
+    )
 
-  # Intrinsics and optimizations
-  opts_array+=(
-    "-XX:+UseAES"
-    "-XX:+UseAESIntrinsics"
-    "-XX:+UseFMA"
-    "-XX:+UseLoopPredicate"
-    "-XX:+RangeCheckElimination"
-    "-XX:+OptimizeStringConcat"
-    "-XX:+UseCompressedOops"
-    "-XX:+UseThreadPriorities"
-    "-XX:+OmitStackTraceInFastThrow"
-    "-XX:+RewriteBytecodes"
-    "-XX:+RewriteFrequentPairs"
-    "-XX:+UseFPUForSpilling"
-  )
+    # CPU optimizations
+    opts_array+=(
+      "-XX:+UseFastStosb"
+      "-XX:+UseNewLongLShift"
+      "-XX:+UseVectorCmov"
+      "-XX:+UseXMMForArrayCopy"
+      "-XX:+UseXmmI2D"
+      "-XX:+UseXmmI2F"
+      "-XX:+UseXmmLoadAndClearUpper"
+      "-XX:+UseXmmRegToRegMoveAll"
+    )
 
-  # CPU optimizations
-  opts_array+=(
-    "-XX:+UseFastStosb"
-    "-XX:+UseNewLongLShift"
-    "-XX:+UseVectorCmov"
-    "-XX:+UseXMMForArrayCopy"
-    "-XX:+UseXmmI2D"
-    "-XX:+UseXmmI2F"
-    "-XX:+UseXmmLoadAndClearUpper"
-    "-XX:+UseXmmRegToRegMoveAll"
-  )
-
-  # Advanced optimizations
-  opts_array+=(
-    "-XX:+EliminateLocks"
-    "-XX:+DoEscapeAnalysis"
-    "-XX:+AlignVector"
-    "-XX:+OptimizeFill"
-    "-XX:+EnableVectorSupport"
-    "-XX:+UseCharacterCompareIntrinsics"
-    "-XX:+UseCopySignIntrinsic"
-    "-XX:+UseVectorStubs"
-    "-XX:UseAVX=2"
-    "-XX:UseSSE=4"
-    "-XX:+UseFastJNIAccessors"
-    "-XX:+UseInlineCaches"
-    "-XX:+SegmentedCodeCache"
-  )
+    # Advanced optimizations
+    opts_array+=(
+      "-XX:+EliminateLocks"
+      "-XX:+DoEscapeAnalysis"
+      "-XX:+AlignVector"
+      "-XX:+OptimizeFill"
+      "-XX:+EnableVectorSupport"
+      "-XX:+UseCharacterCompareIntrinsics"
+      "-XX:+UseCopySignIntrinsic"
+      "-XX:+UseVectorStubs"
+      "-XX:UseAVX=2"
+      "-XX:UseSSE=4"
+      "-XX:+UseFastJNIAccessors"
+      "-XX:+UseInlineCaches"
+      "-XX:+SegmentedCodeCache"
+    )
 
     # System properties
     opts_array+=("-Djdk.nio.maxCachedBufferSize=262144")
@@ -374,48 +373,47 @@ build_velocity_jvm_opts() {
 
   # Apply ZGC flags only if enabled
   if [[ "${enable_zgc}" == "true" ]]; then
+    # ZGC configuration (low-latency garbage collection for proxy workloads)
+    # ZGenerational is default in Java 23+, but we specify it explicitly for clarity
+    opts_array+=(
+      "-XX:+UseZGC"
+      "-XX:+ZGenerational"
+      "-XX:+AlwaysPreTouch"
+      "-XX:-ZUncommit"
+      "-XX:AllocatePrefetchStyle=1" # ZGC prefers style 1 (vs 3 for G1GC)
+    )
 
-  # ZGC configuration (low-latency garbage collection for proxy workloads)
-  # ZGenerational is default in Java 23+, but we specify it explicitly for clarity
-  opts_array+=(
-    "-XX:+UseZGC"
-    "-XX:+ZGenerational"
-    "-XX:+AlwaysPreTouch"
-    "-XX:-ZUncommit"
-    "-XX:AllocatePrefetchStyle=1" # ZGC prefers style 1 (vs 3 for G1GC)
-  )
+    # Compiler optimizations (similar to Paper but without G1GC-specific flags)
+    opts_array+=(
+      "-XX:+UnlockExperimentalVMOptions"
+      "-XX:+UnlockDiagnosticVMOptions"
+      "-XX:+DisableExplicitGC"
+      "-XX:-DontCompileHugeMethods"
+      "-XX:ReservedCodeCacheSize=400M"
+      "-XX:+UseFastUnorderedTimeStamps"
+      "-XX:+UseCriticalJavaThreadPriority"
+      "-XX:+AlwaysActAsServerClassMachine"
+    )
 
-  # Compiler optimizations (similar to Paper but without G1GC-specific flags)
-  opts_array+=(
-    "-XX:+UnlockExperimentalVMOptions"
-    "-XX:+UnlockDiagnosticVMOptions"
-    "-XX:+DisableExplicitGC"
-    "-XX:-DontCompileHugeMethods"
-    "-XX:ReservedCodeCacheSize=400M"
-    "-XX:+UseFastUnorderedTimeStamps"
-    "-XX:+UseCriticalJavaThreadPriority"
-    "-XX:+AlwaysActAsServerClassMachine"
-  )
+    # Memory optimizations
+    opts_array+=(
+      "-XX:+UseTransparentHugePages"
+      "-XX:LargePageSizeInBytes=2M"
+      "-XX:+UseLargePages"
+      "-XX:+EagerJVMCI"
+    )
 
-  # Memory optimizations
-  opts_array+=(
-    "-XX:+UseTransparentHugePages"
-    "-XX:LargePageSizeInBytes=2M"
-    "-XX:+UseLargePages"
-    "-XX:+EagerJVMCI"
-  )
-
-  # Intrinsics and CPU optimizations
-  opts_array+=(
-    "-XX:+UseAES"
-    "-XX:+UseAESIntrinsics"
-    "-XX:+UseFMA"
-    "-XX:+UseCompressedOops"
-    "-XX:+UseThreadPriorities"
-    "-XX:+OmitStackTraceInFastThrow"
-    "-XX:UseAVX=2"
-    "-XX:UseSSE=4"
-  )
+    # Intrinsics and CPU optimizations
+    opts_array+=(
+      "-XX:+UseAES"
+      "-XX:+UseAESIntrinsics"
+      "-XX:+UseFMA"
+      "-XX:+UseCompressedOops"
+      "-XX:+UseThreadPriorities"
+      "-XX:+OmitStackTraceInFastThrow"
+      "-XX:UseAVX=2"
+      "-XX:UseSSE=4"
+    )
 
     # System properties
     opts_array+=("-Djdk.nio.maxCachedBufferSize=262144")
