@@ -332,8 +332,10 @@ This container focuses on **JVM configuration only**. Minecraft-specific configu
 - `MEMORY` - Server memory allocation (default: `16G`)
 
 **JVM Performance Tuning (for troubleshooting only):**
-- `DISABLE_MEOWICE_FLAGS` - Disable MeowIce G1GC optimizations (default: enabled)
-- `DISABLE_MEOWICE_GRAALVM_FLAGS` - Disable GraalVM-specific optimizations (default: enabled)
+- `DISABLE_MEOWICE_FLAGS` - Disable MeowIce G1GC optimizations for Paper (default: enabled)
+- `DISABLE_MEOWICE_GRAALVM_FLAGS` - Disable GraalVM-specific optimizations for Paper (default: enabled)
+- `DISABLE_VELOCITY_ZGC` - Disable ZGC optimizations for Velocity (default: enabled)
+- `DISABLE_VELOCITY_GRAALVM_FLAGS` - Disable GraalVM-specific optimizations for Velocity (default: enabled)
 - `JAVA_OPTS_CUSTOM` - Add custom JVM options (appended to generated flags)
 
 **OpenTelemetry (included by default, requires configuration to enable):**

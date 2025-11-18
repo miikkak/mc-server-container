@@ -104,6 +104,386 @@ EOF
 }
 
 # ==============================================================================
+# Server Type Detection
+# ==============================================================================
+
+detect_server_jar() {
+  # Detects and sets server JAR path and type (paper/velocity)
+  # Sets: JAR, TYPE (exported variables)
+  # Returns: 0 if found, 1 if not found
+
+  local latest_paper latest_velocity
+
+  latest_paper="$(find /data -maxdepth 1 -type f -name 'paper-*.jar' |
+    { grep -E 'paper-[0-9]+\.[0-9]+(\.[0-9]+)?-[0-9]+\.jar$' || true; } |
+    sort -V | tail -n 1)"
+
+  latest_velocity="$(find /data -maxdepth 1 -type f -name 'velocity-*.jar' |
+    { grep -E 'velocity-[0-9]+\.[0-9]+(\.[0-9]+)?(-SNAPSHOT)?-[0-9]+\.jar$' || true; } |
+    sort -V | tail -n 1)"
+
+  # Prefer Paper if found
+  if [[ -n "${latest_paper:-}" ]]; then
+    export JAR="${latest_paper}"
+    export TYPE="paper"
+  elif [[ -f /data/paper.jar ]]; then
+    export JAR="/data/paper.jar"
+    export TYPE="paper"
+  elif [[ -n "${latest_velocity:-}" ]]; then
+    export JAR="${latest_velocity}"
+    export TYPE="velocity"
+  elif [[ -f /data/velocity.jar ]]; then
+    export JAR="/data/velocity.jar"
+    export TYPE="velocity"
+  else
+    return 1 # No JAR found
+  fi
+
+  return 0
+}
+
+validate_paper_eula() {
+  # Validates EULA for Paper servers
+  # Returns: 0 if valid, 1 if invalid
+
+  if [[ ! -f /data/eula.txt ]]; then
+    echo "❌ ERROR: /data/eula.txt not found" >&2
+    echo "" >&2
+    echo "Create /data/eula.txt with:" >&2
+    echo "  eula=true" >&2
+    echo "" >&2
+    return 1
+  fi
+
+  if ! grep -q "eula=true" /data/eula.txt; then
+    echo "❌ ERROR: EULA not accepted in /data/eula.txt" >&2
+    echo "" >&2
+    echo "Edit /data/eula.txt and set:" >&2
+    echo "  eula=true" >&2
+    echo "" >&2
+    return 1
+  fi
+
+  return 0
+}
+
+# ==============================================================================
+# JVM Options Builder Functions
+# ==============================================================================
+
+build_common_jvm_opts() {
+  # Builds common JVM options for both Paper and Velocity
+  # Args: $1 = nameref to array, $2 = memory (default: 16G)
+  # Returns: Array via nameref
+
+  local -n opts_array=$1
+  local memory="${2:-16G}"
+
+  # Memory configuration
+  opts_array+=("-Xms${memory}" "-Xmx${memory}")
+
+  # Java locale and terminal configuration
+  opts_array+=(
+    "-Duser.language=en"
+    "-Duser.country=US"
+    "-Dfile.encoding=UTF-8"
+    "-Dterminal.jline=false"
+    "-Dterminal.ansi=true"
+  )
+}
+
+build_paper_jvm_opts() {
+  # Builds Paper-specific JVM options (G1GC + MeowIce flags)
+  # Assumes: GraalVM 25+ (guaranteed by Dockerfile base image)
+  # Args: $1 = nameref to array, $2 = enable_meowice, $3 = enable_graalvm
+  # Returns: Array via nameref
+
+  local -n opts_array=$1
+  local enable_meowice="${2:-true}"
+  local enable_graalvm="${3:-true}"
+
+  if [[ "${enable_meowice}" != "true" ]]; then
+    echo "⚙️  MeowIce optimization flags: DISABLED (using JVM defaults)"
+    return 0
+  fi
+
+  echo "🚀 MeowIce optimization flags: ENABLED (G1GC for Paper)"
+
+  # Note: --add-modules=jdk.incubator.vector is NOT included
+  # This flag only benefits Pufferfish/Purpur (SIMD map rendering), not Paper
+
+  # G1GC configuration
+  opts_array+=(
+    "-XX:+UseG1GC"
+    "-XX:MaxGCPauseMillis=200"
+    "-XX:+UnlockExperimentalVMOptions"
+    "-XX:+UnlockDiagnosticVMOptions"
+    "-XX:+DisableExplicitGC"
+    "-XX:+AlwaysPreTouch"
+    "-XX:G1NewSizePercent=28"
+    "-XX:G1MaxNewSizePercent=50"
+    "-XX:G1HeapRegionSize=16M"
+    "-XX:G1ReservePercent=15"
+    "-XX:G1MixedGCCountTarget=3"
+    "-XX:InitiatingHeapOccupancyPercent=20"
+    "-XX:G1MixedGCLiveThresholdPercent=90"
+    "-XX:SurvivorRatio=32"
+    "-XX:G1HeapWastePercent=5"
+    "-XX:MaxTenuringThreshold=1"
+    "-XX:+PerfDisableSharedMem"
+    "-XX:G1SATBBufferEnqueueingThresholdPercent=30"
+    "-XX:G1ConcMarkStepDurationMillis=5"
+    "-XX:G1RSetUpdatingPauseTimePercent=0"
+  )
+
+  # Auto-detect NUMA and enable optimization if available
+  # NUMA is typically not available in standard containers, but detect it just in case
+  if [[ -d /sys/devices/system/node/node1 ]]; then
+    opts_array+=("-XX:+UseNUMA")
+  fi
+
+  # Compiler optimizations
+  opts_array+=(
+    "-XX:-DontCompileHugeMethods"
+    "-XX:MaxNodeLimit=240000"
+    "-XX:NodeLimitFudgeFactor=8000"
+    "-XX:ReservedCodeCacheSize=400M"
+    "-XX:NonNMethodCodeHeapSize=12M"
+    "-XX:ProfiledCodeHeapSize=194M"
+    "-XX:NonProfiledCodeHeapSize=194M"
+    "-XX:NmethodSweepActivity=1"
+    "-XX:+UseFastUnorderedTimeStamps"
+    "-XX:+UseCriticalJavaThreadPriority"
+    "-XX:AllocatePrefetchStyle=3"
+    "-XX:+AlwaysActAsServerClassMachine"
+  )
+
+  # Memory optimizations
+  opts_array+=(
+    "-XX:+UseTransparentHugePages"
+    "-XX:LargePageSizeInBytes=2M"
+    "-XX:+UseLargePages"
+    "-XX:+EagerJVMCI"
+    "-XX:+UseStringDeduplication"
+  )
+
+  # Intrinsics and optimizations
+  opts_array+=(
+    "-XX:+UseAES"
+    "-XX:+UseAESIntrinsics"
+    "-XX:+UseFMA"
+    "-XX:+UseLoopPredicate"
+    "-XX:+RangeCheckElimination"
+    "-XX:+OptimizeStringConcat"
+    "-XX:+UseCompressedOops"
+    "-XX:+UseThreadPriorities"
+    "-XX:+OmitStackTraceInFastThrow"
+    "-XX:+RewriteBytecodes"
+    "-XX:+RewriteFrequentPairs"
+    "-XX:+UseFPUForSpilling"
+  )
+
+  # CPU optimizations
+  opts_array+=(
+    "-XX:+UseFastStosb"
+    "-XX:+UseNewLongLShift"
+    "-XX:+UseVectorCmov"
+    "-XX:+UseXMMForArrayCopy"
+    "-XX:+UseXmmI2D"
+    "-XX:+UseXmmI2F"
+    "-XX:+UseXmmLoadAndClearUpper"
+    "-XX:+UseXmmRegToRegMoveAll"
+  )
+
+  # Advanced optimizations
+  opts_array+=(
+    "-XX:+EliminateLocks"
+    "-XX:+DoEscapeAnalysis"
+    "-XX:+AlignVector"
+    "-XX:+OptimizeFill"
+    "-XX:+EnableVectorSupport"
+    "-XX:+UseCharacterCompareIntrinsics"
+    "-XX:+UseCopySignIntrinsic"
+    "-XX:+UseVectorStubs"
+    "-XX:UseAVX=2"
+    "-XX:UseSSE=4"
+    "-XX:+UseFastJNIAccessors"
+    "-XX:+UseInlineCaches"
+    "-XX:+SegmentedCodeCache"
+  )
+
+  # System properties
+  opts_array+=("-Djdk.nio.maxCachedBufferSize=262144")
+
+  # GraalVM-specific optimizations
+  # Base image guarantees GraalVM 25+, so no runtime version check needed
+  if [[ "${enable_graalvm}" == "true" ]]; then
+    echo "🚀 GraalVM-specific optimization flags: ENABLED"
+    opts_array+=(
+      "-Djdk.graal.UsePriorityInlining=true"
+      "-Djdk.graal.Vectorization=true"
+      "-Djdk.graal.OptDuplication=true"
+      "-Djdk.graal.DetectInvertedLoopsAsCounted=true"
+      "-Djdk.graal.LoopInversion=true"
+      "-Djdk.graal.VectorizeHashes=true"
+      "-Djdk.graal.EnterprisePartialUnroll=true"
+      "-Djdk.graal.VectorizeSIMD=true"
+      "-Djdk.graal.StripMineNonCountedLoops=true"
+      "-Djdk.graal.SpeculativeGuardMovement=true"
+      "-Djdk.graal.TuneInlinerExploration=1"
+      "-Djdk.graal.LoopRotation=true"
+      "-Djdk.graal.CompilerConfiguration=enterprise"
+    )
+  else
+    echo "⚙️  GraalVM-specific optimization flags: DISABLED"
+  fi
+}
+
+build_velocity_jvm_opts() {
+  # Builds Velocity-specific JVM options (ZGC for proxy workloads)
+  # Assumes: GraalVM 25+ (guaranteed by Dockerfile base image)
+  # Args: $1 = nameref to array, $2 = enable_zgc, $3 = enable_graalvm
+  # Returns: Array via nameref
+
+  local -n opts_array=$1
+  local enable_zgc="${2:-true}"
+  local enable_graalvm="${3:-true}"
+
+  if [[ "${enable_zgc}" != "true" ]]; then
+    echo "⚙️  Velocity ZGC optimization: DISABLED (using JVM defaults)"
+    return 0
+  fi
+
+  echo "🚀 Velocity optimization flags: ENABLED (ZGC for proxy workload)"
+
+  # ZGC configuration (low-latency garbage collection for proxy workloads)
+  # ZGenerational is default in Java 23+, but we specify it explicitly for clarity
+  opts_array+=(
+    "-XX:+UseZGC"
+    "-XX:+ZGenerational"
+    "-XX:+AlwaysPreTouch"
+    "-XX:-ZUncommit"
+    "-XX:AllocatePrefetchStyle=1" # ZGC prefers style 1 (vs 3 for G1GC)
+  )
+
+  # Compiler optimizations (similar to Paper but without G1GC-specific flags)
+  opts_array+=(
+    "-XX:+UnlockExperimentalVMOptions"
+    "-XX:+UnlockDiagnosticVMOptions"
+    "-XX:+DisableExplicitGC"
+    "-XX:-DontCompileHugeMethods"
+    "-XX:ReservedCodeCacheSize=400M"
+    "-XX:+UseFastUnorderedTimeStamps"
+    "-XX:+UseCriticalJavaThreadPriority"
+    "-XX:+AlwaysActAsServerClassMachine"
+  )
+
+  # Memory optimizations
+  opts_array+=(
+    "-XX:+UseTransparentHugePages"
+    "-XX:LargePageSizeInBytes=2M"
+    "-XX:+UseLargePages"
+    "-XX:+EagerJVMCI"
+  )
+
+  # Intrinsics and CPU optimizations
+  opts_array+=(
+    "-XX:+UseAES"
+    "-XX:+UseAESIntrinsics"
+    "-XX:+UseFMA"
+    "-XX:+UseCompressedOops"
+    "-XX:+UseThreadPriorities"
+    "-XX:+OmitStackTraceInFastThrow"
+    "-XX:UseAVX=2"
+    "-XX:UseSSE=4"
+  )
+
+  # System properties
+  opts_array+=("-Djdk.nio.maxCachedBufferSize=262144")
+
+  # GraalVM-specific optimizations (same as Paper)
+  # Base image guarantees GraalVM 25+, so no runtime version check needed
+  if [[ "${enable_graalvm}" == "true" ]]; then
+    echo "🚀 GraalVM-specific optimization flags: ENABLED"
+    opts_array+=(
+      "-Djdk.graal.UsePriorityInlining=true"
+      "-Djdk.graal.Vectorization=true"
+      "-Djdk.graal.OptDuplication=true"
+      "-Djdk.graal.DetectInvertedLoopsAsCounted=true"
+      "-Djdk.graal.LoopInversion=true"
+      "-Djdk.graal.VectorizeHashes=true"
+      "-Djdk.graal.EnterprisePartialUnroll=true"
+      "-Djdk.graal.VectorizeSIMD=true"
+      "-Djdk.graal.StripMineNonCountedLoops=true"
+      "-Djdk.graal.SpeculativeGuardMovement=true"
+      "-Djdk.graal.TuneInlinerExploration=1"
+      "-Djdk.graal.LoopRotation=true"
+      "-Djdk.graal.CompilerConfiguration=enterprise"
+    )
+  else
+    echo "⚙️  GraalVM-specific optimization flags: DISABLED"
+  fi
+}
+
+build_java_opts() {
+  # Main JVM options builder - orchestrates all flag building
+  # Args: $1 = nameref to array, $2 = server_type, $3 = memory
+  # Returns: Array via nameref
+
+  local -n result_array=$1
+  local server_type="$2"
+  local memory="${3:-16G}"
+
+  # Start with common options
+  build_common_jvm_opts result_array "$memory"
+
+  # Add server-specific options
+  case "${server_type}" in
+    paper)
+      local enable_meowice="true"
+      local enable_graalvm="true"
+
+      [[ "${DISABLE_MEOWICE_FLAGS:-false}" == "true" ]] && enable_meowice="false"
+      [[ "${DISABLE_MEOWICE_GRAALVM_FLAGS:-false}" == "true" ]] && enable_graalvm="false"
+
+      build_paper_jvm_opts result_array "$enable_meowice" "$enable_graalvm"
+      ;;
+    velocity)
+      local enable_zgc="true"
+      local enable_graalvm="true"
+
+      [[ "${DISABLE_VELOCITY_ZGC:-false}" == "true" ]] && enable_zgc="false"
+      [[ "${DISABLE_VELOCITY_GRAALVM_FLAGS:-false}" == "true" ]] && enable_graalvm="false"
+
+      build_velocity_jvm_opts result_array "$enable_zgc" "$enable_graalvm"
+      ;;
+    *)
+      echo "⚠️  Unknown server type: ${server_type}" >&2
+      ;;
+  esac
+
+  # OpenTelemetry agent
+  configure_otel_agent
+  if [[ "${JAVA_AGENT:-false}" == "true" ]]; then
+    result_array+=("-javaagent:/opt/opentelemetry-javaagent.jar")
+  fi
+
+  # Custom JVM options (appended)
+  if [[ -n "${JAVA_OPTS_CUSTOM:-}" ]]; then
+    echo "🔧 Custom JVM opts: $JAVA_OPTS_CUSTOM"
+    # Split custom opts into array and append
+    local -a custom_opts
+    read -r -a custom_opts <<<"${JAVA_OPTS_CUSTOM}"
+    result_array+=("${custom_opts[@]}")
+  fi
+
+  # Log4j configuration
+  if [[ -f /data/log4j2.xml ]]; then
+    result_array+=("-Dlog4j.configurationFile=log4j2.xml")
+  fi
+}
+
+# ==============================================================================
 # OpenTelemetry Java Agent Configuration
 # ==============================================================================
 
