@@ -176,6 +176,7 @@ build_common_jvm_opts() {
   # Args: $1 = nameref to array, $2 = memory (default: 16G)
   # Returns: Array via nameref
 
+  # shellcheck disable=SC2178  # nameref intentionally used as array
   local -n opts_array=$1
   local memory="${2:-16G}"
 
@@ -230,12 +231,14 @@ build_paper_jvm_opts() {
   local enable_meowice="${2:-true}"
   local enable_graalvm="${3:-true}"
 
-  if [[ "${enable_meowice}" != "true" ]]; then
+  if [[ "${enable_meowice}" == "true" ]]; then
+    echo "🚀 MeowIce optimization flags: ENABLED (G1GC for Paper)"
+  else
     echo "⚙️  MeowIce optimization flags: DISABLED (using JVM defaults)"
-    return 0
   fi
 
-  echo "🚀 MeowIce optimization flags: ENABLED (G1GC for Paper)"
+  # Apply MeowIce flags only if enabled
+  if [[ "${enable_meowice}" == "true" ]]; then
 
   # Note: --add-modules=jdk.incubator.vector is NOT included
   # This flag only benefits Pufferfish/Purpur (SIMD map rendering), not Paper
@@ -340,10 +343,11 @@ build_paper_jvm_opts() {
     "-XX:+SegmentedCodeCache"
   )
 
-  # System properties
-  opts_array+=("-Djdk.nio.maxCachedBufferSize=262144")
+    # System properties
+    opts_array+=("-Djdk.nio.maxCachedBufferSize=262144")
+  fi
 
-  # GraalVM-specific optimizations
+  # GraalVM-specific optimizations (independent of MeowIce flags)
   if [[ "${enable_graalvm}" == "true" ]]; then
     apply_graalvm_opts opts_array
   else
@@ -362,12 +366,14 @@ build_velocity_jvm_opts() {
   local enable_zgc="${2:-true}"
   local enable_graalvm="${3:-true}"
 
-  if [[ "${enable_zgc}" != "true" ]]; then
+  if [[ "${enable_zgc}" == "true" ]]; then
+    echo "🚀 Velocity optimization flags: ENABLED (ZGC for proxy workloads)"
+  else
     echo "⚙️  Velocity ZGC optimization: DISABLED (using JVM defaults)"
-    return 0
   fi
 
-  echo "🚀 Velocity optimization flags: ENABLED (ZGC for proxy workload)"
+  # Apply ZGC flags only if enabled
+  if [[ "${enable_zgc}" == "true" ]]; then
 
   # ZGC configuration (low-latency garbage collection for proxy workloads)
   # ZGenerational is default in Java 23+, but we specify it explicitly for clarity
@@ -411,10 +417,11 @@ build_velocity_jvm_opts() {
     "-XX:UseSSE=4"
   )
 
-  # System properties
-  opts_array+=("-Djdk.nio.maxCachedBufferSize=262144")
+    # System properties
+    opts_array+=("-Djdk.nio.maxCachedBufferSize=262144")
+  fi
 
-  # GraalVM-specific optimizations
+  # GraalVM-specific optimizations (independent of ZGC flags)
   if [[ "${enable_graalvm}" == "true" ]]; then
     apply_graalvm_opts opts_array
   else
@@ -427,6 +434,7 @@ build_java_opts() {
   # Args: $1 = nameref to array, $2 = server_type, $3 = memory
   # Returns: Array via nameref
 
+  # shellcheck disable=SC2178  # nameref intentionally used as array
   local -n result_array=$1
   local server_type="$2"
   local memory="${3:-16G}"
@@ -467,7 +475,7 @@ build_java_opts() {
 
   # Custom JVM options (appended)
   # Note: JAVA_OPTS_CUSTOM is split on whitespace. Options with spaces in values
-  # are not supported (e.g., -Dfoo="bar baz" will break). Use unquoted values
+  # are not supported (e.g., -Dfoo="bar baz" will break). Avoid spaces in values
   # or work around by setting multiple -D flags if needed.
   #
   # Design note: Environment variables are inherently strings, so string-to-array
