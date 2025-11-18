@@ -155,7 +155,10 @@ validate_paper_eula() {
     return 1
   fi
 
-  if ! grep -q "eula=true" /data/eula.txt; then
+  # Use precise pattern to avoid false positives:
+  # - Matches: "eula=true", " eula=true", "eula = true"
+  # - Rejects: "#eula=true", "my-eula=true", "eula=true-false"
+  if ! grep -qE "^[[:space:]]*eula[[:space:]]*=[[:space:]]*true[[:space:]]*$" /data/eula.txt; then
     echo "❌ ERROR: EULA not accepted in /data/eula.txt" >&2
     echo "" >&2
     echo "Edit /data/eula.txt and set:" >&2
