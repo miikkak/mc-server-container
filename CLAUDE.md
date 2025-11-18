@@ -339,7 +339,7 @@ This container focuses on **JVM configuration only**. Minecraft-specific configu
 - `JAVA_OPTS_CUSTOM` - Add custom JVM options (appended to generated flags)
   - **Note**: Space-separated list. Options with spaces in values are not supported (e.g., `-Dfoo="bar baz"` will break)
   - **Workarounds** for values with spaces:
-    - Use unquoted values: `-Dfoo=bar` instead of `-Dfoo="bar baz"`
+    - Avoid spaces: use `-Dfoo=bar_baz` or `-Dfoo=barBaz` instead of `-Dfoo="bar baz"`
     - Split into multiple flags: `-Dfoo.part1=bar -Dfoo.part2=baz`
     - Use comma-separated lists: `-Dlist=item1,item2,item3`
     - For complex configs, use a properties file and reference it
