@@ -466,9 +466,12 @@ build_java_opts() {
   fi
 
   # Custom JVM options (appended)
+  # Note: JAVA_OPTS_CUSTOM is split on whitespace. Options with spaces in values
+  # are not supported (e.g., -Dfoo="bar baz" will break). Use unquoted values
+  # or work around by setting multiple -D flags if needed.
   if [[ -n "${JAVA_OPTS_CUSTOM:-}" ]]; then
     echo "🔧 Custom JVM opts: $JAVA_OPTS_CUSTOM"
-    # Split custom opts into array and append
+    # Split custom opts into array and append (simple word splitting)
     local -a custom_opts
     read -r -a custom_opts <<<"${JAVA_OPTS_CUSTOM}"
     result_array+=("${custom_opts[@]}")

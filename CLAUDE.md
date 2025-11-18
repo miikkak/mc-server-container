@@ -337,6 +337,8 @@ This container focuses on **JVM configuration only**. Minecraft-specific configu
 - `DISABLE_VELOCITY_ZGC` - Disable ZGC optimizations for Velocity (default: enabled)
 - `DISABLE_VELOCITY_GRAALVM_FLAGS` - Disable GraalVM-specific optimizations for Velocity (default: enabled)
 - `JAVA_OPTS_CUSTOM` - Add custom JVM options (appended to generated flags)
+  - **Note**: Space-separated list. Options with spaces in values are not supported (e.g., `-Dfoo="bar baz"` will break)
+  - Example: `JAVA_OPTS_CUSTOM="-Dcustom.flag=value -XX:+UseNewFlag"`
 
 **OpenTelemetry (included by default, requires configuration to enable):**
 - `OTEL_JAVAAGENT_CONFIGURATION_FILE` - Path to OpenTelemetry Java agent configuration file (required for agent to load)
