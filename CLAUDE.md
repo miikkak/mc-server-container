@@ -332,9 +332,18 @@ This container focuses on **JVM configuration only**. Minecraft-specific configu
 - `MEMORY` - Server memory allocation (default: `16G`)
 
 **JVM Performance Tuning (for troubleshooting only):**
-- `DISABLE_MEOWICE_FLAGS` - Disable MeowIce G1GC optimizations (default: enabled)
-- `DISABLE_MEOWICE_GRAALVM_FLAGS` - Disable GraalVM-specific optimizations (default: enabled)
+- `DISABLE_MEOWICE_FLAGS` - Disable MeowIce G1GC optimizations for Paper (default: enabled)
+- `DISABLE_MEOWICE_GRAALVM_FLAGS` - Disable GraalVM-specific optimizations for Paper (default: enabled)
+- `DISABLE_VELOCITY_ZGC` - Disable ZGC optimizations for Velocity (default: enabled)
+- `DISABLE_VELOCITY_GRAALVM_FLAGS` - Disable GraalVM-specific optimizations for Velocity (default: enabled)
 - `JAVA_OPTS_CUSTOM` - Add custom JVM options (appended to generated flags)
+  - **Note**: Space-separated list. Options with spaces in values are not supported (e.g., `-Dfoo="bar baz"` will break)
+  - **Workarounds** for values with spaces:
+    - Avoid spaces: use `-Dfoo=bar_baz` or `-Dfoo=barBaz` instead of `-Dfoo="bar baz"`
+    - Split into multiple flags: `-Dfoo.part1=bar -Dfoo.part2=baz`
+    - Use comma-separated lists: `-Dlist=item1,item2,item3`
+    - For complex configs, use a properties file and reference it
+  - Example: `JAVA_OPTS_CUSTOM="-Dcustom.flag=value -XX:+UseNewFlag"`
 
 **OpenTelemetry (included by default, requires configuration to enable):**
 - `OTEL_JAVAAGENT_CONFIGURATION_FILE` - Path to OpenTelemetry Java agent configuration file (required for agent to load)
