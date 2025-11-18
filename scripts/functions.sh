@@ -192,6 +192,32 @@ build_common_jvm_opts() {
   )
 }
 
+apply_graalvm_opts() {
+  # Applies GraalVM-specific optimization flags
+  # Base image guarantees GraalVM 25+, so no runtime version check needed
+  # Args: $1 = nameref to array
+  # Returns: Array via nameref
+
+  local -n opts_array=$1
+
+  echo "🚀 GraalVM-specific optimization flags: ENABLED"
+  opts_array+=(
+    "-Djdk.graal.UsePriorityInlining=true"
+    "-Djdk.graal.Vectorization=true"
+    "-Djdk.graal.OptDuplication=true"
+    "-Djdk.graal.DetectInvertedLoopsAsCounted=true"
+    "-Djdk.graal.LoopInversion=true"
+    "-Djdk.graal.VectorizeHashes=true"
+    "-Djdk.graal.EnterprisePartialUnroll=true"
+    "-Djdk.graal.VectorizeSIMD=true"
+    "-Djdk.graal.StripMineNonCountedLoops=true"
+    "-Djdk.graal.SpeculativeGuardMovement=true"
+    "-Djdk.graal.TuneInlinerExploration=1"
+    "-Djdk.graal.LoopRotation=true"
+    "-Djdk.graal.CompilerConfiguration=enterprise"
+  )
+}
+
 build_paper_jvm_opts() {
   # Builds Paper-specific JVM options (G1GC + MeowIce flags)
   # Assumes: GraalVM 25+ (guaranteed by Dockerfile base image)
@@ -316,24 +342,8 @@ build_paper_jvm_opts() {
   opts_array+=("-Djdk.nio.maxCachedBufferSize=262144")
 
   # GraalVM-specific optimizations
-  # Base image guarantees GraalVM 25+, so no runtime version check needed
   if [[ "${enable_graalvm}" == "true" ]]; then
-    echo "🚀 GraalVM-specific optimization flags: ENABLED"
-    opts_array+=(
-      "-Djdk.graal.UsePriorityInlining=true"
-      "-Djdk.graal.Vectorization=true"
-      "-Djdk.graal.OptDuplication=true"
-      "-Djdk.graal.DetectInvertedLoopsAsCounted=true"
-      "-Djdk.graal.LoopInversion=true"
-      "-Djdk.graal.VectorizeHashes=true"
-      "-Djdk.graal.EnterprisePartialUnroll=true"
-      "-Djdk.graal.VectorizeSIMD=true"
-      "-Djdk.graal.StripMineNonCountedLoops=true"
-      "-Djdk.graal.SpeculativeGuardMovement=true"
-      "-Djdk.graal.TuneInlinerExploration=1"
-      "-Djdk.graal.LoopRotation=true"
-      "-Djdk.graal.CompilerConfiguration=enterprise"
-    )
+    apply_graalvm_opts opts_array
   else
     echo "⚙️  GraalVM-specific optimization flags: DISABLED"
   fi
@@ -401,25 +411,9 @@ build_velocity_jvm_opts() {
   # System properties
   opts_array+=("-Djdk.nio.maxCachedBufferSize=262144")
 
-  # GraalVM-specific optimizations (same as Paper)
-  # Base image guarantees GraalVM 25+, so no runtime version check needed
+  # GraalVM-specific optimizations
   if [[ "${enable_graalvm}" == "true" ]]; then
-    echo "🚀 GraalVM-specific optimization flags: ENABLED"
-    opts_array+=(
-      "-Djdk.graal.UsePriorityInlining=true"
-      "-Djdk.graal.Vectorization=true"
-      "-Djdk.graal.OptDuplication=true"
-      "-Djdk.graal.DetectInvertedLoopsAsCounted=true"
-      "-Djdk.graal.LoopInversion=true"
-      "-Djdk.graal.VectorizeHashes=true"
-      "-Djdk.graal.EnterprisePartialUnroll=true"
-      "-Djdk.graal.VectorizeSIMD=true"
-      "-Djdk.graal.StripMineNonCountedLoops=true"
-      "-Djdk.graal.SpeculativeGuardMovement=true"
-      "-Djdk.graal.TuneInlinerExploration=1"
-      "-Djdk.graal.LoopRotation=true"
-      "-Djdk.graal.CompilerConfiguration=enterprise"
-    )
+    apply_graalvm_opts opts_array
   else
     echo "⚙️  GraalVM-specific optimization flags: DISABLED"
   fi
