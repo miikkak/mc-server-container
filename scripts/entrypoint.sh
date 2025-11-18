@@ -61,7 +61,10 @@ build_java_opts JAVA_OPTS "${TYPE}" "${MEMORY}"
 # RCON Configuration
 # ============================================================================
 
-setup_rcon_password
+# RCON is only applicable to Paper servers, not Velocity proxy
+if [[ "${TYPE}" == "paper" ]]; then
+  setup_rcon_password
+fi
 
 # ============================================================================
 # Startup Information
