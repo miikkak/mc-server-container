@@ -469,6 +469,11 @@ build_java_opts() {
   # Note: JAVA_OPTS_CUSTOM is split on whitespace. Options with spaces in values
   # are not supported (e.g., -Dfoo="bar baz" will break). Use unquoted values
   # or work around by setting multiple -D flags if needed.
+  #
+  # Design note: Environment variables are inherently strings, so string-to-array
+  # conversion is unavoidable here. This is different from internal flag building,
+  # where we use arrays throughout. We prefer simple word splitting over eval for
+  # security and simplicity, accepting the limitation on spaces in values.
   if [[ -n "${JAVA_OPTS_CUSTOM:-}" ]]; then
     echo "🔧 Custom JVM opts: $JAVA_OPTS_CUSTOM"
     # Split custom opts into array and append (simple word splitting)
@@ -488,6 +493,11 @@ build_java_opts() {
 # ==============================================================================
 
 configure_otel_agent() {
+  # Validates OpenTelemetry agent configuration and sets JAVA_AGENT flag
+  # Side effect: Sets global variable JAVA_AGENT="true" if agent should be enabled
+  # This side effect is intentional - caller checks JAVA_AGENT to add -javaagent flag
+  # Returns: 0 (always succeeds, prints warnings for invalid configs)
+
   # Skip if explicitly disabled
   if [ "${DISABLE_OTEL_AGENT:-false}" = "true" ]; then
     echo "⚙️  OpenTelemetry Java agent: DISABLED"
