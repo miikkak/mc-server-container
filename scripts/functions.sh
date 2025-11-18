@@ -198,6 +198,7 @@ apply_graalvm_opts() {
   # Args: $1 = nameref to array
   # Returns: Array via nameref
 
+  # shellcheck disable=SC2178  # nameref intentionally used as array
   local -n opts_array=$1
 
   echo "🚀 GraalVM-specific optimization flags: ENABLED"
@@ -224,6 +225,7 @@ build_paper_jvm_opts() {
   # Args: $1 = nameref to array, $2 = enable_meowice, $3 = enable_graalvm
   # Returns: Array via nameref
 
+  # shellcheck disable=SC2178  # nameref intentionally used as array
   local -n opts_array=$1
   local enable_meowice="${2:-true}"
   local enable_graalvm="${3:-true}"
@@ -355,6 +357,7 @@ build_velocity_jvm_opts() {
   # Args: $1 = nameref to array, $2 = enable_zgc, $3 = enable_graalvm
   # Returns: Array via nameref
 
+  # shellcheck disable=SC2178  # nameref intentionally used as array
   local -n opts_array=$1
   local enable_zgc="${2:-true}"
   local enable_graalvm="${3:-true}"
