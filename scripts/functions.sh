@@ -180,14 +180,14 @@ build_common_jvm_opts() {
   # Returns: Array via nameref
 
   # shellcheck disable=SC2178  # nameref intentionally used as array
-  local -n opts_array=$1
+  local -n _opts=$1
   local memory="${2:-16G}"
 
   # Memory configuration
-  opts_array+=("-Xms${memory}" "-Xmx${memory}")
+  _opts+=("-Xms${memory}" "-Xmx${memory}")
 
   # Java locale and terminal configuration
-  opts_array+=(
+  _opts+=(
     "-Duser.language=en"
     "-Duser.country=US"
     "-Dfile.encoding=UTF-8"
@@ -203,10 +203,10 @@ apply_graalvm_opts() {
   # Returns: Array via nameref
 
   # shellcheck disable=SC2178  # nameref intentionally used as array
-  local -n opts_array=$1
+  local -n _opts=$1
 
   echo "🚀 GraalVM-specific optimization flags: ENABLED"
-  opts_array+=(
+  _opts+=(
     "-Djdk.graal.UsePriorityInlining=true"
     "-Djdk.graal.Vectorization=true"
     "-Djdk.graal.OptDuplication=true"
@@ -230,7 +230,7 @@ build_paper_jvm_opts() {
   # Returns: Array via nameref
 
   # shellcheck disable=SC2178  # nameref intentionally used as array
-  local -n opts_array=$1
+  local -n _opts=$1
   local enable_meowice="${2:-true}"
   local enable_graalvm="${3:-true}"
 
@@ -246,7 +246,7 @@ build_paper_jvm_opts() {
     # This flag only benefits Pufferfish/Purpur (SIMD map rendering), not Paper
 
     # G1GC configuration
-    opts_array+=(
+    _opts+=(
       "-XX:+UseG1GC"
       "-XX:MaxGCPauseMillis=200"
       "-XX:+UnlockExperimentalVMOptions"
@@ -272,11 +272,11 @@ build_paper_jvm_opts() {
     # Auto-detect NUMA and enable optimization if available
     # NUMA is typically not available in standard containers, but detect it just in case
     if [[ -d /sys/devices/system/node/node1 ]]; then
-      opts_array+=("-XX:+UseNUMA")
+      _opts+=("-XX:+UseNUMA")
     fi
 
     # Compiler optimizations
-    opts_array+=(
+    _opts+=(
       "-XX:-DontCompileHugeMethods"
       "-XX:MaxNodeLimit=240000"
       "-XX:NodeLimitFudgeFactor=8000"
@@ -292,7 +292,7 @@ build_paper_jvm_opts() {
     )
 
     # Memory optimizations
-    opts_array+=(
+    _opts+=(
       "-XX:+UseTransparentHugePages"
       "-XX:LargePageSizeInBytes=2M"
       "-XX:+UseLargePages"
@@ -301,7 +301,7 @@ build_paper_jvm_opts() {
     )
 
     # Intrinsics and optimizations
-    opts_array+=(
+    _opts+=(
       "-XX:+UseAES"
       "-XX:+UseAESIntrinsics"
       "-XX:+UseFMA"
@@ -317,7 +317,7 @@ build_paper_jvm_opts() {
     )
 
     # CPU optimizations
-    opts_array+=(
+    _opts+=(
       "-XX:+UseFastStosb"
       "-XX:+UseNewLongLShift"
       "-XX:+UseVectorCmov"
@@ -329,7 +329,7 @@ build_paper_jvm_opts() {
     )
 
     # Advanced optimizations
-    opts_array+=(
+    _opts+=(
       "-XX:+EliminateLocks"
       "-XX:+DoEscapeAnalysis"
       "-XX:+AlignVector"
@@ -346,12 +346,12 @@ build_paper_jvm_opts() {
     )
 
     # System properties
-    opts_array+=("-Djdk.nio.maxCachedBufferSize=262144")
+    _opts+=("-Djdk.nio.maxCachedBufferSize=262144")
   fi
 
   # GraalVM-specific optimizations (independent of MeowIce flags)
   if [[ "${enable_graalvm}" == "true" ]]; then
-    apply_graalvm_opts opts_array
+    apply_graalvm_opts "$1"
   else
     echo "⚙️  GraalVM-specific optimization flags: DISABLED"
   fi
@@ -364,7 +364,7 @@ build_velocity_jvm_opts() {
   # Returns: Array via nameref
 
   # shellcheck disable=SC2178  # nameref intentionally used as array
-  local -n opts_array=$1
+  local -n _opts=$1
   local enable_zgc="${2:-true}"
   local enable_graalvm="${3:-true}"
 
@@ -378,7 +378,7 @@ build_velocity_jvm_opts() {
   if [[ "${enable_zgc}" == "true" ]]; then
     # ZGC configuration (low-latency garbage collection for proxy workloads)
     # ZGenerational is default in Java 23+, but we specify it explicitly for clarity
-    opts_array+=(
+    _opts+=(
       "-XX:+UseZGC"
       "-XX:+ZGenerational"
       "-XX:+AlwaysPreTouch"
@@ -387,7 +387,7 @@ build_velocity_jvm_opts() {
     )
 
     # Compiler optimizations (similar to Paper but without G1GC-specific flags)
-    opts_array+=(
+    _opts+=(
       "-XX:+UnlockExperimentalVMOptions"
       "-XX:+UnlockDiagnosticVMOptions"
       "-XX:+DisableExplicitGC"
@@ -399,7 +399,7 @@ build_velocity_jvm_opts() {
     )
 
     # Memory optimizations
-    opts_array+=(
+    _opts+=(
       "-XX:+UseTransparentHugePages"
       "-XX:LargePageSizeInBytes=2M"
       "-XX:+UseLargePages"
@@ -407,7 +407,7 @@ build_velocity_jvm_opts() {
     )
 
     # Intrinsics and CPU optimizations
-    opts_array+=(
+    _opts+=(
       "-XX:+UseAES"
       "-XX:+UseAESIntrinsics"
       "-XX:+UseFMA"
@@ -419,12 +419,12 @@ build_velocity_jvm_opts() {
     )
 
     # System properties
-    opts_array+=("-Djdk.nio.maxCachedBufferSize=262144")
+    _opts+=("-Djdk.nio.maxCachedBufferSize=262144")
   fi
 
   # GraalVM-specific optimizations (independent of ZGC flags)
   if [[ "${enable_graalvm}" == "true" ]]; then
-    apply_graalvm_opts opts_array
+    apply_graalvm_opts "$1"
   else
     echo "⚙️  GraalVM-specific optimization flags: DISABLED"
   fi
