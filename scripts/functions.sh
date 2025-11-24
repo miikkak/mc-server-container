@@ -377,10 +377,10 @@ build_velocity_jvm_opts() {
   # Apply ZGC flags only if enabled
   if [[ "${enable_zgc}" == "true" ]]; then
     # ZGC configuration (low-latency garbage collection for proxy workloads)
-    # ZGenerational is default in Java 23+, but we specify it explicitly for clarity
+    # Note: ZGenerational became default in Java 23 and was removed in Java 24
+    # (generational mode is always enabled in Java 24+)
     _opts+=(
       "-XX:+UseZGC"
-      "-XX:+ZGenerational"
       "-XX:+AlwaysPreTouch"
       "-XX:-ZUncommit"
       "-XX:AllocatePrefetchStyle=1" # ZGC prefers style 1 (vs 3 for G1GC)
