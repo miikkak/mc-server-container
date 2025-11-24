@@ -25,7 +25,7 @@ ADD https://github.com/itzg/mc-monitor/releases/download/${MC_MONITOR_VERSION}/m
 RUN tar -xzf mc-monitor.tar.gz && chmod +x mc-monitor
 
 # Download OpenTelemetry Java agent
-ARG OTEL_VERSION=2.21.0
+ARG OTEL_VERSION=2.22.0
 ADD https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v${OTEL_VERSION}/opentelemetry-javaagent.jar opentelemetry-javaagent.jar
 
 # ============================================================================
