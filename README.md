@@ -23,6 +23,11 @@ This custom container focuses on the minimum requirements while maintaining prof
 - ✅ Pre-commit hooks and automated testing
 - 🔓 **OCI-compliant images** - Works with Docker, Podman, Kubernetes, and any OCI runtime
 
+## Deployment & Automation
+
+- **Automated pipeline:** Release labels (`release:patch`, `release:minor`, `release:major`) trigger GitHub Actions that run the full CI/CD workflow described below (lightweight validation + heavy build/test/scans), tag a semantic version, push the container to `ghcr.io/miikkak/mc-server-container`, and publish a GitHub release.
+- **Manual workflows:** Follow the local development instructions below to `docker build`/`podman build` and run smoke tests when you need to reproduce the automated checks without pushing tags.
+
 ## Quick Start
 
 ### Using Docker
