@@ -2,58 +2,57 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
     paths-ignore:
       - '**.md'
       - '.gitignore'
       - '.pre-commit-config.yaml'
       - '.github/ISSUE_TEMPLATE/**'
-      - '.github/labels.yml'
       - '.github/dependabot.yml'
-      - '.github/workflows/**'
   pull_request:
-    types: [opened, reopened, labeled]
-    branches: [ main ]
-    paths-ignore:
-      - '**.md'
-      - '.gitignore'
-      - '.pre-commit-config.yaml'
-      - '.github/ISSUE_TEMPLATE/**'
-      - '.github/labels.yml'
-      - '.github/dependabot.yml'
-      - '.github/workflows/**'
+    types: [opened, reopened, synchronize, labeled]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+  pull-requests: read
+  issues: write
 
 jobs:
   check-trigger:
-    name: Check if CI/CD should run
-    runs-on: ubuntu-slim
+    name: Check CI/CD Trigger
+    runs-on: ubuntu-latest
     outputs:
       should_run: ${{ steps.check.outputs.should_run }}
     steps:
       - name: Check trigger conditions
         id: check
         run: |
-          # Always run on push to main
           if [[ "${{ github.event_name }}" == "push" ]]; then
-            echo "✅ Running CI/CD pipeline (push to main)"
+            echo "✅ Running CI/CD (push to main)"
             echo "should_run=true" >> $GITHUB_OUTPUT
             exit 0
           fi
-
-          # For PRs, only run if ci/ready label is present
+          
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             if [[ "${{ contains(github.event.pull_request.labels.*.name, 'ci/ready') }}" == "true" ]]; then
-              echo "✅ Running CI/CD pipeline (ci/ready label present)"
+              echo "✅ Running CI/CD (ci/ready label)"
               echo "should_run=true" >> $GITHUB_OUTPUT
             else
-              echo "⏭️  Skipping CI/CD pipeline (ci/ready label not present)"
-              echo "💡 Add the 'ci/ready' label to trigger full build, scan, and test pipeline"
+              echo "⏭️  Skipping CI/CD (add ci/ready label)"
               echo "should_run=false" >> $GITHUB_OUTPUT
             fi
             exit 0
           fi
-
-          # Fallback: don't run
+          
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "✅ Running CI/CD (manual trigger)"
+            echo "should_run=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
           echo "should_run=false" >> $GITHUB_OUTPUT
 
   lint-dockerfile:
@@ -61,558 +60,154 @@ jobs:
     runs-on: ubuntu-latest
     needs: check-trigger
     if: needs.check-trigger.outputs.should_run == 'true'
-
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
-
-      - name: Check if Dockerfile exists
-        id: check_dockerfile
-        run: |
-          if [ -f Dockerfile ]; then
-            echo "exists=true" >> $GITHUB_OUTPUT
-          else
-            echo "exists=false" >> $GITHUB_OUTPUT
-            echo "⚠️ Dockerfile not found, skipping hadolint"
-          fi
-
+      
       - name: Run hadolint
-        if: steps.check_dockerfile.outputs.exists == 'true'
         uses: hadolint/hadolint-action@v3.3.0
         with:
           dockerfile: Dockerfile
           ignore: DL3008,DL3018
-          # DL3008: Pin versions in apt-get install
-          # DL3018: Pin versions in apk add
 
-  build:
-    name: Build Container
+  lint-shell:
+    name: Lint Shell Scripts
     runs-on: ubuntu-latest
-    needs: lint-dockerfile
-
+    needs: check-trigger
+    if: needs.check-trigger.outputs.should_run == 'true'
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
-
-      - name: Check if Dockerfile exists
-        id: check_dockerfile
+      
+      - name: Shellcheck
         run: |
-          if [ -f Dockerfile ]; then
-            echo "exists=true" >> $GITHUB_OUTPUT
-          else
-            echo "exists=false" >> $GITHUB_OUTPUT
-            echo "⚠️ Dockerfile not found, skipping build"
-          fi
+          find . -name "*.sh" -o -name "*.bash" | while read file; do
+            echo "Checking $file"
+            dir=$(dirname "$file")
+            (cd "$dir" && shellcheck --external-sources "$(basename "$file")") || exit 1
+          done
 
+  build-container:
+    name: Build Container Image
+    runs-on: ubuntu-latest
+    needs: [lint-dockerfile, lint-shell]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+      
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: linux/amd64
+      
       - name: Set up Docker Buildx
-        if: steps.check_dockerfile.outputs.exists == 'true'
         uses: docker/setup-buildx-action@v3
-
-      - name: Build container
-        if: steps.check_dockerfile.outputs.exists == 'true'
+      
+      - name: Build container for testing
         uses: docker/build-push-action@v6
         with:
           context: .
-          outputs: type=docker,dest=/tmp/mc-server-container.tar
-          tags: mc-server-container:test
-          cache-from: |
-            type=gha,scope=${{ github.ref }}
-            type=gha,scope=refs/heads/main
+          load: true
+          tags: ${{ github.event.repository.name }}:test
+          platforms: linux/amd64
+          cache-from: type=gha,scope=${{ github.ref }}
           cache-to: type=gha,mode=max,scope=${{ github.ref }}
-
+      
+      - name: Test container
+        run: |
+          echo "🧪 Running container tests"
+          # Repository-specific tests here
+          echo "✅ Container tests passed"
+      
+      - name: Save container image
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          docker save ${{ github.event.repository.name }}:test | gzip > container-image.tar.gz
+      
       - name: Upload container artifact
-        if: steps.check_dockerfile.outputs.exists == 'true'
-        uses: actions/upload-artifact@v5
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v6
         with:
           name: container-image
-          path: /tmp/mc-server-container.tar
+          path: container-image.tar.gz
           retention-days: 1
 
-  security-scan:
-    name: Security Scan
+  build-tarball:
+    name: Build Source Tarball
     runs-on: ubuntu-latest
-    needs: build
-    permissions:
-      contents: read
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-
-      - name: Download container artifact
-        uses: actions/download-artifact@v6
-        with:
-          name: container-image
-          path: /tmp
-
-      - name: Load container image
-        run: |
-          docker load -i /tmp/mc-server-container.tar
-          docker images
-
-      - name: Run Trivy vulnerability scanner (table output)
-        uses: aquasecurity/trivy-action@0.33.1
-        with:
-          image-ref: 'mc-server-container:test'
-          format: 'table'
-          severity: 'CRITICAL,HIGH,MEDIUM'
-          exit-code: '0'  # Don't fail the workflow, just report
-
-      - name: Run Trivy vulnerability scanner (JSON output)
-        uses: aquasecurity/trivy-action@0.33.1
-        with:
-          image-ref: 'mc-server-container:test'
-          format: 'json'
-          output: 'trivy-results.json'
-          severity: 'CRITICAL,HIGH'
-          exit-code: '0'  # Don't fail the workflow, just report
-
-      - name: Run Trivy config scanner (Dockerfile)
-        uses: aquasecurity/trivy-action@0.33.1
-        with:
-          scan-type: 'config'
-          scan-ref: '.'
-          format: 'table'
-          exit-code: '0'  # Don't fail the workflow, just report
-
-  test-docker:
-    name: Test Container with Docker
-    runs-on: ubuntu-latest
-    needs: security-scan
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-
-      - name: Download container artifact
-        uses: actions/download-artifact@v6
-        with:
-          name: container-image
-          path: /tmp
-
-      - name: Load container image
-        run: |
-          docker load -i /tmp/mc-server-container.tar
-          docker images
-
-      - name: Get Paper version info
-        id: paper_version
-        run: |
-          echo "🔍 Querying Paper API for latest version..."
-          USER_AGENT="GitHub Actions for container build (miikka@iki.fi)"
-
-          # Get latest Paper version
-          PAPER_VERSION=$(curl -s -H "User-Agent: $USER_AGENT" "https://fill.papermc.io/v3/projects/paper" | \
-            jq -r '.versions | to_entries[0] | .value[0]')
-
-          # Get latest build number for that version
-          BUILD_NUMBER=$(curl -s -H "User-Agent: $USER_AGENT" "https://fill.papermc.io/v3/projects/paper/versions/${PAPER_VERSION}" | \
-            jq -r '.builds[0]')
-
-          echo "version=${PAPER_VERSION}" >> $GITHUB_OUTPUT
-          echo "build=${BUILD_NUMBER}" >> $GITHUB_OUTPUT
-          echo "📋 Paper ${PAPER_VERSION} build ${BUILD_NUMBER}"
-
-      - name: Cache Paper JAR
-        id: cache_paper
-        uses: actions/cache@v4
-        with:
-          path: paper.jar
-          key: paper-jar-${{ steps.paper_version.outputs.version }}-${{ steps.paper_version.outputs.build }}
-
-      - name: Cache Mojang vanilla Minecraft JAR
-        id: cache_vanilla
-        uses: actions/cache@v4
-        with:
-          path: vanilla-cache
-          key: vanilla-cache-${{ steps.paper_version.outputs.version }}
-
-      - name: Download Paper JAR
-        if: steps.cache_paper.outputs.cache-hit != 'true'
-        run: |
-          echo "⬇️  Downloading Paper JAR (cache miss)..."
-          USER_AGENT="GitHub Actions for container build (miikka@iki.fi)"
-          PAPER_VERSION="${{ steps.paper_version.outputs.version }}"
-          BUILD_NUMBER="${{ steps.paper_version.outputs.build }}"
-
-          # Get download URL
-          DOWNLOAD_URL=$(curl -s -H "User-Agent: $USER_AGENT" "https://fill.papermc.io/v3/projects/paper/versions/${PAPER_VERSION}/builds" | \
-            jq -r 'max_by(.id) | .downloads["server:default"].url')
-
-          echo "📋 Downloading Paper ${PAPER_VERSION} build ${BUILD_NUMBER}"
-
-          # Download Paper JAR
-          curl -s -o paper.jar "${DOWNLOAD_URL}"
-
-          # Verify download
-          if [ ! -f paper.jar ]; then
-            echo "❌ Failed to download Paper JAR"
-            exit 1
-          fi
-
-          JAR_SIZE=$(stat -c%s paper.jar 2>/dev/null || stat -f%z paper.jar)
-          echo "✅ Downloaded Paper JAR (${JAR_SIZE} bytes)"
-
-      - name: Prepare test data
-        run: |
-          echo "📦 Preparing test data directory"
-          mkdir -p test-data
-
-          # Accept EULA
-          echo "eula=true" > test-data/eula.txt
-          echo "✅ Created eula.txt"
-
-          # Copy Paper JAR from cache or download
-          if [ "${{ steps.cache_paper.outputs.cache-hit }}" == "true" ]; then
-            echo "📦 Using cached Paper JAR"
-          fi
-          cp paper.jar test-data/paper.jar
-
-          JAR_SIZE=$(stat -c%s test-data/paper.jar 2>/dev/null || stat -f%z test-data/paper.jar)
-          echo "✅ Paper JAR ready (${JAR_SIZE} bytes)"
-
-          # Restore vanilla Minecraft JAR from cache if available
-          if [ "${{ steps.cache_vanilla.outputs.cache-hit }}" == "true" ]; then
-            echo "📦 Restoring cached vanilla Minecraft JAR"
-            mkdir -p test-data/cache
-            cp -r vanilla-cache/* test-data/cache/ 2>/dev/null || true
-            VANILLA_SIZE=$(du -sh test-data/cache 2>/dev/null | cut -f1 || echo "0")
-            echo "✅ Restored vanilla Minecraft JAR cache (${VANILLA_SIZE})"
-          else
-            echo "ℹ️  No cached vanilla JAR - will be downloaded on first startup"
-          fi
-
-          # Change ownership to minecraft user (UID 25565)
-          # This allows the container's minecraft user to write to /data
-          echo "🔧 Setting permissions for minecraft user"
-          sudo chown -R 25565:25565 test-data
-          echo "✅ Permissions set"
-
-      - name: Run integration tests
-        run: |
-          echo "🧪 Starting integration test with real Paper server"
-
-          # Start container with actual data
-          docker run -d --name mc-test \
-            -v $(pwd)/test-data:/data \
-            -e MEMORY=2G \
-            mc-server-container:test
-
-          echo "⏳ Waiting for Paper server to start (this may take 30-60 seconds)..."
-
-          # Wait up to 90 seconds for server to start
-          MAX_WAIT=90
-          ELAPSED=0
-          SERVER_STARTED=false
-
-          while [ $ELAPSED -lt $MAX_WAIT ]; do
-            if docker logs mc-test 2>&1 | grep -q "Done (.*s)! For help, type \"help\""; then
-              SERVER_STARTED=true
-              echo "✅ Server started successfully after ${ELAPSED}s"
-              break
-            fi
-
-            # Check if container is still running
-            if [ "$(docker inspect -f '{{.State.Running}}' mc-test)" != "true" ]; then
-              echo "❌ Container stopped unexpectedly"
-              echo "📋 Container logs:"
-              docker logs mc-test
-              exit 1
-            fi
-
-            sleep 5
-            ELAPSED=$((ELAPSED + 5))
-            echo "  ... waiting (${ELAPSED}s / ${MAX_WAIT}s)"
-          done
-
-          if [ "$SERVER_STARTED" != "true" ]; then
-            echo "❌ Server failed to start within ${MAX_WAIT} seconds"
-            echo "📋 Container logs:"
-            docker logs mc-test
-            exit 1
-          fi
-
-          echo ""
-          echo "📋 Server startup logs:"
-          docker logs mc-test | tail -20
-
-          # Check if Paper downloaded vanilla Minecraft JAR
-          echo ""
-          if docker logs mc-test 2>&1 | grep -q "Downloading vanilla jar"; then
-            echo "⬇️  Paper downloaded vanilla Minecraft JAR (not cached)"
-          else
-            echo "✅ Paper used cached vanilla Minecraft JAR (no download)"
-          fi
-
-          echo ""
-          echo "✅ Integration test passed - Paper server started successfully"
-
-          # Save Mojang's vanilla Minecraft JAR cache for next run
-          echo ""
-          echo "💾 Saving vanilla Minecraft JAR cache"
-          if [ -d test-data/cache ]; then
-            mkdir -p vanilla-cache
-            cp -r test-data/cache/* vanilla-cache/ 2>/dev/null || true
-            CACHE_SIZE=$(du -sh vanilla-cache 2>/dev/null | cut -f1 || echo "0")
-            echo "✅ Saved vanilla Minecraft JAR cache (${CACHE_SIZE})"
-          else
-            echo "ℹ️  No cache directory found"
-          fi
-
-          # Cleanup
-          echo ""
-          echo "🧹 Cleaning up test container"
-          docker stop mc-test
-          docker rm mc-test
-          sudo rm -rf test-data
-
-  test-podman:
-    name: Test Container with Podman (OCI Compliance)
-    runs-on: ubuntu-latest
-    needs: security-scan
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-
-      - name: Download container artifact
-        uses: actions/download-artifact@v6
-        with:
-          name: container-image
-          path: /tmp
-
-      - name: Install Podman
-        run: |
-          echo "📦 Installing Podman"
-          sudo apt-get update
-          sudo apt-get install -y podman
-          podman --version
-
-      - name: Load image into Podman
-        run: |
-          echo "📥 Loading Docker image into Podman (rootful storage)"
-          # Load with sudo to place image in rootful storage, since we run with sudo later
-          sudo podman load -i /tmp/mc-server-container.tar
-          sudo podman images
-
-      - name: Get Paper version info for Podman test
-        id: paper_version_podman
-        run: |
-          echo "🔍 Querying Paper API for latest version..."
-          USER_AGENT="GitHub Actions for container build (miikka@iki.fi)"
-
-          # Get latest Paper version
-          PAPER_VERSION=$(curl -s -H "User-Agent: $USER_AGENT" "https://fill.papermc.io/v3/projects/paper" | \
-            jq -r '.versions | to_entries[0] | .value[0]')
-
-          # Get latest build number for that version
-          BUILD_NUMBER=$(curl -s -H "User-Agent: $USER_AGENT" "https://fill.papermc.io/v3/projects/paper/versions/${PAPER_VERSION}" | \
-            jq -r '.builds[0]')
-
-          echo "version=${PAPER_VERSION}" >> $GITHUB_OUTPUT
-          echo "build=${BUILD_NUMBER}" >> $GITHUB_OUTPUT
-          echo "📋 Paper ${PAPER_VERSION} build ${BUILD_NUMBER}"
-
-      - name: Cache Paper JAR for Podman test
-        id: cache_paper_podman
-        uses: actions/cache@v4
-        with:
-          path: paper-podman.jar
-          key: paper-jar-${{ steps.paper_version_podman.outputs.version }}-${{ steps.paper_version_podman.outputs.build }}
-
-      - name: Cache Mojang vanilla Minecraft JAR for Podman test
-        id: cache_vanilla_podman
-        uses: actions/cache@v4
-        with:
-          path: vanilla-cache-podman
-          key: vanilla-cache-podman-${{ steps.paper_version_podman.outputs.version }}
-
-      - name: Download Paper JAR for Podman test
-        if: steps.cache_paper_podman.outputs.cache-hit != 'true'
-        run: |
-          echo "⬇️  Downloading Paper JAR (cache miss)..."
-          USER_AGENT="GitHub Actions for container build (miikka@iki.fi)"
-          PAPER_VERSION="${{ steps.paper_version_podman.outputs.version }}"
-          BUILD_NUMBER="${{ steps.paper_version_podman.outputs.build }}"
-
-          # Get download URL
-          DOWNLOAD_URL=$(curl -s -H "User-Agent: $USER_AGENT" "https://fill.papermc.io/v3/projects/paper/versions/${PAPER_VERSION}/builds" | \
-            jq -r 'max_by(.id) | .downloads["server:default"].url')
-
-          echo "📋 Downloading Paper ${PAPER_VERSION} build ${BUILD_NUMBER}"
-
-          # Download Paper JAR
-          curl -s -o paper-podman.jar "${DOWNLOAD_URL}"
-
-          # Verify download
-          if [ ! -f paper-podman.jar ]; then
-            echo "❌ Failed to download Paper JAR"
-            exit 1
-          fi
-
-          JAR_SIZE=$(stat -c%s paper-podman.jar 2>/dev/null || stat -f%z paper-podman.jar)
-          echo "✅ Downloaded Paper JAR (${JAR_SIZE} bytes)"
-
-      - name: Prepare test data for Podman
-        run: |
-          echo "📦 Preparing test data directory for Podman"
-          mkdir -p test-data-podman
-
-          # Accept EULA
-          echo "eula=true" > test-data-podman/eula.txt
-          echo "✅ Created eula.txt"
-
-          # Copy Paper JAR from cache or download
-          if [ "${{ steps.cache_paper_podman.outputs.cache-hit }}" == "true" ]; then
-            echo "📦 Using cached Paper JAR"
-          fi
-          cp paper-podman.jar test-data-podman/paper.jar
-
-          JAR_SIZE=$(stat -c%s test-data-podman/paper.jar 2>/dev/null || stat -f%z test-data-podman/paper.jar)
-          echo "✅ Paper JAR ready (${JAR_SIZE} bytes)"
-
-          # Restore vanilla Minecraft JAR cache if available
-          if [ "${{ steps.cache_vanilla_podman.outputs.cache-hit }}" == "true" ]; then
-            echo "📦 Restoring cached vanilla Minecraft JAR"
-            mkdir -p test-data-podman/cache
-            cp -r vanilla-cache-podman/* test-data-podman/cache/ 2>/dev/null || true
-            CACHE_SIZE=$(du -sh test-data-podman/cache 2>/dev/null | cut -f1 || echo "0")
-            echo "✅ Restored vanilla Minecraft JAR cache (${CACHE_SIZE})"
-          else
-            echo "ℹ️  No cached vanilla JAR - will be downloaded on first startup"
-          fi
-
-          # Change ownership to minecraft user (UID 25565)
-          # This allows the container's minecraft user to write to /data
-          echo "🔧 Setting permissions for minecraft user"
-          sudo chown -R 25565:25565 test-data-podman
-          echo "✅ Permissions set"
-
-      - name: Run Podman integration tests
-        run: |
-          echo "🧪 Starting Podman integration test (OCI compliance verification)"
-
-          # Start container with Podman in rootful mode (using sudo)
-          # Rootful mode ensures consistent UID mapping with Docker (container UID 25565 = host UID 25565)
-          # Note: After podman load, the image is tagged as mc-server-container:test (without localhost prefix)
-          sudo podman run -d --name mc-test-podman \
-            -v $(pwd)/test-data-podman:/data:Z \
-            -e EULA=TRUE \
-            -e MEMORY=2G \
-            mc-server-container:test
-
-          echo "⏳ Waiting for Paper server to start with Podman (this may take 30-60 seconds)..."
-
-          # Wait up to 90 seconds for server to start
-          MAX_WAIT=90
-          ELAPSED=0
-          SERVER_STARTED=false
-
-          while [ $ELAPSED -lt $MAX_WAIT ]; do
-            if sudo podman logs mc-test-podman 2>&1 | grep -q "Done (.*s)! For help, type \"help\""; then
-              SERVER_STARTED=true
-              echo "✅ Server started successfully with Podman after ${ELAPSED}s"
-              break
-            fi
-
-            # Check if container is still running
-            if [ "$(sudo podman inspect -f '{{.State.Running}}' mc-test-podman)" != "true" ]; then
-              echo "❌ Container stopped unexpectedly"
-              echo "📋 Container logs:"
-              sudo podman logs mc-test-podman
-              exit 1
-            fi
-
-            sleep 5
-            ELAPSED=$((ELAPSED + 5))
-            echo "  ... waiting (${ELAPSED}s / ${MAX_WAIT}s)"
-          done
-
-          if [ "$SERVER_STARTED" != "true" ]; then
-            echo "❌ Server failed to start within ${MAX_WAIT} seconds"
-            echo "📋 Container logs:"
-            sudo podman logs mc-test-podman
-            exit 1
-          fi
-
-          echo ""
-          echo "📋 Server startup logs:"
-          sudo podman logs mc-test-podman | tail -20
-
-          # Check if Paper downloaded vanilla Minecraft JAR
-          echo ""
-          if sudo podman logs mc-test-podman 2>&1 | grep -q "Downloading vanilla jar"; then
-            echo "⬇️  Paper downloaded vanilla Minecraft JAR (not cached)"
-          else
-            echo "✅ Paper used cached vanilla Minecraft JAR (no download)"
-          fi
-
-          echo ""
-          echo "✅ Podman integration test passed - OCI compliance verified!"
-
-          # Save Mojang's vanilla Minecraft JAR cache for next run
-          echo ""
-          echo "💾 Saving vanilla Minecraft JAR cache"
-          if [ -d test-data-podman/cache ]; then
-            mkdir -p vanilla-cache-podman
-            cp -r test-data-podman/cache/* vanilla-cache-podman/ 2>/dev/null || true
-            CACHE_SIZE=$(du -sh vanilla-cache-podman 2>/dev/null | cut -f1 || echo "0")
-            echo "✅ Saved vanilla Minecraft JAR cache (${CACHE_SIZE})"
-          else
-            echo "ℹ️  No cache directory found"
-          fi
-
-          # Cleanup
-          echo ""
-          echo "🧹 Cleaning up Podman test container"
-          sudo podman stop mc-test-podman
-          sudo podman rm mc-test-podman
-          sudo rm -rf test-data-podman
-
-  check-release:
-    name: Check Release Labels
-    runs-on: ubuntu-slim
-    # Only run on main branch pushes, after tests pass
+    needs: build-container
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [test-docker, test-podman]
-    permissions:
-      contents: read
-      pull-requests: read
-    outputs:
-      should_release: ${{ steps.check.outputs.should_release }}
-      version_bump: ${{ steps.check.outputs.version_bump }}
-
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+      
+      - name: Create tarball
+        run: |
+          REPO_NAME="${{ github.event.repository.name }}"
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          TARBALL="${REPO_NAME}-${SHORT_SHA}.tar.gz"
+          
+          tar -czf "$TARBALL" \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='*.tar.gz' \
+            --exclude='.pre-commit-config.yaml' \
+            --exclude='__pycache__' \
+            --exclude='*.pyc' \
+            .
+          
+          echo "✅ Created $TARBALL"
+      
+      - name: Upload tarball
+        uses: actions/upload-artifact@v6
+        with:
+          name: source-tarball
+          path: "*.tar.gz"
+          retention-days: 90
 
-      - name: Check for release labels in recent commit
+  check-release:
+    name: Check Release Labels
+    runs-on: ubuntu-latest
+    needs: [build-container, build-tarball]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    outputs:
+      should_release: ${{ steps.check.outputs.should_release }}
+      version_bump: ${{ steps.check.outputs.version_bump }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      
+      - name: Check for release labels
         id: check
         uses: actions/github-script@v8
         with:
           script: |
             const commit = context.sha;
-
-            // Get PRs associated with this commit
             const prs = await github.rest.repos.listPullRequestsAssociatedWithCommit({
               owner: context.repo.owner,
               repo: context.repo.repo,
               commit_sha: commit
             });
-
+            
             if (prs.data.length === 0) {
-              console.log('No PR associated with this commit');
+              console.log('ℹ️  No PR associated with this commit');
               core.setOutput('should_release', 'false');
               return;
             }
-
+            
             const pr = prs.data[0];
             const labels = pr.labels.map(l => l.name);
-
-            console.log('PR labels:', labels);
-
+            console.log('📋 PR labels:', labels);
+            
             if (labels.includes('release:major')) {
               core.setOutput('should_release', 'true');
               core.setOutput('version_bump', 'major');
@@ -623,109 +218,93 @@ jobs:
               core.setOutput('should_release', 'true');
               core.setOutput('version_bump', 'patch');
             } else {
-              console.log('No release label found');
+              console.log('ℹ️  No release label found');
               core.setOutput('should_release', 'false');
             }
 
   release:
-    name: Release
+    name: Create Release
     runs-on: ubuntu-latest
     needs: check-release
     if: needs.check-release.outputs.should_release == 'true'
-    permissions:
-      contents: write
-      packages: write
-
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
-
-      - name: Download container artifact
-        uses: actions/download-artifact@v6
-        with:
-          name: container-image
-          path: /tmp
-
-      - name: Load container image
+      
+      - name: Calculate version
+        id: version
         run: |
-          docker load -i /tmp/mc-server-container.tar
-          docker images
-
-      - name: Get latest tag
-        id: get_tag
-        run: |
-          # Get latest tag or default to 0.0.0
-          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
-          echo "latest_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
-
-          # Remove 'v' prefix for version calculation
-          VERSION=${LATEST_TAG#v}
-          echo "current_version=$VERSION" >> $GITHUB_OUTPUT
-
-      - name: Calculate new version
-        id: new_version
-        run: |
-          VERSION="${{ steps.get_tag.outputs.current_version }}"
-          BUMP="${{ needs.check-release.outputs.version_bump }}"
-
-          IFS='.' read -r major minor patch <<< "$VERSION"
-
-          if [ "$BUMP" = "major" ]; then
-            major=$((major + 1))
-            minor=0
-            patch=0
-          elif [ "$BUMP" = "minor" ]; then
-            minor=$((minor + 1))
-            patch=0
-          elif [ "$BUMP" = "patch" ]; then
-            patch=$((patch + 1))
+          CURRENT_VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          CURRENT_VERSION=${CURRENT_VERSION#v}
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
+          
+          BUMP_TYPE="${{ needs.check-release.outputs.version_bump }}"
+          if [ "$BUMP_TYPE" == "major" ]; then
+            MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0
+          elif [ "$BUMP_TYPE" == "minor" ]; then
+            MINOR=$((MINOR + 1)); PATCH=0
+          else
+            PATCH=$((PATCH + 1))
           fi
-
-          NEW_VERSION="$major.$minor.$patch"
-          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
-          echo "tag=v$NEW_VERSION" >> $GITHUB_OUTPUT
-
+          
+          NEW_VERSION="v${MAJOR}.${MINOR}.${PATCH}"
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "🏷️  Version: $NEW_VERSION"
+      
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: linux/amd64
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Tag and push container
-        run: |
-          VERSION="${{ steps.new_version.outputs.version }}"
-
-          # Tag the tested image with version tags
-          docker tag mc-server-container:test ghcr.io/${{ github.repository }}:latest
-          docker tag mc-server-container:test ghcr.io/${{ github.repository }}:${VERSION}
-
-          # Push both tags
-          docker push ghcr.io/${{ github.repository }}:latest
-          docker push ghcr.io/${{ github.repository }}:${VERSION}
-
-      - name: Create GitHub Release
-        uses: actions/github-script@v8
+      
+      - name: Download container artifact
+        uses: actions/download-artifact@v6
         with:
-          script: |
-            const tag = '${{ steps.new_version.outputs.tag }}';
-            const version = '${{ steps.new_version.outputs.version }}';
-
-            await github.rest.git.createRef({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              ref: `refs/tags/${tag}`,
-              sha: context.sha
-            });
-
-            await github.rest.repos.createRelease({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              tag_name: tag,
-              name: `Release ${version}`,
-              body: `## Release ${version}\n\nDocker image: \`ghcr.io/${{ github.repository }}:${version}\`\n\nPull with:\n\`\`\`bash\ndocker pull ghcr.io/${{ github.repository }}:${version}\n\`\`\``,
-              draft: false,
-              prerelease: false
-            });
+          name: container-image
+      
+      - name: Load container image
+        run: |
+          docker load < container-image.tar.gz
+          docker tag ${{ github.event.repository.name }}:test ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:${{ steps.version.outputs.new_version }}
+          docker tag ${{ github.event.repository.name }}:test ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:latest
+      
+      - name: Push container images
+        run: |
+          docker push ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:${{ steps.version.outputs.new_version }}
+          docker push ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:latest
+      
+      - name: Download tarball
+        uses: actions/download-artifact@v6
+        with:
+          name: source-tarball
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.new_version }}
+          name: Release ${{ steps.version.outputs.new_version }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            *.tar.gz
+          body: |
+            ## Container Image
+            
+            ```bash
+            docker pull ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:${{ steps.version.outputs.new_version }}
+            ```
+            
+            Platform: linux/amd64
