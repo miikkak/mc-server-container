@@ -27,10 +27,12 @@ jobs:
           RCON_CLI_VERSION=$(grep 'ARG RCON_CLI_VERSION=' Dockerfile | cut -d'=' -f2)
           MC_MONITOR_VERSION=$(grep 'ARG MC_MONITOR_VERSION=' Dockerfile | cut -d'=' -f2)
           OTEL_VERSION=$(grep 'ARG OTEL_VERSION=' Dockerfile | cut -d'=' -f2)
-          echo "mc_runner=$MC_RUNNER_VERSION" >> $GITHUB_OUTPUT
-          echo "rcon_cli=$RCON_CLI_VERSION" >> $GITHUB_OUTPUT
-          echo "mc_monitor=$MC_MONITOR_VERSION" >> $GITHUB_OUTPUT
-          echo "otel=$OTEL_VERSION" >> $GITHUB_OUTPUT
+          {
+            echo "mc_runner=$MC_RUNNER_VERSION"
+            echo "rcon_cli=$RCON_CLI_VERSION"
+            echo "mc_monitor=$MC_MONITOR_VERSION"
+            echo "otel=$OTEL_VERSION"
+          } >> "$GITHUB_OUTPUT"
           echo "📦 Current mc-server-runner: $MC_RUNNER_VERSION"
           echo "📦 Current rcon-cli: $RCON_CLI_VERSION"
           echo "📦 Current mc-monitor: $MC_MONITOR_VERSION"
@@ -45,7 +47,7 @@ jobs:
             echo "❌ Failed to fetch mc-server-runner latest version"
             exit 1
           fi
-          echo "latest=$LATEST" >> $GITHUB_OUTPUT
+          echo "latest=$LATEST" >> "$GITHUB_OUTPUT"
           echo "🔍 Latest mc-server-runner: $LATEST"
 
       - name: Check rcon-cli latest release
@@ -57,7 +59,7 @@ jobs:
             echo "❌ Failed to fetch rcon-cli latest version"
             exit 1
           fi
-          echo "latest=$LATEST" >> $GITHUB_OUTPUT
+          echo "latest=$LATEST" >> "$GITHUB_OUTPUT"
           echo "🔍 Latest rcon-cli: $LATEST"
 
       - name: Check mc-monitor latest release
@@ -69,7 +71,7 @@ jobs:
             echo "❌ Failed to fetch mc-monitor latest version"
             exit 1
           fi
-          echo "latest=$LATEST" >> $GITHUB_OUTPUT
+          echo "latest=$LATEST" >> "$GITHUB_OUTPUT"
           echo "🔍 Latest mc-monitor: $LATEST"
 
       - name: Check OpenTelemetry agent latest release
@@ -81,7 +83,7 @@ jobs:
             echo "❌ Failed to fetch OpenTelemetry agent latest version"
             exit 1
           fi
-          echo "latest=$LATEST" >> $GITHUB_OUTPUT
+          echo "latest=$LATEST" >> "$GITHUB_OUTPUT"
           echo "🔍 Latest OpenTelemetry agent: $LATEST"
 
       - name: Compare versions and create issue if needed
@@ -237,7 +239,7 @@ jobs:
         run: |
           # Extract current base image
           CURRENT_IMAGE=$(grep '^FROM container-registry.oracle.com/graalvm/jdk:' Dockerfile | head -1 | awk '{print $2}')
-          echo "current=$CURRENT_IMAGE" >> $GITHUB_OUTPUT
+          echo "current=$CURRENT_IMAGE" >> "$GITHUB_OUTPUT"
           echo "📦 Current base image: $CURRENT_IMAGE"
 
           # Read the last known digest from stored file
@@ -248,24 +250,24 @@ jobs:
             STORED_DIGEST="unknown"
             echo "⚠️ No stored digest found"
           fi
-          echo "current_digest=$STORED_DIGEST" >> $GITHUB_OUTPUT
+          echo "current_digest=$STORED_DIGEST" >> "$GITHUB_OUTPUT"
 
           # Get latest manifest digest from registry using buildx imagetools
           # This gets the digest of the manifest list/index
           LATEST_DIGEST=$(docker buildx imagetools inspect "$CURRENT_IMAGE" --format '{{.Manifest.Digest}}' 2>&1 | awk '/^Digest:/ {print $2}' || echo "unknown")
-          echo "latest_digest=$LATEST_DIGEST" >> $GITHUB_OUTPUT
+          echo "latest_digest=$LATEST_DIGEST" >> "$GITHUB_OUTPUT"
           echo "📦 Latest registry digest: $LATEST_DIGEST"
 
           # Compare digests to check if an update is available
           if [ "$STORED_DIGEST" = "unknown" ] || [ "$LATEST_DIGEST" = "unknown" ]; then
-            echo "update_available=false" >> $GITHUB_OUTPUT
+            echo "update_available=false" >> "$GITHUB_OUTPUT"
             echo "⚠️ Could not determine digest(s), skipping update check"
           elif [ "$STORED_DIGEST" != "$LATEST_DIGEST" ]; then
-            echo "update_available=true" >> $GITHUB_OUTPUT
+            echo "update_available=true" >> "$GITHUB_OUTPUT"
             echo "⚠️ Base image has updates available"
             echo "   $STORED_DIGEST → $LATEST_DIGEST"
           else
-            echo "update_available=false" >> $GITHUB_OUTPUT
+            echo "update_available=false" >> "$GITHUB_OUTPUT"
             echo "✅ Base image is up to date"
           fi
 

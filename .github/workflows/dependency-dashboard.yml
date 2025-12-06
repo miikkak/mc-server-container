@@ -29,11 +29,13 @@ jobs:
           DOCKERFILE_COUNT=$(find . -name "Dockerfile*" | wc -l)
           WORKFLOW_COUNT=$(find .github/workflows -name "*.yml" -o -name "*.yaml" 2>/dev/null | wc -l)
           
-          echo "shell=$SHELL_COUNT" >> $GITHUB_OUTPUT
-          echo "python=$PYTHON_COUNT" >> $GITHUB_OUTPUT
-          echo "yaml=$YAML_COUNT" >> $GITHUB_OUTPUT
-          echo "dockerfile=$DOCKERFILE_COUNT" >> $GITHUB_OUTPUT
-          echo "workflows=$WORKFLOW_COUNT" >> $GITHUB_OUTPUT
+          {
+            echo "shell=$SHELL_COUNT"
+            echo "python=$PYTHON_COUNT"
+            echo "yaml=$YAML_COUNT"
+            echo "dockerfile=$DOCKERFILE_COUNT"
+            echo "workflows=$WORKFLOW_COUNT"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Check GitHub Actions versions
         id: actions_check
@@ -47,7 +49,7 @@ jobs:
               sed 's/.*uses: //' | \
               sed 's/#.*//' | \
               sort -u | \
-              while read action; do
+              while read -r action; do
                 echo "- \`$action\`" >> /tmp/actions_status.md
               done
             
@@ -68,7 +70,7 @@ jobs:
             echo "" >> /tmp/docker_status.md
             
             echo "## ARG Versions" >> /tmp/docker_status.md
-            grep '^ARG.*VERSION' Dockerfile | while read line; do
+            grep '^ARG.*VERSION' Dockerfile | while read -r line; do
               echo "- \`$line\`" >> /tmp/docker_status.md
             done || echo "- No ARG versions found" >> /tmp/docker_status.md
           fi

@@ -83,7 +83,7 @@ repos:
     rev: v1.35.1
     hooks:
       - id: yamllint
-        args: ['-d', '{extends: default, rules: {line-length: {max: 120}, comments: {min-spaces-from-content: 1}}}']
+
 
   # Markdown linting
   - repo: https://github.com/igorshubovych/markdownlint-cli
@@ -97,6 +97,7 @@ repos:
     rev: v1.7.4
     hooks:
       - id: actionlint
+        args: [-config-file, .github/actionlint.yaml]
 
   # Secret detection with gitleaks
   - repo: https://github.com/gitleaks/gitleaks

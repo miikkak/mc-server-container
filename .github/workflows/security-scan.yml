@@ -169,9 +169,9 @@ jobs:
         id: check_dockerfile
         run: |
           if [ -f Dockerfile ]; then
-            echo "has_dockerfile=true" >> $GITHUB_OUTPUT
+            echo "has_dockerfile=true" >> "$GITHUB_OUTPUT"
           else
-            echo "has_dockerfile=false" >> $GITHUB_OUTPUT
+            echo "has_dockerfile=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Set up Docker Buildx

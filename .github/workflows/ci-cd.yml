@@ -32,28 +32,28 @@ jobs:
         run: |
           if [[ "${{ github.event_name }}" == "push" ]]; then
             echo "✅ Running CI/CD (push to main)"
-            echo "should_run=true" >> $GITHUB_OUTPUT
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             if [[ "${{ contains(github.event.pull_request.labels.*.name, 'ci/ready') }}" == "true" ]]; then
               echo "✅ Running CI/CD (ci/ready label)"
-              echo "should_run=true" >> $GITHUB_OUTPUT
+              echo "should_run=true" >> "$GITHUB_OUTPUT"
             else
               echo "⏭️  Skipping CI/CD (add ci/ready label)"
-              echo "should_run=false" >> $GITHUB_OUTPUT
+              echo "should_run=false" >> "$GITHUB_OUTPUT"
             fi
             exit 0
           fi
 
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             echo "✅ Running CI/CD (manual trigger)"
-            echo "should_run=true" >> $GITHUB_OUTPUT
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          echo "should_run=false" >> $GITHUB_OUTPUT
+          echo "should_run=false" >> "$GITHUB_OUTPUT"
 
   lint-dockerfile:
     name: Lint Dockerfile
@@ -83,7 +83,7 @@ jobs:
 
       - name: Shellcheck
         run: |
-          find . -name "*.sh" -o -name "*.bash" | while read file; do
+          find . -name "*.sh" -o -name "*.bash" | while read -r file; do
             echo "Checking $file"
             dir=$(dirname "$file")
             (cd "$dir" && shellcheck --external-sources "$(basename "$file")") || exit 1
@@ -108,10 +108,12 @@ jobs:
           GIT_VERSION=$(git describe --tags --always 2>/dev/null || echo "dev-$SHORT_SHA")
           DEPLOY_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-          echo "repo_name=$REPO_NAME" >> $GITHUB_OUTPUT
-          echo "short_sha=$SHORT_SHA" >> $GITHUB_OUTPUT
-          echo "git_version=$GIT_VERSION" >> $GITHUB_OUTPUT
-          echo "deploy_date=$DEPLOY_DATE" >> $GITHUB_OUTPUT
+          {
+            echo "repo_name=$REPO_NAME"
+            echo "short_sha=$SHORT_SHA"
+            echo "git_version=$GIT_VERSION"
+            echo "deploy_date=$DEPLOY_DATE"
+          } >> "$GITHUB_OUTPUT"
 
           echo "📦 Version: $GIT_VERSION"
           echo "📦 Deploy date: $DEPLOY_DATE"
@@ -124,14 +126,14 @@ jobs:
           echo "🔄 Replacing version placeholders..."
 
           if grep -r "@GIT_VERSION@" . --exclude-dir=.git >/dev/null 2>&1; then
-            find . -type f -not -path "./.git/*" -exec grep -l "@GIT_VERSION@" {} \; | while read file; do
+            find . -type f -not -path "./.git/*" -exec grep -l "@GIT_VERSION@" {} \; | while read -r file; do
               sed -i "s/@GIT_VERSION@/$GIT_VERSION/g" "$file"
               echo "  ✓ Updated $file (version)"
             done
           fi
 
           if grep -r "@DEPLOY_DATE@" . --exclude-dir=.git >/dev/null 2>&1; then
-            find . -type f -not -path "./.git/*" -exec grep -l "@DEPLOY_DATE@" {} \; | while read file; do
+            find . -type f -not -path "./.git/*" -exec grep -l "@DEPLOY_DATE@" {} \; | while read -r file; do
               sed -i "s/@DEPLOY_DATE@/$DEPLOY_DATE/g" "$file"
               echo "  ✓ Updated $file (date)"
             done
@@ -195,9 +197,11 @@ jobs:
           SHORT_SHA="${GITHUB_SHA:0:7}"
           GIT_VERSION=$(git describe --tags --always 2>/dev/null || echo "dev-$SHORT_SHA")
 
-          echo "repo_name=$REPO_NAME" >> $GITHUB_OUTPUT
-          echo "short_sha=$SHORT_SHA" >> $GITHUB_OUTPUT
-          echo "git_version=$GIT_VERSION" >> $GITHUB_OUTPUT
+          {
+            echo "repo_name=$REPO_NAME"
+            echo "short_sha=$SHORT_SHA"
+            echo "git_version=$GIT_VERSION"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Create tarball
         run: |
@@ -303,7 +307,7 @@ jobs:
           fi
 
           NEW_VERSION="v${MAJOR}.${MINOR}.${PATCH}"
-          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
           echo "🏷️  Version: $NEW_VERSION"
 
       - name: Set up QEMU
@@ -363,8 +367,15 @@ jobs:
             Platform: linux/amd64
 
       - name: Trigger webhook deployment
-        if: vars.DEPLOY_SERVERS != '' && secrets.WEBHOOK_SECRET != ''
+        if: vars.DEPLOY_SERVERS != ''
         run: |
+        env:
+          WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
+        run: |
+          if [ -z \"$WEBHOOK_SECRET\" ]; then
+            echo \"⏭️  Skipping webhook deployment (WEBHOOK_SECRET not configured)\"
+            exit 0
+          fi
           DEPLOY_SERVERS="${{ vars.DEPLOY_SERVERS }}"
           WEBHOOK_SECRET="${{ secrets.WEBHOOK_SECRET }}"
           VERSION="${{ steps.version.outputs.new_version }}"

@@ -40,10 +40,10 @@ jobs:
 
           # Check if there are updates
           if grep -q "updating" update-output.txt; then
-            echo "updates_available=true" >> $GITHUB_OUTPUT
+            echo "updates_available=true" >> "$GITHUB_OUTPUT"
             echo "⚠️ Pre-commit hook updates available"
           else
-            echo "updates_available=false" >> $GITHUB_OUTPUT
+            echo "updates_available=false" >> "$GITHUB_OUTPUT"
             echo "✅ All pre-commit hooks are up to date"
           fi
 
