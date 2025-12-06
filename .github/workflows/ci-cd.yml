@@ -333,13 +333,17 @@ jobs:
       - name: Load container image
         run: |
           docker load < container-image.tar.gz
-          docker tag ${{ github.event.repository.name }}:test ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:${{ steps.version.outputs.new_version }}
-          docker tag ${{ github.event.repository.name }}:test ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:latest
+          docker tag ${{ github.event.repository.name }}:test \
+            ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:${{ steps.version.outputs.new_version }}
+          docker tag ${{ github.event.repository.name }}:test \
+            ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:latest
 
       - name: Push container images
         run: |
-          docker push ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:${{ steps.version.outputs.new_version }}
-          docker push ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:latest
+          docker push \
+            ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:${{ steps.version.outputs.new_version }}
+          docker push \
+            ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:latest
 
       - name: Download tarball
         uses: actions/download-artifact@v4
@@ -368,12 +372,11 @@ jobs:
 
       - name: Trigger webhook deployment
         if: vars.DEPLOY_SERVERS != ''
-        run: |
         env:
           WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
         run: |
-          if [ -z \"$WEBHOOK_SECRET\" ]; then
-            echo \"⏭️  Skipping webhook deployment (WEBHOOK_SECRET not configured)\"
+          if [ -z "$WEBHOOK_SECRET" ]; then
+            echo "⏭️  Skipping webhook deployment (WEBHOOK_SECRET not configured)"
             exit 0
           fi
           DEPLOY_SERVERS="${{ vars.DEPLOY_SERVERS }}"
