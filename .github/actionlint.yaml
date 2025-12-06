@@ -1,3 +1,4 @@
 self-hosted-runner:
-  labels:
-    - ubuntu-slim
+  ubuntu-slim:
+    labels:
+      - ubuntu-slim
