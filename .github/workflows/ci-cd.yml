@@ -380,7 +380,6 @@ jobs:
             exit 0
           fi
           DEPLOY_SERVERS="${{ vars.DEPLOY_SERVERS }}"
-          WEBHOOK_SECRET="${{ secrets.WEBHOOK_SECRET }}"
           VERSION="${{ steps.version.outputs.new_version }}"
           REPO="${{ github.repository }}"
 
