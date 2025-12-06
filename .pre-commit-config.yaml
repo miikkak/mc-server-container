@@ -47,7 +47,8 @@ repos:
         files: \.(sh|bash)$
 
   # Dockerfile linting with hadolint
-  # Uses wrapper script that works with both Docker and Podman
+  # Uses wrapper script that works with local binary, Docker, or Podman
+  # Automatically skipped if no Dockerfiles present
   - repo: local
     hooks:
       - id: hadolint

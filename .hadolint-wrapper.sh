@@ -27,12 +27,30 @@ fi
 hadolint_args=()
 files=()
 
-for arg in "$@"; do
-  if [[ "$arg" == --* ]]; then
-    hadolint_args+=("$arg")
-  elif [[ -f "$arg" ]]; then
-    files+=("$arg")
-  fi
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --ignore | --format | --config | --trusted-registry)
+      # These options require a value argument
+      hadolint_args+=("$1")
+      shift
+      if [[ $# -gt 0 ]]; then
+        hadolint_args+=("$1")
+        shift
+      fi
+      ;;
+    --*)
+      # Other options without values
+      hadolint_args+=("$1")
+      shift
+      ;;
+    *)
+      # It's a file
+      if [[ -f "$1" ]]; then
+        files+=("$1")
+      fi
+      shift
+      ;;
+  esac
 done
 
 exit_code=0
@@ -61,4 +79,4 @@ else
   done
 fi
 
-exit $exit_code
+exit "$exit_code"
