@@ -13,7 +13,7 @@ permissions:
 jobs:
   filesystem-scan:
     name: Trivy Filesystem Scan
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     permissions:
       contents: read
       issues: write
@@ -138,7 +138,7 @@ jobs:
 
   config-scan:
     name: Trivy Config Scan
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     permissions:
       contents: read
 

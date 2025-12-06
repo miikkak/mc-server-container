@@ -13,7 +13,7 @@ permissions:
 jobs:
   create-dashboard:
     name: Create Dependency Dashboard
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
 
     steps:
       - name: Checkout code

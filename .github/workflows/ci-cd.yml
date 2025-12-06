@@ -23,7 +23,7 @@ permissions:
 jobs:
   check-trigger:
     name: Check CI/CD Trigger
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     outputs:
       should_run: ${{ steps.check.outputs.should_run }}
     steps:
@@ -73,7 +73,7 @@ jobs:
 
   lint-shell:
     name: Lint Shell Scripts
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     needs: check-trigger
     if: needs.check-trigger.outputs.should_run == 'true'
     
@@ -137,7 +137,7 @@ jobs:
 
   build-tarball:
     name: Build Source Tarball
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     needs: build-container
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     
@@ -173,7 +173,7 @@ jobs:
 
   check-release:
     name: Check Release Labels
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     needs: [build-container, build-tarball]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     outputs:
