@@ -19,275 +19,154 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
-      - name: Extract current versions
-        id: versions
+      - name: Collect repository information
+        id: repo_info
         run: |
-          # Get versions from Dockerfile with error handling
-          MC_RUNNER=$(grep 'ARG MC_SERVER_RUNNER_VERSION=' Dockerfile | cut -d'=' -f2)
-          RCON_CLI=$(grep 'ARG RCON_CLI_VERSION=' Dockerfile | cut -d'=' -f2)
-          MC_MONITOR=$(grep 'ARG MC_MONITOR_VERSION=' Dockerfile | cut -d'=' -f2)
-          OTEL=$(grep 'ARG OTEL_VERSION=' Dockerfile | cut -d'=' -f2)
-          BASE_IMAGE=$(grep '^FROM container-registry.oracle.com/graalvm/jdk:' Dockerfile | head -1 | awk '{print $2}')
-
-          # Verify values were extracted
-          if [ -z "$MC_RUNNER" ] || [ -z "$RCON_CLI" ] || [ -z "$MC_MONITOR" ] || [ -z "$OTEL" ] || [ -z "$BASE_IMAGE" ]; then
-            echo "❌ Failed to extract versions from Dockerfile"
-            echo "MC_RUNNER: $MC_RUNNER"
-            echo "RCON_CLI: $RCON_CLI"
-            echo "MC_MONITOR: $MC_MONITOR"
-            echo "OTEL: $OTEL"
-            echo "BASE_IMAGE: $BASE_IMAGE"
-            exit 1
-          fi
-
-          echo "mc_runner=$MC_RUNNER" >> $GITHUB_OUTPUT
-          echo "rcon_cli=$RCON_CLI" >> $GITHUB_OUTPUT
-          echo "mc_monitor=$MC_MONITOR" >> $GITHUB_OUTPUT
-          echo "otel=$OTEL" >> $GITHUB_OUTPUT
-          echo "base_image=$BASE_IMAGE" >> $GITHUB_OUTPUT
-
-      - name: Check latest versions
-        id: latest
-        run: |
-          # Get the first non-prerelease, non-draft release (more reliable than /releases/latest)
-          # Check mc-server-runner
-          MC_RUNNER_LATEST=$(curl -sf 'https://api.github.com/repos/itzg/mc-server-runner/releases?per_page=10' | jq -r '[.[] | select(.prerelease == false and .draft == false)][0].tag_name')
-          if [ -z "$MC_RUNNER_LATEST" ] || [ "$MC_RUNNER_LATEST" = "null" ]; then
-            echo "❌ Failed to fetch mc-server-runner latest version"
-            exit 1
-          fi
-          echo "mc_runner=$MC_RUNNER_LATEST" >> $GITHUB_OUTPUT
-
-          # Check rcon-cli
-          RCON_CLI_LATEST=$(curl -sf 'https://api.github.com/repos/itzg/rcon-cli/releases?per_page=10' | jq -r '[.[] | select(.prerelease == false and .draft == false)][0].tag_name')
-          if [ -z "$RCON_CLI_LATEST" ] || [ "$RCON_CLI_LATEST" = "null" ]; then
-            echo "❌ Failed to fetch rcon-cli latest version"
-            exit 1
-          fi
-          echo "rcon_cli=$RCON_CLI_LATEST" >> $GITHUB_OUTPUT
-
-          # Check mc-monitor
-          MC_MONITOR_LATEST=$(curl -sf 'https://api.github.com/repos/itzg/mc-monitor/releases?per_page=10' | jq -r '[.[] | select(.prerelease == false and .draft == false)][0].tag_name')
-          if [ -z "$MC_MONITOR_LATEST" ] || [ "$MC_MONITOR_LATEST" = "null" ]; then
-            echo "❌ Failed to fetch mc-monitor latest version"
-            exit 1
-          fi
-          echo "mc_monitor=$MC_MONITOR_LATEST" >> $GITHUB_OUTPUT
-
-          # Check OpenTelemetry Java agent
-          OTEL_LATEST=$(curl -sf 'https://api.github.com/repos/open-telemetry/opentelemetry-java-instrumentation/releases?per_page=10' | jq -r '[.[] | select(.prerelease == false and .draft == false)][0].tag_name' | sed 's/^v//')
-          if [ -z "$OTEL_LATEST" ] || [ "$OTEL_LATEST" = "null" ]; then
-            echo "❌ Failed to fetch OpenTelemetry agent latest version"
-            exit 1
-          fi
-          echo "otel=$OTEL_LATEST" >> $GITHUB_OUTPUT
+          # Count different file types
+          SHELL_COUNT=$(find . -name "*.sh" -o -name "*.bash" | wc -l)
+          PYTHON_COUNT=$(find . -name "*.py" | wc -l)
+          YAML_COUNT=$(find . -name "*.yml" -o -name "*.yaml" | wc -l)
+          DOCKERFILE_COUNT=$(find . -name "Dockerfile*" | wc -l)
+          WORKFLOW_COUNT=$(find .github/workflows -name "*.yml" -o -name "*.yaml" 2>/dev/null | wc -l)
+          
+          echo "shell=$SHELL_COUNT" >> $GITHUB_OUTPUT
+          echo "python=$PYTHON_COUNT" >> $GITHUB_OUTPUT
+          echo "yaml=$YAML_COUNT" >> $GITHUB_OUTPUT
+          echo "dockerfile=$DOCKERFILE_COUNT" >> $GITHUB_OUTPUT
+          echo "workflows=$WORKFLOW_COUNT" >> $GITHUB_OUTPUT
 
       - name: Check GitHub Actions versions
-        id: actions
+        id: actions_check
         run: |
-          # Extract action versions from workflows
-          echo "### GitHub Actions" > actions-report.md
-          echo "" >> actions-report.md
+          if [ -d .github/workflows ]; then
+            echo "# GitHub Actions" > /tmp/actions_status.md
+            echo "" >> /tmp/actions_status.md
+            
+            # Extract all uses: statements
+            grep -h "uses:" .github/workflows/*.yml 2>/dev/null | \
+              sed 's/.*uses: //' | \
+              sed 's/#.*//' | \
+              sort -u | \
+              while read action; do
+                echo "- \`$action\`" >> /tmp/actions_status.md
+              done
+            
+            cat /tmp/actions_status.md
+          fi
 
-          for workflow in .github/workflows/*.yml; do
-            echo "**$(basename $workflow)**:" >> actions-report.md
-            grep -E "uses: .+@v[0-9]+" "$workflow" | sed 's/.*uses: /- /' | sort -u >> actions-report.md
-            echo "" >> actions-report.md
-          done
-
-      - name: Check pre-commit hook versions
-        id: precommit
+      - name: Check for Dockerfile dependencies
+        id: docker_check
+        if: steps.repo_info.outputs.dockerfile > 0
         run: |
-          # Extract pre-commit hook versions
-          echo "### Pre-commit Hooks" > precommit-report.md
-          echo "" >> precommit-report.md
-          echo "| Hook Repository | Current Version |" >> precommit-report.md
-          echo "|----------------|----------------|" >> precommit-report.md
-
-          # Parse .pre-commit-config.yaml for repo and rev pairs
-          grep -E "^  - repo:|^    rev:" .pre-commit-config.yaml | \
-          awk '
-            /^  - repo:/ { repo=$3 }
-            /^    rev:/ {
-              rev=$2
-              if (repo != "local") {
-                printf "| %s | %s |\n", repo, rev
-              }
-            }
-          ' >> precommit-report.md
-
-          echo "" >> precommit-report.md
-          echo "> **Note:** Pre-commit hooks are automatically updated weekly by the precommit-updates workflow." >> precommit-report.md
+          echo "# Docker Dependencies" > /tmp/docker_status.md
+          echo "" >> /tmp/docker_status.md
+          
+          if [ -f Dockerfile ]; then
+            echo "## Base Image" >> /tmp/docker_status.md
+            FROM_LINE=$(grep '^FROM' Dockerfile | head -1)
+            echo "- $FROM_LINE" >> /tmp/docker_status.md
+            echo "" >> /tmp/docker_status.md
+            
+            echo "## ARG Versions" >> /tmp/docker_status.md
+            grep '^ARG.*VERSION' Dockerfile | while read line; do
+              echo "- \`$line\`" >> /tmp/docker_status.md
+            done || echo "- No ARG versions found" >> /tmp/docker_status.md
+          fi
+          
+          cat /tmp/docker_status.md
 
       - name: Create or update dashboard issue
         uses: actions/github-script@v8
         with:
-          github-token: ${{ secrets.PULL_REQUEST_TOKEN }}
           script: |
             const fs = require('fs');
-            const currentMcRunner = '${{ steps.versions.outputs.mc_runner }}';
-            const latestMcRunner = '${{ steps.latest.outputs.mc_runner }}';
-            const currentRconCli = '${{ steps.versions.outputs.rcon_cli }}';
-            const latestRconCli = '${{ steps.latest.outputs.rcon_cli }}';
-            const currentMcMonitor = '${{ steps.versions.outputs.mc_monitor }}';
-            const latestMcMonitor = '${{ steps.latest.outputs.mc_monitor }}';
-            const currentOtel = '${{ steps.versions.outputs.otel }}';
-            const latestOtel = '${{ steps.latest.outputs.otel }}';
-            const baseImage = '${{ steps.versions.outputs.base_image }}';
-
-            const mcRunnerStatus = currentMcRunner === latestMcRunner ? '✅' : '⚠️';
-            const rconCliStatus = currentRconCli === latestRconCli ? '✅' : '⚠️';
-            const mcMonitorStatus = currentMcMonitor === latestMcMonitor ? '✅' : '⚠️';
-            const otelStatus = currentOtel === latestOtel ? '✅' : '⚠️';
-
-            const actionsReport = fs.readFileSync('actions-report.md', 'utf8');
-            const precommitReport = fs.readFileSync('precommit-report.md', 'utf8');
-
-            const body = `# 📊 Dependency Status Dashboard
-
-            This dashboard provides an overview of all dependencies in the repository and their update status.
-
-            **Last Updated:** ${new Date().toISOString()}
-
-            ---
-
-            ## Binary Dependencies
-
-            | Dependency | Current | Latest | Status |
-            |------------|---------|--------|--------|
-            | **mc-server-runner** | ${currentMcRunner} | ${latestMcRunner} | ${mcRunnerStatus} |
-            | **rcon-cli** | ${currentRconCli} | ${latestRconCli} | ${rconCliStatus} |
-            | **mc-monitor** | ${currentMcMonitor} | ${latestMcMonitor} | ${mcMonitorStatus} |
-            | **OpenTelemetry Java agent** | ${currentOtel} | ${latestOtel} | ${otelStatus} |
-
-            ## Docker Base Image
-
-            | Component | Version |
-            |-----------|---------|
-            | **Base Image** | \`${baseImage}\` |
-
-            > **Note:** Base image updates are checked daily by the dependency-check workflow.
-
-            ---
-
-            ## Automation Status
-
-            ### Active Monitors
-
-            - 🤖 **Dependabot** - Monitors GitHub Actions and Docker base image (weekly)
-            - 🔍 **Dependency Check** - Checks binary dependencies (weekly)
-            - 🔒 **Security Scan** - Scans for vulnerabilities with Trivy (daily)
-            - 🔧 **Pre-commit Updates** - Checks pre-commit hook versions (weekly)
-
-            ### Recent Activity
-
-            Check the following for recent dependency-related activity:
-            - [Open Dependency PRs](https://github.com/${context.repo.owner}/${context.repo.repo}/pulls?q=is%3Apr+is%3Aopen+label%3Adependencies)
-            - [Dependency Issues](https://github.com/${context.repo.owner}/${context.repo.repo}/issues?q=is%3Aissue+is%3Aopen+label%3Adependencies)
-            - [Security Alerts](https://github.com/${context.repo.owner}/${context.repo.repo}/security)
-
-            ---
-
-            ${actionsReport}
-
-            ---
-
-            ${precommitReport}
-
-            ---
-
-            ## Dependency Update Process
-
-            ### Automated Updates (Managed by Dependabot)
-            - GitHub Actions are automatically updated via Dependabot PRs
-            - Docker base image updates are detected by Dependabot
-
-            ### Semi-Automated Updates (Issue/PR Created)
-            - Binary dependencies (mc-server-runner, rcon-cli, mc-monitor, OpenTelemetry agent) - Issues created when updates available, auto-updated via PR
-            - Pre-commit hooks - PRs automatically created with updates
-
-            ### Manual Monitoring
-            - Pre-commit hook dependency versions
-            - GraalVM JDK security patches
-
-            ---
-
-            ## How to Update Dependencies
-
-            ### Binary Dependencies (mc-server-runner, rcon-cli, mc-monitor, OpenTelemetry)
-
-            1. Update versions in \`Dockerfile\`:
-               \`\`\`dockerfile
-               ARG MC_SERVER_RUNNER_VERSION=<new_version>
-               ARG RCON_CLI_VERSION=<new_version>
-               ARG MC_MONITOR_VERSION=<new_version>
-               ARG OTEL_VERSION=<new_version>
-               \`\`\`
-
-            2. Test locally:
-               \`\`\`bash
-               docker build -t mc-server-container:test .
-               docker run -d --name mc-test -e EULA=TRUE mc-server-container:test
-               docker logs mc-test
-               docker stop mc-test && docker rm mc-test
-               \`\`\`
-
-            3. Create PR with \`release:patch\` label
-
-            ### GitHub Actions
-
-            Dependabot automatically creates PRs for GitHub Actions updates. Simply review and merge.
-
-            ### Pre-commit Hooks
-
-            PRs are automatically created by the pre-commit-updates workflow. Review and merge.
-
-            ---
-
-            ## Security
-
-            - **Container Scanning:** Daily Trivy scans check for vulnerabilities
-            - **Scan Reports:** Table and JSON reports available in workflow logs
-            - **Automated Issues:** High/critical vulnerabilities trigger issue creation (scheduled runs only)
-
-            Check [Security Advisories](https://github.com/${context.repo.owner}/${context.repo.repo}/security/advisories) for details.
-
-            ---
-
-            *This dashboard is automatically updated weekly by the dependency-dashboard workflow.*
-            *To trigger a manual update, run the workflow from [Actions tab](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/workflows/dependency-dashboard.yml).*`;
-
-            // Check if dashboard issue exists
+            
+            // Read collected information
+            const repoInfo = {
+              shell: ${{ steps.repo_info.outputs.shell }},
+              python: ${{ steps.repo_info.outputs.python }},
+              yaml: ${{ steps.repo_info.outputs.yaml }},
+              dockerfile: ${{ steps.repo_info.outputs.dockerfile }},
+              workflows: ${{ steps.repo_info.outputs.workflows }}
+            };
+            
+            // Build dashboard body
+            let body = `# 📊 Dependency Dashboard\n\n`;
+            body += `**Last Updated:** ${new Date().toISOString()}\n\n`;
+            body += `## Repository Statistics\n\n`;
+            body += `| File Type | Count |\n`;
+            body += `|-----------|-------|\n`;
+            body += `| Shell Scripts | ${repoInfo.shell} |\n`;
+            body += `| Python Files | ${repoInfo.python} |\n`;
+            body += `| YAML Files | ${repoInfo.yaml} |\n`;
+            body += `| Dockerfiles | ${repoInfo.dockerfile} |\n`;
+            body += `| GitHub Workflows | ${repoInfo.workflows} |\n\n`;
+            
+            // Add actions status
+            try {
+              const actionsStatus = fs.readFileSync('/tmp/actions_status.md', 'utf8');
+              body += `## GitHub Actions Dependencies\n\n${actionsStatus}\n\n`;
+            } catch (e) {
+              body += `## GitHub Actions Dependencies\n\nNo workflows found.\n\n`;
+            }
+            
+            // Add docker status if exists
+            try {
+              const dockerStatus = fs.readFileSync('/tmp/docker_status.md', 'utf8');
+              body += `${dockerStatus}\n\n`;
+            } catch (e) {
+              // Docker info not available
+            }
+            
+            body += `## Dependency Management\n\n`;
+            body += `- **Dependabot:** Automated weekly updates for GitHub Actions`;
+            if (repoInfo.dockerfile > 0) {
+              body += ` and Docker images`;
+            }
+            body += `\n`;
+            body += `- **Security Scanning:** Trivy scans run daily at 03:00 UTC\n`;
+            body += `- **Pre-commit Hooks:** Local validation before commits\n\n`;
+            
+            body += `## Quick Actions\n\n`;
+            body += `- [View Dependabot PRs](https://github.com/${context.repo.owner}/${context.repo.repo}/pulls?q=is%3Apr+is%3Aopen+label%3Adependencies)\n`;
+            body += `- [View Security Issues](https://github.com/${context.repo.owner}/${context.repo.repo}/issues?q=is%3Aissue+is%3Aopen+label%3Asecurity)\n`;
+            body += `- [Run Security Scan](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/workflows/security-scan.yml)\n\n`;
+            
+            body += `---\n`;
+            body += `*This dashboard is automatically updated every Monday at 10:00 UTC.*\n`;
+            body += `*To manually trigger an update, run the [Dependency Dashboard workflow](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/workflows/dependency-dashboard.yml).*`;
+            
+            // Check if dashboard issue already exists
             const issues = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              labels: 'dashboard',
+              labels: 'dependencies,dashboard',
               state: 'open'
             });
-
-            const existingDashboard = issues.data.find(issue =>
-              issue.title.includes('Dependency Status Dashboard')
+            
+            const existingIssue = issues.data.find(issue =>
+              issue.title.includes('Dependency Dashboard')
             );
-
-            if (existingDashboard) {
-              // Update existing dashboard
+            
+            if (existingIssue) {
+              // Update existing issue
               await github.rest.issues.update({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                issue_number: existingDashboard.number,
+                issue_number: existingIssue.number,
                 body: body
               });
-              console.log(`📊 Updated dashboard issue #${existingDashboard.number}`);
+              console.log(`📝 Updated dashboard issue #${existingIssue.number}`);
             } else {
-              // Create new dashboard
+              // Create new issue
               const newIssue = await github.rest.issues.create({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                title: '📊 Dependency Status Dashboard',
+                title: '📊 Dependency Dashboard',
                 body: body,
-                labels: ['dashboard', 'documentation']
+                labels: ['dependencies', 'dashboard', 'automated']
               });
-
+              
               // Pin the issue
               await github.rest.issues.update({
                 owner: context.repo.owner,
@@ -295,6 +174,6 @@ jobs:
                 issue_number: newIssue.data.number,
                 state: 'open'
               });
-
-              console.log(`📊 Created dashboard issue #${newIssue.data.number}`);
+              
+              console.log(`📝 Created dashboard issue #${newIssue.data.number}`);
             }

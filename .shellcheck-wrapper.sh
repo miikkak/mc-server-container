@@ -14,4 +14,4 @@ for file in "$@"; do
   fi
 done
 
-exit $exit_code
+exit "$exit_code"
