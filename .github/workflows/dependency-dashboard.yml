@@ -48,66 +48,60 @@ jobs:
               echo "|--------|---------|--------|--------|"
             } > /tmp/actions_status.md
 
-            # Check API rate limit before processing
-            rate_limit=$(gh api rate_limit --jq '.resources.core.remaining' 2>/dev/null || echo "0")
-            if [ "$rate_limit" -lt 10 ]; then
-              echo "| ⚠️ Rate limit low | N/A | N/A | Rate limit reached |" >> /tmp/actions_status.md
-            else
-              # Extract all uses: statements
-              grep -h "uses:" .github/workflows/*.yml 2>/dev/null | \
-                sed 's/.*uses:[[:space:]]*//' | \
-                sed 's/[[:space:]]*#.*//' | \
-                grep '@' | \
-                sort -u | \
-                while read -r line; do
-                  # Robust parsing using parameter expansion
-                  action="${line%@*}"
-                  current_ver="${line##*@}"
+            # Extract all uses: statements and handle subpaths (owner/repo/path@version)
+            grep -h "uses:" .github/workflows/*.yml 2>/dev/null | \
+              sed 's/.*uses:[[:space:]]*//' | \
+              sed 's/[[:space:]]*#.*//' | \
+              grep '@' | \
+              sort -u | \
+              while IFS='@' read -r action current_ver; do
+                # Skip local actions
+                if [[ "$action" == ./* ]]; then
+                  continue
+                fi
 
-                  # Skip local actions (relative paths)
-                  if [[ "$action" == ./* ]]; then
-                    continue
-                  fi
+                # Check rate limit periodically within loop
+                rate_limit=$(gh api rate_limit --jq '.resources.core.remaining' 2>/dev/null || echo "0")
+                if [ "$rate_limit" -lt 10 ]; then
+                  printf "| \`%s\` | N/A | N/A | ⚠️ Rate limit low |\n" "$action" >> /tmp/actions_status.md
+                  echo "Remaining actions skipped due to rate limit exhaustion." >> /tmp/actions_status.md
+                  break
+                fi
 
-                  # Extract owner/repo (first two path components)
-                  # This handles standard GitHub Actions format: owner/repo@version
-                  repo=$(echo "$action" | cut -d'/' -f1-2)
+                # Get owner/repo (only first two path components for API query)
+                repo=$(echo "$action" | cut -d'/' -f1-2)
 
-                  # Query latest release with fallback to tags
-                  latest=$(gh api "repos/$repo/releases/latest" \
-                    --jq '.tag_name' 2>/dev/null || \
-                    gh api "repos/$repo/tags" --jq '.[0].name' 2>/dev/null || \
-                    echo "N/A")
+                # Query latest release with fallback to tags
+                latest=$(gh api "repos/$repo/releases/latest" --jq '.tag_name' 2>/dev/null || \
+                         gh api "repos/$repo/tags" --jq '.[0].name' 2>/dev/null || \
+                         echo "N/A")
 
-                  # Handle empty response
-                  [ -z "$latest" ] && latest="N/A"
+                # Handle empty response
+                [ -z "$latest" ] && latest="N/A"
 
-                  # Normalize versions for comparison (remove 'v' prefix)
-                  current_norm="${current_ver#v}"
-                  latest_norm="${latest#v}"
+                # Normalize versions for comparison
+                current_norm="${current_ver#v}"
+                latest_norm="${latest#v}"
+                current_major=$(echo "$current_norm" | cut -d'.' -f1)
+                latest_major=$(echo "$latest_norm" | cut -d'.' -f1)
 
-                  # Determine status with semantic version awareness
-                  if [ "$latest" = "N/A" ]; then
-                    status="⚠️ Unknown"
-                  elif [ "$current_ver" = "$latest" ] || [ "$current_norm" = "$latest_norm" ]; then
-                    status="✅ Up-to-date"
-                  else
-                    # Check if versions are semantically equivalent (e.g., v4 vs v4.0.0)
-                    current_major=$(echo "$current_norm" | cut -d'.' -f1)
-                    latest_major=$(echo "$latest_norm" | cut -d'.' -f1)
+                # Determine status with improved version comparison
+                if [ "$latest" = "N/A" ]; then
+                  status="⚠️ API Error"
+                elif [ "$current_ver" = "$latest" ]; then
+                  status="✅ Up-to-date"
+                elif [ "$current_major" = "$latest_norm" ] || \
+                     [ "$current_norm" = "$latest_major" ]; then
+                  # Major-only version matches latest major (e.g., v4 = v4.1.0)
+                  status="✅ Up-to-date"
+                else
+                  status="⬆️ Update available"
+                fi
 
-                    if [ "$current_major" = "$latest_norm" ] || [ "$current_norm" = "$latest_major" ]; then
-                      status="✅ Up-to-date"
-                    else
-                      status="⬆️ Update available"
-                    fi
-                  fi
-
-                  # Safe output using printf to handle special characters
-                  printf "| \`%s\` | %s | %s | %s |\n" \
-                    "$action" "$current_ver" "$latest" "$status" >> /tmp/actions_status.md
-                done
-            fi
+                # Use printf for safer output formatting
+                printf "| \`%s\` | %s | %s | %s |\n" \
+                  "$action" "$current_ver" "$latest" "$status" >> /tmp/actions_status.md
+              done
 
             cat /tmp/actions_status.md
           fi
@@ -122,9 +116,10 @@ jobs:
           } > /tmp/docker_status.md
 
           if [ -f Dockerfile ]; then
+            FROM_LINE=$(grep '^FROM' Dockerfile | head -1)
+
             {
               echo "## Base Image"
-              FROM_LINE=$(grep '^FROM' Dockerfile | head -1)
               echo "- $FROM_LINE"
               echo ""
               echo "## ARG Versions"
