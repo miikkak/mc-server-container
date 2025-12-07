@@ -1,4 +1,0 @@
-self-hosted-runner:
-  ubuntu-slim:
-    labels:
-      - ubuntu-slim

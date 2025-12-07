@@ -1,0 +1,358 @@
+name: Automated Code Review
+
+on:
+  schedule:
+    # Run every Monday at 9:00 AM UTC (weekly review)
+    - cron: '0 9 * * 1'
+  workflow_dispatch: # Allow manual triggering
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  code-review:
+    name: Automated Code Review
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup ShellCheck
+        run: |
+          if ! command -v shellcheck > /dev/null; then
+            sudo apt-get update > /dev/null
+            sudo apt-get install --no-install-recommends -y shellcheck > /dev/null
+          fi
+
+      - name: Run comprehensive code analysis
+        id: analysis
+        run: |
+          set -euo pipefail
+
+          reports_dir=reports
+          mkdir -p "$reports_dir"
+
+          timestamp=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+
+          write_report_header() {
+            local path="$1"
+            local title="$2"
+            {
+              echo "# $title"
+              echo ""
+              echo "Date: $timestamp"
+              echo ""
+            } > "$path"
+          }
+
+          SHELLCHECK_REPORT="$reports_dir/shellcheck-findings.md"
+          COMPLEXITY_REPORT="$reports_dir/complexity-findings.md"
+          DUPLICATION_REPORT="$reports_dir/duplication-findings.md"
+          SECURITY_REPORT="$reports_dir/security-findings.md"
+
+          write_report_header "$SHELLCHECK_REPORT" "ShellCheck Findings"
+          write_report_header "$COMPLEXITY_REPORT" "Code Complexity Findings"
+          write_report_header "$DUPLICATION_REPORT" "Code Duplication Findings"
+          write_report_header "$SECURITY_REPORT" "Security Findings"
+
+          FOUND_ISSUES=false
+          SHELLCHECK_ISSUES=0
+          COMPLEX_FUNCTIONS=0
+          SECURITY_ISSUES=0
+
+          declare -A review_outputs=(
+            [shellcheck_issues]=false
+            [complexity_issues]=false
+            [duplication_issues]=false
+            [security_issues]=false
+            [status]=clean
+          )
+
+          echo "🔍 Running automated code review..."
+          echo "=================================="
+
+          echo "🔍 Running ShellCheck analysis..."
+          while read -r file; do
+            dir=$(dirname "$file")
+            filename=$(basename "$file")
+
+            output=$(cd "$dir" && shellcheck --external-sources --format=gcc "$filename" 2>&1) || true
+
+            if [[ -n "$output" ]]; then
+              {
+                echo "## $file"
+                echo '```'
+                printf '%s\n' "$output"
+                echo '```'
+                echo ""
+              } >> "$SHELLCHECK_REPORT"
+              SHELLCHECK_ISSUES=$((SHELLCHECK_ISSUES + 1))
+            fi
+          done < <(find . -type f -name "*.sh")
+
+          if [[ $SHELLCHECK_ISSUES -gt 0 ]]; then
+            review_outputs[shellcheck_issues]=true
+            FOUND_ISSUES=true
+            echo "⚠️  Found ShellCheck issues in $SHELLCHECK_ISSUES files"
+          else
+            {
+              echo "No issues found."
+              echo ""
+            } >> "$SHELLCHECK_REPORT"
+            echo "✅ No ShellCheck issues found"
+          fi
+
+          echo "🔍 Analyzing function complexity..."
+          find . -type f -name "*.sh" \
+            -exec grep -l "^[[:space:]]*function\|^[[:space:]]*[a-zA-Z_][a-zA-Z0-9_]*[[:space:]]*()[[:space:]]*{" \
+              {} \; | while read -r file; do
+            awk '
+              /^[[:space:]]*function[[:space:]]+[a-zA-Z_][a-zA-Z0-9_]*[[:space:]]*\(/ || \
+              /^[[:space:]]*[a-zA-Z_][a-zA-Z0-9_]*[[:space:]]*\(\)[[:space:]]*\{/ {
+                if (in_function && line_count > 100) {
+                  print file ":" func_name ":" line_count " lines"
+                }
+                in_function = 1
+                func_name = $0
+                gsub(/^[[:space:]]*function[[:space:]]+/, "", func_name)
+                gsub(/[[:space:]]*\(.*/, "", func_name)
+                start_line = NR
+                line_count = 0
+              }
+              in_function {
+                line_count++
+                if (/^[[:space:]]*\}[[:space:]]*$/ && --brace_depth == 0) {
+                  if (line_count > 100) {
+                    print file ":" func_name ":" line_count " lines (starting at line " start_line ")"
+                  }
+                  in_function = 0
+                }
+                if (/\{/) brace_depth++
+                if (/\}/) brace_depth--
+              }
+              END {
+                if (in_function && line_count > 100) {
+                  print file ":" func_name ":" line_count " lines (starting at line " start_line ")"
+                }
+              }
+            ' file="$file" "$file" >> /tmp/complexity-$$.txt 2>/dev/null || true
+          done
+
+          if [[ -f /tmp/complexity-$$.txt ]] && [[ -s /tmp/complexity-$$.txt ]]; then
+            COMPLEX_FUNCTIONS=$(wc -l < /tmp/complexity-$$.txt)
+            review_outputs[complexity_issues]=true
+            FOUND_ISSUES=true
+            echo "⚠️  Found $COMPLEX_FUNCTIONS complex functions (>100 lines)"
+            cat /tmp/complexity-$$.txt >> "$COMPLEXITY_REPORT"
+          else
+            {
+              echo "No overly complex functions detected."
+              echo ""
+            } >> "$COMPLEXITY_REPORT"
+            echo "✅ No overly complex functions found"
+          fi
+
+          echo "🔍 Checking for potential code duplication..."
+          find . -type f -name "*.sh" \
+            -exec grep -h "^[[:space:]]*function\|^[[:space:]]*[a-zA-Z_][a-zA-Z0-9_]*[[:space:]]*()[[:space:]]*{" \
+              {} \; | \
+            sort | uniq -c | sort -rn | awk '$1 > 1 {print}' > /tmp/dup-functions-$$.txt || true
+
+          if [[ -f /tmp/dup-functions-$$.txt ]] && [[ -s /tmp/dup-functions-$$.txt ]]; then
+            review_outputs[duplication_issues]=true
+            FOUND_ISSUES=true
+            echo "⚠️  Found potential code duplication"
+            {
+              echo "## Duplicate Function Signatures"
+              echo ""
+              echo "The following function signatures appear multiple times:"
+              echo '```'
+              cat /tmp/dup-functions-$$.txt
+              echo '```'
+              echo ""
+            } >> "$DUPLICATION_REPORT"
+          else
+            {
+              echo "No significant duplication patterns detected."
+              echo ""
+            } >> "$DUPLICATION_REPORT"
+            echo "✅ No obvious code duplication found"
+          fi
+
+          echo "🔍 Running security analysis..."
+          while read -r file; do
+            issues=""
+
+            if grep -n "eval" "$file" > /dev/null 2>&1; then
+              issues="${issues}$(grep -n "eval" "$file" | sed 's/^/  Line /')\n"
+              issues="${issues}  ⚠️  Usage of 'eval' detected (potential security risk)\n\n"
+            fi
+
+            if grep -n '\$[A-Za-z_][A-Za-z0-9_]*' "$file" \
+                | grep -E '(rm|mv|cp|chmod|chown)[[:space:]]' > /dev/null 2>&1; then
+              issues="${issues}$(grep -n '\$[A-Za-z_][A-Za-z0-9_]*' "$file" \
+                | grep -E '(rm|mv|cp|chmod|chown)[[:space:]]' \
+                | head -5 \
+                | sed 's/^/  Line /')\n"
+              issues="${issues}  ⚠️  Potentially unquoted variables in file operations\n\n"
+            fi
+
+            if grep -n "curl.*-k\|wget.*--no-check-certificate" "$file" > /dev/null 2>&1; then
+              issues="${issues}$(grep -n "curl.*-k\|wget.*--no-check-certificate" "$file" | sed 's/^/  Line /')\n"
+              issues="${issues}  ⚠️  SSL certificate verification disabled\n\n"
+            fi
+
+            if [[ -n "$issues" ]]; then
+              {
+                echo "## $file"
+                printf '%b\n' "$issues"
+                printf '\n'
+              } >> "$SECURITY_REPORT"
+              SECURITY_ISSUES=$((SECURITY_ISSUES + 1))
+            fi
+          done < <(find . -type f -name "*.sh")
+
+          if [[ $SECURITY_ISSUES -gt 0 ]]; then
+            review_outputs[security_issues]=true
+            FOUND_ISSUES=true
+            echo "⚠️  Found potential security issues in $SECURITY_ISSUES files"
+          else
+            {
+              echo "No security concerns detected."
+              echo ""
+            } >> "$SECURITY_REPORT"
+            echo "✅ No obvious security issues found"
+          fi
+
+          summary_lines=(
+            "# Automated Code Review Summary"
+            ""
+            "**Date:** $timestamp"
+            ""
+            "## Overview"
+            ""
+            "- ShellCheck issues: $SHELLCHECK_ISSUES files"
+            "- Complex functions: $COMPLEX_FUNCTIONS functions"
+            "- Security concerns: $SECURITY_ISSUES files"
+            ""
+          )
+
+          if [[ "$FOUND_ISSUES" == "true" ]]; then
+            summary_lines+=(
+              "## Findings"
+              ""
+            )
+
+            if [[ $SHELLCHECK_ISSUES -gt 0 ]]; then
+              summary_lines+=(
+                "### ShellCheck Issues"
+                ""
+                "Found issues in $SHELLCHECK_ISSUES files. See [detailed report](shellcheck-findings.md)."
+                ""
+              )
+            fi
+
+            if [[ $COMPLEX_FUNCTIONS -gt 0 ]]; then
+              summary_lines+=(
+                "### Complex Functions"
+                ""
+                "Found $COMPLEX_FUNCTIONS functions with >100 lines. See [detailed report](complexity-findings.md)."
+                ""
+              )
+            fi
+
+            if [[ $SECURITY_ISSUES -gt 0 ]]; then
+              summary_lines+=(
+                "### Security Concerns"
+                ""
+                "Found security issues in $SECURITY_ISSUES files. See [detailed report](security-findings.md)."
+                ""
+              )
+            fi
+
+            review_outputs[status]=issues_found
+          else
+            summary_lines+=(
+              "## ✅ No Issues Found"
+              ""
+              "All automated checks passed successfully."
+              ""
+            )
+            review_outputs[status]=clean
+          fi
+
+          printf '%s\n' "${summary_lines[@]}" > "$reports_dir/summary.md"
+
+          {
+            for key in shellcheck_issues complexity_issues duplication_issues security_issues status; do
+              echo "${key}=${review_outputs[$key]}"
+            done
+          } >> "$GITHUB_OUTPUT"
+
+          rm -f /tmp/complexity-$$.txt /tmp/dup-functions-$$.txt
+
+          echo ""
+          echo "=================================="
+          echo "✅ Code review analysis complete"
+
+      - name: Upload analysis reports
+        uses: actions/upload-artifact@v5
+        with:
+          name: code-review-reports
+          path: reports/
+          retention-days: 30
+
+      - name: Create issue for ShellCheck findings
+        if: steps.analysis.outputs.shellcheck_issues == 'true'
+        uses: peter-evans/create-issue-from-file@v6
+        with:
+          title: "🔍 Automated Code Review: ShellCheck Findings"
+          content-filepath: reports/shellcheck-findings.md
+          labels: |
+            lint
+            shellcheck
+            automated-review
+          assignees: miikkak
+
+      - name: Create issue for complexity findings
+        if: steps.analysis.outputs.complexity_issues == 'true'
+        uses: peter-evans/create-issue-from-file@v6
+        with:
+          title: "🔍 Automated Code Review: High Complexity Functions"
+          content-filepath: reports/complexity-findings.md
+          labels: |
+            refactoring
+            technical-debt
+            automated-review
+          assignees: miikkak
+
+      - name: Create issue for duplication findings
+        if: steps.analysis.outputs.duplication_issues == 'true'
+        uses: peter-evans/create-issue-from-file@v6
+        with:
+          title: "🔍 Automated Code Review: Code Duplication Detected"
+          content-filepath: reports/duplication-findings.md
+          labels: |
+            refactoring
+            DRY
+            automated-review
+          assignees: miikkak
+
+      - name: Create issue for security findings
+        if: steps.analysis.outputs.security_issues == 'true'
+        uses: peter-evans/create-issue-from-file@v6
+        with:
+          title: "🔒 Automated Code Review: Security Concerns"
+          content-filepath: reports/security-findings.md
+          labels: |
+            security
+            automated-review
+          assignees: miikkak
+
+      - name: Post summary comment
+        if: always()
+        run: |
+          echo "📊 Code review complete. Check the Actions artifacts for detailed reports."
+          if [[ -f reports/summary.md ]]; then
+            cat reports/summary.md
+          fi
