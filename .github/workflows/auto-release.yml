@@ -1,0 +1,129 @@
+name: Auto Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: read
+  actions: write  # Required to trigger deploy workflow
+
+jobs:
+  auto-release:
+    name: Auto Release on PR Merge
+    runs-on: ubuntu-slim
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0  # Need full history for tags
+
+      - name: Check for release label and create tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          # Get the PR number from the merge commit
+          PR_NUMBER=$(
+            gh pr list \
+              --state merged \
+              --json number,mergeCommit \
+              --jq ".[] | select(.mergeCommit.oid == \"${{ github.sha }}\") | .number"
+          )
+
+          if [[ -z "$PR_NUMBER" ]]; then
+            echo "ℹ️  Not a PR merge commit, skipping release"
+            exit 0
+          fi
+
+          echo "📋 Found merged PR #$PR_NUMBER"
+
+          # Get PR labels
+          LABELS=$(
+            gh pr view "$PR_NUMBER" \
+              --json labels \
+              --jq '.labels[].name'
+          )
+          echo "🏷️  PR Labels: $LABELS"
+
+          # Determine release type from labels
+          RELEASE_TYPE=""
+          if echo "$LABELS" | grep -q "^release:major$"; then
+            RELEASE_TYPE="major"
+          elif echo "$LABELS" | grep -q "^release:minor$"; then
+            RELEASE_TYPE="minor"
+          elif echo "$LABELS" | grep -q "^release:patch$"; then
+            RELEASE_TYPE="patch"
+          fi
+
+          if [[ -z "$RELEASE_TYPE" ]]; then
+            echo "ℹ️  No release label found (release:patch, release:minor, release:major)"
+            echo "ℹ️  Skipping release - this is expected for non-release PRs"
+            exit 0
+          fi
+
+          echo "🎯 Release type: $RELEASE_TYPE"
+
+          # Get the latest tag (only valid semver tags)
+          LATEST_TAG=$(
+            git tag -l 'v[0-9]*.[0-9]*.[0-9]*' \
+              --sort=-version:refname \
+              | head -n1
+          )
+          if [[ -z "$LATEST_TAG" ]]; then
+            LATEST_TAG="v0.0.0"
+          fi
+          echo "📌 Latest tag: $LATEST_TAG"
+
+          # Parse version (strip 'v' prefix and validate format)
+          VERSION=${LATEST_TAG#v}
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "❌ Invalid version format: $VERSION"
+            echo "   Expected: MAJOR.MINOR.PATCH (e.g., 1.2.3)"
+            exit 1
+          fi
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+
+          # Increment version based on release type
+          case "$RELEASE_TYPE" in
+            major)
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+              PATCH=0
+              ;;
+            minor)
+              MINOR=$((MINOR + 1))
+              PATCH=0
+              ;;
+            patch)
+              PATCH=$((PATCH + 1))
+              ;;
+          esac
+
+          NEW_VERSION="v${MAJOR}.${MINOR}.${PATCH}"
+          echo "🆕 New version: $NEW_VERSION"
+
+          # Get PR title for release message
+          PR_TITLE=$(gh pr view "$PR_NUMBER" --json title --jq '.title')
+
+          # Create and push the tag
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Create tag with multi-line message
+          git tag -a "$NEW_VERSION" -m "Release $NEW_VERSION" \
+            -m "" \
+            -m "Merged PR #$PR_NUMBER: $PR_TITLE" \
+            -m "" \
+            -m "Release type: $RELEASE_TYPE"
+
+          git push origin "$NEW_VERSION"
+
+          echo "✅ Created and pushed tag $NEW_VERSION"
+
+          # Manually trigger deploy workflow since GITHUB_TOKEN pushes don't trigger workflows
+          echo "🚀 Triggering deploy workflow for $NEW_VERSION"
+          gh workflow run ci-cd.yml --ref "$NEW_VERSION"
+
+          echo "✅ Deploy workflow triggered"
