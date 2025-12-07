@@ -65,10 +65,12 @@ jobs:
             exit 1
           fi
 
-          echo "mc_runner=$MC_RUNNER_VERSION" >> $GITHUB_OUTPUT
-          echo "rcon_cli=$RCON_CLI_VERSION" >> $GITHUB_OUTPUT
-          echo "mc_monitor=$MC_MONITOR_VERSION" >> $GITHUB_OUTPUT
-          echo "otel=$OTEL_VERSION" >> $GITHUB_OUTPUT
+          {
+            echo "mc_runner=$MC_RUNNER_VERSION"
+            echo "rcon_cli=$RCON_CLI_VERSION"
+            echo "mc_monitor=$MC_MONITOR_VERSION"
+            echo "otel=$OTEL_VERSION"
+          } >> "$GITHUB_OUTPUT"
           echo "📦 Current mc-server-runner: $MC_RUNNER_VERSION"
           echo "📦 Current rcon-cli: $RCON_CLI_VERSION"
           echo "📦 Current mc-monitor: $MC_MONITOR_VERSION"
@@ -121,10 +123,12 @@ jobs:
             fi
           fi
 
-          echo "mc_runner=$MC_RUNNER_LATEST" >> $GITHUB_OUTPUT
-          echo "rcon_cli=$RCON_CLI_LATEST" >> $GITHUB_OUTPUT
-          echo "mc_monitor=$MC_MONITOR_LATEST" >> $GITHUB_OUTPUT
-          echo "otel=$OTEL_LATEST" >> $GITHUB_OUTPUT
+          {
+            echo "mc_runner=$MC_RUNNER_LATEST"
+            echo "rcon_cli=$RCON_CLI_LATEST"
+            echo "mc_monitor=$MC_MONITOR_LATEST"
+            echo "otel=$OTEL_LATEST"
+          } >> "$GITHUB_OUTPUT"
           echo "🔍 Target mc-server-runner: $MC_RUNNER_LATEST"
           echo "🔍 Target rcon-cli: $RCON_CLI_LATEST"
           echo "🔍 Target mc-monitor: $MC_MONITOR_LATEST"
@@ -145,46 +149,46 @@ jobs:
           UPDATE_NEEDED=false
 
           if [ "$CURRENT_MC_RUNNER" != "$TARGET_MC_RUNNER" ]; then
-            echo "mc_runner_update=true" >> $GITHUB_OUTPUT
+            echo "mc_runner_update=true" >> "$GITHUB_OUTPUT"
             UPDATE_NEEDED=true
             echo "⚠️ mc-server-runner update needed: $CURRENT_MC_RUNNER → $TARGET_MC_RUNNER"
           else
-            echo "mc_runner_update=false" >> $GITHUB_OUTPUT
+            echo "mc_runner_update=false" >> "$GITHUB_OUTPUT"
             echo "✅ mc-server-runner is up to date: $CURRENT_MC_RUNNER"
           fi
 
           if [ "$CURRENT_RCON_CLI" != "$TARGET_RCON_CLI" ]; then
-            echo "rcon_cli_update=true" >> $GITHUB_OUTPUT
+            echo "rcon_cli_update=true" >> "$GITHUB_OUTPUT"
             UPDATE_NEEDED=true
             echo "⚠️ rcon-cli update needed: $CURRENT_RCON_CLI → $TARGET_RCON_CLI"
           else
-            echo "rcon_cli_update=false" >> $GITHUB_OUTPUT
+            echo "rcon_cli_update=false" >> "$GITHUB_OUTPUT"
             echo "✅ rcon-cli is up to date: $CURRENT_RCON_CLI"
           fi
 
           if [ "$CURRENT_MC_MONITOR" != "$TARGET_MC_MONITOR" ]; then
-            echo "mc_monitor_update=true" >> $GITHUB_OUTPUT
+            echo "mc_monitor_update=true" >> "$GITHUB_OUTPUT"
             UPDATE_NEEDED=true
             echo "⚠️ mc-monitor update needed: $CURRENT_MC_MONITOR → $TARGET_MC_MONITOR"
           else
-            echo "mc_monitor_update=false" >> $GITHUB_OUTPUT
+            echo "mc_monitor_update=false" >> "$GITHUB_OUTPUT"
             echo "✅ mc-monitor is up to date: $CURRENT_MC_MONITOR"
           fi
 
           if [ "$CURRENT_OTEL" != "$TARGET_OTEL" ]; then
-            echo "otel_update=true" >> $GITHUB_OUTPUT
+            echo "otel_update=true" >> "$GITHUB_OUTPUT"
             UPDATE_NEEDED=true
             echo "⚠️ OpenTelemetry agent update needed: $CURRENT_OTEL → $TARGET_OTEL"
           else
-            echo "otel_update=false" >> $GITHUB_OUTPUT
+            echo "otel_update=false" >> "$GITHUB_OUTPUT"
             echo "✅ OpenTelemetry agent is up to date: $CURRENT_OTEL"
           fi
 
           if [ "$UPDATE_NEEDED" = true ]; then
-            echo "updates_needed=true" >> $GITHUB_OUTPUT
+            echo "updates_needed=true" >> "$GITHUB_OUTPUT"
             echo "📝 Updates are needed"
           else
-            echo "updates_needed=false" >> $GITHUB_OUTPUT
+            echo "updates_needed=false" >> "$GITHUB_OUTPUT"
             echo "✅ All dependencies are up to date"
           fi
 

@@ -39,7 +39,7 @@ jobs:
             CURRENT_DIGEST="unknown"
           fi
 
-          echo "digest=$CURRENT_DIGEST" >> $GITHUB_OUTPUT
+          echo "digest=$CURRENT_DIGEST" >> "$GITHUB_OUTPUT"
           echo "📦 Current stored digest: $CURRENT_DIGEST"
 
       - name: Check if update is needed
@@ -49,10 +49,10 @@ jobs:
           NEW_DIGEST="${{ inputs.digest }}"
 
           if [ "$CURRENT_DIGEST" = "$NEW_DIGEST" ]; then
-            echo "update_needed=false" >> $GITHUB_OUTPUT
+            echo "update_needed=false" >> "$GITHUB_OUTPUT"
             echo "✅ Digest is already up to date"
           else
-            echo "update_needed=true" >> $GITHUB_OUTPUT
+            echo "update_needed=true" >> "$GITHUB_OUTPUT"
             echo "⚠️ Digest update needed: $CURRENT_DIGEST → $NEW_DIGEST"
           fi
 
