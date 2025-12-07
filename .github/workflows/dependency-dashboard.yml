@@ -48,37 +48,66 @@ jobs:
               echo "|--------|---------|--------|--------|"
             } > /tmp/actions_status.md
 
-            # Extract all uses: statements
-            grep -h "uses:" .github/workflows/*.yml 2>/dev/null | \
-              sed 's/.*uses:[[:space:]]*//' | \
-              sed 's/[[:space:]]*#.*//' | \
-              grep '@' | \
-              sort -u | \
-              while IFS='@' read -r action current_ver; do
-                # Skip local actions
-                if [[ "$action" == ./* ]]; then
-                  continue
-                fi
+            # Check API rate limit before processing
+            rate_limit=$(gh api rate_limit --jq '.resources.core.remaining' 2>/dev/null || echo "0")
+            if [ "$rate_limit" -lt 10 ]; then
+              echo "| ⚠️ Rate limit low | N/A | N/A | Rate limit reached |" >> /tmp/actions_status.md
+            else
+              # Extract all uses: statements
+              grep -h "uses:" .github/workflows/*.yml 2>/dev/null | \
+                sed 's/.*uses:[[:space:]]*//' | \
+                sed 's/[[:space:]]*#.*//' | \
+                grep '@' | \
+                sort -u | \
+                while read -r line; do
+                  # Robust parsing using parameter expansion
+                  action="${line%@*}"
+                  current_ver="${line##*@}"
 
-                # Get owner/repo (first two path components)
-                repo=$(echo "$action" | cut -d'/' -f1-2)
+                  # Skip local actions (relative paths)
+                  if [[ "$action" == ./* ]]; then
+                    continue
+                  fi
 
-                # Query latest release
-                latest=$(gh api "repos/$repo/releases/latest" \
-                  --jq '.tag_name' 2>/dev/null || echo "N/A")
+                  # Extract owner/repo (first two path components)
+                  # This handles standard GitHub Actions format: owner/repo@version
+                  repo=$(echo "$action" | cut -d'/' -f1-2)
 
-                # Determine status
-                if [ "$latest" = "N/A" ]; then
-                  status="⚠️ Unknown"
-                elif [ "$current_ver" = "$latest" ]; then
-                  status="✅ Up-to-date"
-                else
-                  status="⬆️ Update available"
-                fi
+                  # Query latest release with fallback to tags
+                  latest=$(gh api "repos/$repo/releases/latest" \
+                    --jq '.tag_name' 2>/dev/null || \
+                    gh api "repos/$repo/tags" --jq '.[0].name' 2>/dev/null || \
+                    echo "N/A")
 
-                ACTION_LINE="| \`$action\` | $current_ver | $latest | $status |"
-                echo "$ACTION_LINE" >> /tmp/actions_status.md
-              done
+                  # Handle empty response
+                  [ -z "$latest" ] && latest="N/A"
+
+                  # Normalize versions for comparison (remove 'v' prefix)
+                  current_norm="${current_ver#v}"
+                  latest_norm="${latest#v}"
+
+                  # Determine status with semantic version awareness
+                  if [ "$latest" = "N/A" ]; then
+                    status="⚠️ Unknown"
+                  elif [ "$current_ver" = "$latest" ] || [ "$current_norm" = "$latest_norm" ]; then
+                    status="✅ Up-to-date"
+                  else
+                    # Check if versions are semantically equivalent (e.g., v4 vs v4.0.0)
+                    current_major=$(echo "$current_norm" | cut -d'.' -f1)
+                    latest_major=$(echo "$latest_norm" | cut -d'.' -f1)
+
+                    if [ "$current_major" = "$latest_norm" ] || [ "$current_norm" = "$latest_major" ]; then
+                      status="✅ Up-to-date"
+                    else
+                      status="⬆️ Update available"
+                    fi
+                  fi
+
+                  # Safe output using printf to handle special characters
+                  printf "| \`%s\` | %s | %s | %s |\n" \
+                    "$action" "$current_ver" "$latest" "$status" >> /tmp/actions_status.md
+                done
+            fi
 
             cat /tmp/actions_status.md
           fi
