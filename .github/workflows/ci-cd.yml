@@ -174,7 +174,7 @@ jobs:
             --exclude='.pre-commit-config.yaml' \
             --exclude='__pycache__' \
             --exclude='*.pyc' \
-            .
+            . || true
 
           TAR_SIZE=$(stat -c%s "$TARBALL" 2>/dev/null || stat -f%z "$TARBALL")
           echo "✅ Created $TARBALL ($TAR_SIZE bytes)"
