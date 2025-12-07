@@ -83,7 +83,8 @@ jobs:
                           shouldDelete = true;
                           reason = `PR no longer exists (${cache.ref}, ${cacheAgeDays} days old)`;
                         } else {
-                          console.log(`⚠️  Could not verify PR ${cache.ref}: ${error.message} (status: ${error.status ?? 'unknown'})`);
+                          const status = error.status ?? 'unknown';
+                          console.log(`⚠️  Could not verify PR ${cache.ref}: ${error.message} (status: ${status})`);
                         }
                       }
                     }
@@ -100,7 +101,8 @@ jobs:
                         shouldDelete = true;
                         reason = `branch no longer exists (${cache.ref}, ${cacheAgeDays} days old)`;
                       } else {
-                        console.log(`⚠️  Could not verify branch ${cache.ref}: ${error.message} (status: ${error.status ?? 'unknown'})`);
+                        const status = error.status ?? 'unknown';
+                        console.log(`⚠️  Could not verify branch ${cache.ref}: ${error.message} (status: ${status})`);
                       }
                     }
                   }
@@ -135,8 +137,10 @@ jobs:
 
       - name: Summary
         run: |
-          echo "### 🧹 Cache Cleanup Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Cache cleanup completed successfully!" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Check the logs above for details on deleted caches." >> $GITHUB_STEP_SUMMARY
+          {
+            echo "### 🧹 Cache Cleanup Summary"
+            echo ""
+            echo "Cache cleanup completed successfully!"
+            echo ""
+            echo "Check the logs above for details on deleted caches."
+          } >> "$GITHUB_STEP_SUMMARY"
