@@ -1,0 +1,280 @@
+name: Auto-Update Dependencies
+
+on:
+  schedule:
+    # Run weekly on Monday at 02:00 UTC
+    - cron: '0 2 * * 1'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force update check even if no updates available'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  detect-updates:
+    name: Detect Available Updates
+    runs-on: ubuntu-slim
+    outputs:
+      has_updates: ${{ steps.check.outputs.has_updates }}
+      update_summary: ${{ steps.check.outputs.update_summary }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Detect repository type
+        id: repo_type
+        run: |
+          REPO_TYPE="generic"
+
+          if [ -f "Dockerfile" ]; then
+            REPO_TYPE="container"
+            echo "📦 Detected: Container repository"
+          elif [ -f "package.json" ]; then
+            REPO_TYPE="nodejs"
+            echo "📦 Detected: Node.js repository"
+          elif [ -f "requirements.txt" ] || [ -f "pyproject.toml" ]; then
+            REPO_TYPE="python"
+            echo "📦 Detected: Python repository"
+          elif [ -f "go.mod" ]; then
+            REPO_TYPE="golang"
+            echo "📦 Detected: Go repository"
+          elif [ -f "Cargo.toml" ]; then
+            REPO_TYPE="rust"
+            echo "📦 Detected: Rust repository"
+          else
+            echo "📦 Detected: Generic repository"
+          fi
+
+          echo "type=$REPO_TYPE" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Node.js (if needed)
+        if: steps.repo_type.outputs.type == 'nodejs'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+
+      - name: Setup Go (if needed)
+        if: steps.repo_type.outputs.type == 'golang'
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Check for updates
+        id: check
+        env:
+          REPO_TYPE: ${{ steps.repo_type.outputs.type }}
+        run: |
+          HAS_UPDATES=false
+          SUMMARY=""
+
+          # Check container base image updates
+          if [ "$REPO_TYPE" = "container" ] && [ -f "Dockerfile" ]; then
+            echo "🔍 Checking Docker base image updates..."
+
+            # Extract base image from Dockerfile
+            BASE_IMAGE=$(grep -E "^FROM" Dockerfile | head -1 | awk '{print $2}')
+
+            if [ -n "$BASE_IMAGE" ]; then
+              echo "Base image: $BASE_IMAGE"
+
+              # Check if image has a digest stored
+              DIGEST_FILE=".github/.docker-base-digest.txt"
+              if [ -f "$DIGEST_FILE" ]; then
+                STORED_DIGEST=$(cat "$DIGEST_FILE" | tr -d '[:space:]')
+                echo "Stored digest: $STORED_DIGEST"
+
+                # Get current digest using manifest inspect (doesn't require pull)
+                if ! command -v jq >/dev/null 2>&1; then
+                  sudo apt-get update -qq && sudo apt-get install -y -qq jq
+                fi
+                if ! CURRENT_DIGEST=$(docker manifest inspect "$BASE_IMAGE" 2>/dev/null | jq -r '.Descriptor.digest // .manifests[0].digest // empty'); then
+                  echo "⚠️  Failed to inspect base image - skipping digest check"
+                  CURRENT_DIGEST=""
+                fi
+
+                if [ -n "$CURRENT_DIGEST" ] && [ "$CURRENT_DIGEST" != "$STORED_DIGEST" ]; then
+                  HAS_UPDATES=true
+                  SUMMARY="${SUMMARY}Docker base image update available; "
+                  echo "✨ Base image update available"
+                fi
+              else
+                echo "ℹ️  No digest file found, skipping base image check"
+              fi
+            fi
+          fi
+
+          # Check GitHub Actions workflow updates
+          if [ -d ".github/workflows" ]; then
+            echo "🔍 Checking GitHub Actions updates..."
+            echo "ℹ️  Manual review recommended for GitHub Actions versions"
+          fi
+
+          # Check for dependency updates based on repo type
+          case "$REPO_TYPE" in
+            nodejs)
+              if [ -f "package.json" ]; then
+                echo "🔍 Checking npm dependencies..."
+                if [ -f "package-lock.json" ]; then
+                  npm ci --quiet 2>/dev/null || npm install --quiet 2>/dev/null || true
+                fi
+                npm outdated > /tmp/npm-outdated.txt 2>&1 || true
+                if [ -s /tmp/npm-outdated.txt ]; then
+                  HAS_UPDATES=true
+                  SUMMARY="${SUMMARY}npm package updates available; "
+                  echo "✨ npm updates available"
+                fi
+              fi
+              ;;
+
+            python)
+              echo "ℹ️  Python dependency check not yet implemented"
+              ;;
+
+            golang)
+              if [ -f "go.mod" ]; then
+                echo "🔍 Checking Go dependencies..."
+                go list -u -m all > /tmp/go-updates.txt 2>&1 || true
+                if grep -q "\[" /tmp/go-updates.txt 2>/dev/null; then
+                  HAS_UPDATES=true
+                  SUMMARY="${SUMMARY}Go module updates available; "
+                  echo "✨ Go module updates available"
+                fi
+              fi
+              ;;
+          esac
+
+          # Check for shell script updates (shellcheck version, etc.)
+          if find . -type f \( -name "*.sh" -o -name "*.bash" \) | grep -q .; then
+            echo "ℹ️  Shell scripts found (no auto-update mechanism yet)"
+          fi
+
+          # Output results
+          FORCE_UPDATE="${{ inputs.force }}"
+          if [ "$HAS_UPDATES" = "true" ] || [ "$FORCE_UPDATE" = "true" ]; then
+            echo "has_updates=true" >> "$GITHUB_OUTPUT"
+            # Clean up summary - remove trailing semicolon and spaces
+            SUMMARY_CLEAN=$(echo "$SUMMARY" | sed 's/; $//' | sed 's/  */ /g')
+            echo "update_summary=$SUMMARY_CLEAN" >> "$GITHUB_OUTPUT"
+            echo "✅ Updates detected: $SUMMARY_CLEAN"
+          else
+            {
+              echo "has_updates=false"
+              echo "update_summary=No updates available"
+            } >> "$GITHUB_OUTPUT"
+            echo "ℹ️  No updates detected"
+          fi
+
+  apply-updates:
+    name: Apply Updates
+    runs-on: ubuntu-slim
+    needs: detect-updates
+    if: needs.detect-updates.outputs.has_updates == 'true'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Create update branch
+        id: branch
+        run: |
+          BRANCH_NAME="auto-update/dependencies-$(date +%Y%m%d-%H%M%S)"
+          git checkout -b "$BRANCH_NAME"
+          echo "branch=$BRANCH_NAME" >> "$GITHUB_OUTPUT"
+          echo "📝 Created branch: $BRANCH_NAME"
+
+      - name: Apply updates
+        run: |
+          echo "🔄 Applying updates..."
+          echo "ℹ️  Manual updates required - creating PR for review"
+
+          # Create a marker file to indicate update check was performed
+          mkdir -p .github
+          date -u +"%Y-%m-%dT%H:%M:%SZ" > .github/.last-update-check
+          git add .github/.last-update-check
+
+          if ! git diff --cached --quiet; then
+            # Use heredoc for safe commit message handling
+            UPDATE_SUMMARY="${{ needs.detect-updates.outputs.update_summary }}"
+            git commit -F- <<EOF
+chore: update dependency check timestamp
+
+Auto-update workflow detected available updates:
+${UPDATE_SUMMARY}
+
+This PR is created for manual review and update application.
+EOF
+            echo "✅ Changes committed"
+          else
+            echo "ℹ️  No changes to commit"
+          fi
+
+      - name: Push changes
+        id: push
+        run: |
+          git push origin "${{ steps.branch.outputs.branch }}"
+          echo "pushed=true" >> "$GITHUB_OUTPUT"
+          echo "✅ Changes pushed"
+
+      - name: Create Pull Request
+        if: steps.push.outputs.pushed == 'true'
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const summary = `${{ needs.detect-updates.outputs.update_summary }}`;
+
+            const { data: pr } = await github.rest.pulls.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '🤖 Auto-update: Dependencies update available',
+              head: '${{ steps.branch.outputs.branch }}',
+              base: 'main',
+              body: `## Automatic Dependency Update Check
+
+This PR was automatically created by the auto-update workflow.
+
+### Updates Detected:
+${summary}
+
+### Action Required:
+Please review and manually apply the necessary updates.
+
+---
+*Generated by auto-update workflow at ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}*`
+            });
+
+            console.log('✅ Pull request created:', pr.html_url);
+
+            // Add labels
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              labels: ['dependencies', 'automated']
+            });
+
+  skip-notification:
+    name: No Updates Available
+    runs-on: ubuntu-slim
+    needs: detect-updates
+    if: needs.detect-updates.outputs.has_updates == 'false'
+
+    steps:
+      - name: Log skip
+        run: |
+          echo "✅ No updates available - workflow completed successfully"
+          echo "Summary: ${{ needs.detect-updates.outputs.update_summary }}"
