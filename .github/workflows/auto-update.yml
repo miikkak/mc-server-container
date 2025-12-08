@@ -63,7 +63,7 @@ jobs:
 
       - name: Setup Go (if needed)
         if: steps.repo_type.outputs.type == 'golang'
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
 
