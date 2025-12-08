@@ -183,7 +183,7 @@ jobs:
           echo "tarball=$TARBALL" >> "$GITHUB_ENV"
 
       - name: Upload tarball artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ${{ steps.repo_info.outputs.repo_name }}-tarball
           path: "*.tar.gz"
@@ -286,7 +286,7 @@ jobs:
           echo "🏷️  New version: $NEW_VERSION (was: v$CURRENT_VERSION)"
 
       - name: Download tarball artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: ${{ github.event.repository.name }}-tarball
 
