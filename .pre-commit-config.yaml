@@ -6,7 +6,7 @@
 repos:
   # Standard pre-commit hooks
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
       # Basic file checks
       - id: check-added-large-files
@@ -54,7 +54,7 @@ repos:
 
   # Shell script formatting with shfmt
   - repo: https://github.com/scop/pre-commit-shfmt
-    rev: v3.10.0-1
+    rev: v3.12.0-2
     hooks:
       - id: shfmt
         args: ['-i', '2', '-ci', '-w']
@@ -80,14 +80,14 @@ repos:
 
   # YAML linting with yamllint
   - repo: https://github.com/adrienverge/yamllint
-    rev: v1.35.1
+    rev: v1.37.1
     hooks:
       - id: yamllint
 
 
   # Markdown linting
   - repo: https://github.com/igorshubovych/markdownlint-cli
-    rev: v0.42.0
+    rev: v0.46.0
     hooks:
       - id: markdownlint
         args: ['--fix']
@@ -100,13 +100,13 @@ repos:
 
   # Secret detection with gitleaks
   - repo: https://github.com/gitleaks/gitleaks
-    rev: v8.21.2
+    rev: v8.30.0
     hooks:
       - id: gitleaks
 
   # Python linting with ruff (only runs if .py files present)
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.8.4
+    rev: v0.14.8
     hooks:
       - id: ruff
         args: [--fix]
@@ -114,7 +114,7 @@ repos:
 
   # Pre-push hooks - Second line of defense for branch protection
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
       # Prevent pushes to protected branches (defense-in-depth)
       - id: no-commit-to-branch
