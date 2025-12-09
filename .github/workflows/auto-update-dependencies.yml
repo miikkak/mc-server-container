@@ -83,7 +83,9 @@ jobs:
             MC_RUNNER_LATEST="${{ inputs.mc_runner_version }}"
           else
             # Get the first non-prerelease, non-draft release (more reliable than /releases/latest)
-            MC_RUNNER_LATEST=$(curl -sf 'https://api.github.com/repos/itzg/mc-server-runner/releases?per_page=10' | jq -r '[.[] | select(.prerelease == false and .draft == false)][0].tag_name')
+            MC_RUNNER_LATEST=$(curl -sf \
+              'https://api.github.com/repos/itzg/mc-server-runner/releases?per_page=10' | \
+              jq -r '[.[] | select(.prerelease == false and .draft == false)][0].tag_name')
             if [ -z "$MC_RUNNER_LATEST" ] || [ "$MC_RUNNER_LATEST" = "null" ]; then
               echo "❌ Failed to fetch mc-server-runner latest version"
               exit 1
@@ -94,7 +96,9 @@ jobs:
             RCON_CLI_LATEST="${{ inputs.rcon_cli_version }}"
           else
             # Get the first non-prerelease, non-draft release (more reliable than /releases/latest)
-            RCON_CLI_LATEST=$(curl -sf 'https://api.github.com/repos/itzg/rcon-cli/releases?per_page=10' | jq -r '[.[] | select(.prerelease == false and .draft == false)][0].tag_name')
+            RCON_CLI_LATEST=$(curl -sf \
+              'https://api.github.com/repos/itzg/rcon-cli/releases?per_page=10' | \
+              jq -r '[.[] | select(.prerelease == false and .draft == false)][0].tag_name')
             if [ -z "$RCON_CLI_LATEST" ] || [ "$RCON_CLI_LATEST" = "null" ]; then
               echo "❌ Failed to fetch rcon-cli latest version"
               exit 1
@@ -105,7 +109,9 @@ jobs:
             MC_MONITOR_LATEST="${{ inputs.mc_monitor_version }}"
           else
             # Get the first non-prerelease, non-draft release (more reliable than /releases/latest)
-            MC_MONITOR_LATEST=$(curl -sf 'https://api.github.com/repos/itzg/mc-monitor/releases?per_page=10' | jq -r '[.[] | select(.prerelease == false and .draft == false)][0].tag_name')
+            MC_MONITOR_LATEST=$(curl -sf \
+              'https://api.github.com/repos/itzg/mc-monitor/releases?per_page=10' | \
+              jq -r '[.[] | select(.prerelease == false and .draft == false)][0].tag_name')
             if [ -z "$MC_MONITOR_LATEST" ] || [ "$MC_MONITOR_LATEST" = "null" ]; then
               echo "❌ Failed to fetch mc-monitor latest version"
               exit 1
@@ -116,7 +122,10 @@ jobs:
             OTEL_LATEST="${{ inputs.otel_version }}"
           else
             # Get the first non-prerelease, non-draft release (more reliable than /releases/latest)
-            OTEL_LATEST=$(curl -sf 'https://api.github.com/repos/open-telemetry/opentelemetry-java-instrumentation/releases?per_page=10' | jq -r '[.[] | select(.prerelease == false and .draft == false)][0].tag_name' | sed 's/^v//')
+            OTEL_LATEST=$(curl -sf \
+              'https://api.github.com/repos/open-telemetry/opentelemetry-java-instrumentation/releases?per_page=10' | \
+              jq -r '[.[] | select(.prerelease == false and .draft == false)][0].tag_name' | \
+              sed 's/^v//')
             if [ -z "$OTEL_LATEST" ] || [ "$OTEL_LATEST" = "null" ]; then
               echo "❌ Failed to fetch OpenTelemetry agent latest version"
               exit 1
@@ -347,7 +356,9 @@ jobs:
 
               let releaseLinks = [];
               if (mcRunnerUpdate) {
-                releaseLinks.push(`- [mc-server-runner ${targetMcRunner}](https://github.com/itzg/mc-server-runner/releases/tag/${targetMcRunner})`);
+                releaseLinks.push(
+                  `- [mc-server-runner ${targetMcRunner}](https://github.com/itzg/mc-server-runner/releases/tag/${targetMcRunner})`
+                );
               }
               if (rconCliUpdate) {
                 releaseLinks.push(`- [rcon-cli ${targetRconCli}](https://github.com/itzg/rcon-cli/releases/tag/${targetRconCli})`);
@@ -356,7 +367,10 @@ jobs:
                 releaseLinks.push(`- [mc-monitor ${targetMcMonitor}](https://github.com/itzg/mc-monitor/releases/tag/${targetMcMonitor})`);
               }
               if (otelUpdate) {
-                releaseLinks.push(`- [OpenTelemetry Java agent v${targetOtel}](https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/tag/v${targetOtel})`);
+                releaseLinks.push(
+                  `- [OpenTelemetry Java agent v${targetOtel}]` +
+                  `(https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/tag/v${targetOtel})`
+                );
               }
 
               const prBody = [

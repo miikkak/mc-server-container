@@ -1,10 +1,12 @@
 # Custom Minecraft Server Container
 
-A minimal, controlled Minecraft server container with a custom solution using [mc-server-runner](https://github.com/itzg/mc-server-runner).
+A minimal, controlled Minecraft server container with a custom solution using
+ [mc-server-runner](https://github.com/itzg/mc-server-runner).
 
 ## Why This Container?
 
-This custom container focuses on the minimum requirements while maintaining professional process management:
+This custom container focuses on the minimum requirements while maintaining 
+professional process management:
 
 - ✅ **Java 25 compatibility**
 - ✅ **Fast boot times**
@@ -111,6 +113,7 @@ This container is built using **Docker Buildx with BuildKit**, which produces im
 - ✅ Any OCI-compliant container runtime
 
 **Why it matters:**
+
 - **Portability** - Same image works across different container runtimes
 - **Security** - Run rootless with Podman for enhanced security
 - **Flexibility** - Deploy to Docker, Kubernetes, or edge environments without modification
@@ -132,11 +135,13 @@ This container focuses on **JVM configuration only**. Minecraft-specific setting
 ### Environment Variables
 
 **JVM Memory:**
+
 ```yaml
 MEMORY: "16G"  # Default: 16G
 ```
 
 **OpenTelemetry (included by default, requires configuration to enable):**
+
 ```yaml
 # OpenTelemetry requires a configuration file mounted at /data/otel-config.properties
 # The entrypoint reads this file to configure the Java agent
@@ -153,6 +158,7 @@ OTEL_JAVAAGENT_CONFIGURATION_FILE: "/data/otel-config.properties"
 ```
 
 **Troubleshooting JVM Performance (for debugging only):**
+
 ```yaml
 DISABLE_MEOWICE_FLAGS: "true"          # Disable MeowIce G1GC optimizations
 DISABLE_MEOWICE_GRAALVM_FLAGS: "true"  # Disable GraalVM-specific optimizations
@@ -161,6 +167,7 @@ JAVA_OPTS_CUSTOM: "-Xlog:gc*"         # Add custom JVM options
 ```
 
 **Example: Minimal Configuration**
+
 ```yaml
 environment:
   MEMORY: "16G"
@@ -205,15 +212,17 @@ docker exec -it minecraft-server rcon-cli --password <your-password>
 ```
 
 **Configuration Requirements**:
+
 - Set `enable-rcon=true` in `server.properties`
 - Set a secure `rcon.password` in `server.properties`
 - Tip: Generate a secure password with `openssl rand -hex 12`
 
 **Example server.properties snippet**:
+
 ```properties
 enable-rcon=true
 rcon.port=25575
-rcon.password=a1b2c3d4e5f6g7h8i9j0k1l2
+rcon.password=<EXAMPLE_PASSWORD>
 ```
 
 ### Send Console Commands
@@ -237,12 +246,14 @@ docker run --rm -it --entrypoint /bin/bash <image-id>
 ```
 
 This is useful for:
+
 - Inspecting file permissions and ownership
 - Testing commands before modifying scripts
 - Debugging when the entrypoint fails
 - Checking which files are present in the image
 
 For a running container, use:
+
 ```bash
 docker exec -it minecraft-server bash
 ```
@@ -267,6 +278,7 @@ pre-commit run --all-files
 ### Building Locally
 
 **With Docker:**
+
 ```bash
 # Build the image
 docker build -t mc-server-container:local .
@@ -276,6 +288,7 @@ docker-compose up -d
 ```
 
 **With Podman:**
+
 ```bash
 # Build the image
 podman build -t mc-server-container:local .
@@ -292,6 +305,7 @@ podman run -d --name mc-local \
 Tests run automatically in GitHub Actions. To run locally:
 
 **With Docker:**
+
 ```bash
 # Build and test
 docker build -t mc-server-container:test .
@@ -301,6 +315,7 @@ docker stop mc-test && docker rm mc-test
 ```
 
 **With Podman:**
+
 ```bash
 # Build and test
 podman build -t mc-server-container:test .
@@ -313,6 +328,7 @@ podman stop mc-test && podman rm mc-test
 When Paper starts for the first time (or when upgrading Minecraft versions), it downloads Mojang's vanilla Minecraft JAR to `/data/cache/mojang-<version>.jar`. This JAR is used by Paper to apply patches and create the Paper server.
 
 In GitHub Actions, both the Paper JAR and the vanilla Minecraft JAR are cached to:
+
 - Reduce network traffic
 - Speed up test execution
 - Reduce dependency on external servers (Paper API, Mojang)
@@ -323,10 +339,12 @@ In GitHub Actions, both the Paper JAR and the vanilla Minecraft JAR are cached t
 This repository uses a cost-optimized CI/CD workflow with label-based gating:
 
 **Lightweight Validation (runs on every commit):**
+
 - ✅ ShellCheck - Validates shell scripts
 - ✅ Hadolint - Validates Dockerfile
 
 **Heavy CI/CD Pipeline (runs only when ready):**
+
 - 🏗️ Build container
 - 🔒 Security scan with Trivy
 - 🧪 Test with Docker
@@ -342,11 +360,13 @@ This repository uses a cost-optimized CI/CD workflow with label-based gating:
 5. If you push new commits, the label is auto-removed - re-add when ready
 
 **Why this approach?**
+
 - ⚡ Fast feedback on code quality (ShellCheck, Hadolint run in ~30 seconds)
 - 💰 Reduced CI costs (~79% savings) by avoiding unnecessary builds during review
 - 🎯 Full pipeline only runs when you're ready, not on every intermediate commit
 
 **Example workflow:**
+
 ```bash
 # 1. Create feature branch and make changes
 git checkout -b feature/my-feature
@@ -421,6 +441,7 @@ For detailed information, see [Dependency Management Guide](docs/DEPENDENCY_MANA
 ### Security Alerts
 
 Security vulnerabilities are automatically detected and reported:
+
 - View alerts in the [Security tab](../../security)
 - Critical/high vulnerabilities trigger automatic issue creation
 - Table and JSON scan results available in workflow logs
