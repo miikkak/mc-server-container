@@ -37,8 +37,6 @@ jobs:
           BASH_EXEC_IGNORE_LIBRARIES: true
           VALIDATE_BASH: true
           VALIDATE_SHELL_SHFMT: true
-          # Exclude examples directory (deployment scripts not in active use)
-          FILTER_REGEX_EXCLUDE: .*examples/.*
           # YAML
           YAML_LINTER_RULES: .yamllint
           VALIDATE_YAML: true
