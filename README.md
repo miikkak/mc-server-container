@@ -5,7 +5,7 @@ A minimal, controlled Minecraft server container with a custom solution using
 
 ## Why This Container?
 
-This custom container focuses on the minimum requirements while maintaining 
+This custom container focuses on the minimum requirements while maintaining
 professional process management:
 
 - ✅ **Java 25 compatibility**
@@ -166,7 +166,7 @@ DISABLE_OTEL_AGENT: "true"             # Disable OpenTelemetry Java agent
 JAVA_OPTS_CUSTOM: "-Xlog:gc*"         # Add custom JVM options
 ```
 
-**Example: Minimal Configuration**
+### Example: Minimal Configuration
 
 ```yaml
 environment:
@@ -180,7 +180,7 @@ See `docker-compose.yml` for a complete example.
 ## Volumes
 
 | Path | Purpose |
-|------|---------|
+| ------ | --------- |
 | `/data` | Server data (world, configs, plugins, JARs) |
 | `/data/paper.jar` | Paper server JAR (provide manually) |
 | `/data/plugins/` | Server plugins |
@@ -188,10 +188,10 @@ See `docker-compose.yml` for a complete example.
 
 ## Ports
 
-| Port | Protocol | Purpose |
-|------|----------|---------|
-| `25565` | TCP/UDP | Minecraft server (configure in `server.properties`) |
-| `25575` | TCP | RCON (configure in `server.properties`) |
+| Port    | Protocol | Purpose                                             |
+| ------- | -------- | --------------------------------------------------- |
+| `25565` | TCP/UDP  | Minecraft server (configure in `server.properties`) |
+| `25575` | TCP      | RCON (configure in `server.properties`)             |
 
 ## Management Tools
 
@@ -406,7 +406,7 @@ This project uses semantic versioning with automated releases:
 
 ## Project Structure
 
-```
+```text
 mc-server-container/
 ├── Dockerfile              # Container definition
 ├── docker-compose.yml      # Local development setup
