@@ -1,7 +1,7 @@
 extends: default
 rules:
   line-length:
-    max: 150
+    max: 120
   comments:
     min-spaces-from-content: 1
   document-start: disable
