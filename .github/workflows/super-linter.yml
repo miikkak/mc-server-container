@@ -1,0 +1,51 @@
+---
+name: Lint
+
+on:  # yamllint disable-line rule:truthy
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, reopened, synchronize, labeled]
+    branches: [main]
+
+permissions:
+  contents: read
+  statuses: write
+
+jobs:
+  super-lint:
+    name: Super-Linter
+    runs-on: ubuntu-latest
+    # Label-gated: only run if ci/ready label OR push to main
+    if: |
+      github.event_name == 'push' ||
+      contains(github.event.pull_request.labels.*.name, 'ci/ready')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Super-Linter
+        uses: super-linter/super-linter@v8.3.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VALIDATE_ALL_CODEBASE: false
+          DEFAULT_BRANCH: main
+          # Bash/shell
+          BASH_EXEC_IGNORE_LIBRARIES: true
+          VALIDATE_BASH: true
+          VALIDATE_SHELL_SHFMT: true
+          # Exclude examples directory (deployment scripts not in active use)
+          FILTER_REGEX_EXCLUDE: .*examples/.*
+          # YAML
+          YAML_LINTER_RULES: .yamllint
+          VALIDATE_YAML: true
+          # Markdown
+          MARKDOWN_LINTER_RULES: .markdownlint.json
+          VALIDATE_MARKDOWN: true
+          # GitHub Actions
+          VALIDATE_GITHUB_ACTIONS: true
+          # Python (if present)
+          VALIDATE_PYTHON_RUFF: true
