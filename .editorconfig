@@ -9,3 +9,5 @@ trim_trailing_whitespace = true
 [*.sh]
 indent_style = space
 indent_size = 2
+# shfmt-specific settings (used by super-linter)
+switch_case_indent = true

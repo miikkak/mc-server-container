@@ -88,7 +88,7 @@ jobs:
               # Check if image has a digest stored
               DIGEST_FILE=".github/.docker-base-digest.txt"
               if [ -f "$DIGEST_FILE" ]; then
-                STORED_DIGEST=$(cat "$DIGEST_FILE" | tr -d '[:space:]')
+                STORED_DIGEST=$(tr -d '[:space:]' < "$DIGEST_FILE")
                 echo "Stored digest: $STORED_DIGEST"
 
                 # Get current digest using manifest inspect (doesn't require pull)
