@@ -104,6 +104,14 @@ repos:
     hooks:
       - id: gitleaks
 
+  # Commit message linting with commitlint
+  - repo: https://github.com/alessandrojcm/commitlint-pre-commit-hook
+    rev: v9.18.0
+    hooks:
+      - id: commitlint
+        stages: [commit-msg]
+        additional_dependencies: ['@commitlint/config-conventional']
+
   # Python linting with ruff (only runs if .py files present)
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.14.8
