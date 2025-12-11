@@ -246,13 +246,6 @@ jobs:
           JAR_SIZE=$(stat -c%s paper.jar 2>/dev/null || stat -f%z paper.jar)
           echo "✅ Downloaded Paper JAR (${JAR_SIZE} bytes)"
 
-      - name: Cache vanilla Minecraft JAR
-        id: cache_vanilla
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/papermc
-          key: vanilla-minecraft-jar-${{ steps.paper_version.outputs.version }}
-
       - name: Prepare test data
         run: |
           echo "📦 Preparing test data directory"
@@ -386,7 +379,7 @@ jobs:
         id: cache_paper_podman
         uses: actions/cache@v4
         with:
-          path: paper-podman.jar
+          path: paper.jar
           key: |
             paper-jar-${{ steps.paper_version_podman.outputs.version }}-${{ steps.paper_version_podman.outputs.build }}
 
@@ -406,23 +399,16 @@ jobs:
           echo "📋 Downloading Paper ${PAPER_VERSION} build ${BUILD_NUMBER}"
 
           # Download Paper JAR
-          curl -s -o paper-podman.jar "${DOWNLOAD_URL}"
+          curl -s -o paper.jar "${DOWNLOAD_URL}"
 
           # Verify download
-          if [[ ! -f paper-podman.jar ]]; then
+          if [[ ! -f paper.jar ]]; then
             echo "❌ Failed to download Paper JAR"
             exit 1
           fi
 
-          JAR_SIZE=$(stat -c%s paper-podman.jar 2>/dev/null || stat -f%z paper-podman.jar)
+          JAR_SIZE=$(stat -c%s paper.jar 2>/dev/null || stat -f%z paper.jar)
           echo "✅ Downloaded Paper JAR (${JAR_SIZE} bytes)"
-
-      - name: Cache vanilla Minecraft JAR for Podman
-        id: cache_vanilla_podman
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/papermc-podman
-          key: vanilla-minecraft-jar-${{ steps.paper_version_podman.outputs.version }}
 
       - name: Prepare test data for Podman
         run: |
@@ -437,7 +423,7 @@ jobs:
           if [[ "${{ steps.cache_paper_podman.outputs.cache-hit }}" == "true" ]]; then
             echo "📦 Using cached Paper JAR"
           fi
-          cp paper-podman.jar test-data-podman/paper.jar
+          cp paper.jar test-data-podman/paper.jar
 
           JAR_SIZE=$(stat -c%s test-data-podman/paper.jar 2>/dev/null || stat -f%z test-data-podman/paper.jar)
           echo "✅ Paper JAR ready (${JAR_SIZE} bytes)"
