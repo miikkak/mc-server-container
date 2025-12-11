@@ -369,14 +369,14 @@ jobs:
           USER_AGENT="GitHub Actions for container build (miikka@iki.fi)"
 
           # Get latest Paper version
-          PAPER_API_URL="https://papermc.io/api/v2/projects/paper"
+          PAPER_API_URL="https://fill.papermc.io/v3/projects/paper"
           PAPER_VERSION=$(curl -s -H "User-Agent: $USER_AGENT" "${PAPER_API_URL}" | \
-            jq -r '.versions[-1]')
+            jq -r '.versions | to_entries[0] | .value[0]')
 
           # Get latest build number for that version
           PAPER_VERSION_API_URL="${PAPER_API_URL}/versions/${PAPER_VERSION}"
           BUILD_NUMBER=$(curl -s -H "User-Agent: $USER_AGENT" "${PAPER_VERSION_API_URL}" | \
-            jq -r '.builds[-1]')
+            jq -r '.builds[0]')
 
           echo "version=${PAPER_VERSION}" >> "$GITHUB_OUTPUT"
           echo "build=${BUILD_NUMBER}" >> "$GITHUB_OUTPUT"
