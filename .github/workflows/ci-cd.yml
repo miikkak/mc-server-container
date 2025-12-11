@@ -199,14 +199,14 @@ jobs:
           USER_AGENT="GitHub Actions for container build (miikka@iki.fi)"
 
           # Get latest Paper version
-          PAPER_API_URL="https://papermc.io/api/v2/projects/paper"
+          PAPER_API_URL="https://fill.papermc.io/v3/projects/paper"
           PAPER_VERSION=$(curl -s -H "User-Agent: $USER_AGENT" "${PAPER_API_URL}" | \
-            jq -r '.versions[-1]')
+            jq -r '.versions | to_entries[0] | .value[0]')
 
           # Get latest build number for that version
           PAPER_VERSION_API_URL="${PAPER_API_URL}/versions/${PAPER_VERSION}"
           BUILD_NUMBER=$(curl -s -H "User-Agent: $USER_AGENT" "${PAPER_VERSION_API_URL}" | \
-            jq -r '.builds[-1]')
+            jq -r '.builds[0]')
 
           echo "version=${PAPER_VERSION}" >> "$GITHUB_OUTPUT"
           echo "build=${BUILD_NUMBER}" >> "$GITHUB_OUTPUT"
@@ -227,10 +227,15 @@ jobs:
           PAPER_VERSION="${{ steps.paper_version.outputs.version }}"
           BUILD_NUMBER="${{ steps.paper_version.outputs.build }}"
 
+          # Get download URL
+          PAPER_BUILDS_API="https://fill.papermc.io/v3/projects/paper/versions/${PAPER_VERSION}/builds"
+          DOWNLOAD_URL=$(curl -s -H "User-Agent: $USER_AGENT" "${PAPER_BUILDS_API}" | \
+            jq -r 'max_by(.id) | .downloads["server:default"].url')
+
+          echo "📋 Downloading Paper ${PAPER_VERSION} build ${BUILD_NUMBER}"
+
           # Download Paper JAR
-          curl -s -o paper.jar \
-            -H "User-Agent: $USER_AGENT" \
-            "https://papermc.io/api/v2/projects/paper/versions/${PAPER_VERSION}/builds/${BUILD_NUMBER}/downloads/paper-${PAPER_VERSION}-${BUILD_NUMBER}.jar"
+          curl -s -o paper.jar "${DOWNLOAD_URL}"
 
           # Verify download
           if [[ ! -f paper.jar ]]; then
@@ -393,10 +398,15 @@ jobs:
           PAPER_VERSION="${{ steps.paper_version_podman.outputs.version }}"
           BUILD_NUMBER="${{ steps.paper_version_podman.outputs.build }}"
 
+          # Get download URL
+          PAPER_BUILDS_API="https://fill.papermc.io/v3/projects/paper/versions/${PAPER_VERSION}/builds"
+          DOWNLOAD_URL=$(curl -s -H "User-Agent: $USER_AGENT" "${PAPER_BUILDS_API}" | \
+            jq -r 'max_by(.id) | .downloads["server:default"].url')
+
+          echo "📋 Downloading Paper ${PAPER_VERSION} build ${BUILD_NUMBER}"
+
           # Download Paper JAR
-          curl -s -o paper-podman.jar \
-            -H "User-Agent: $USER_AGENT" \
-            "https://papermc.io/api/v2/projects/paper/versions/${PAPER_VERSION}/builds/${BUILD_NUMBER}/downloads/paper-${PAPER_VERSION}-${BUILD_NUMBER}.jar"
+          curl -s -o paper-podman.jar "${DOWNLOAD_URL}"
 
           # Verify download
           if [[ ! -f paper-podman.jar ]]; then
