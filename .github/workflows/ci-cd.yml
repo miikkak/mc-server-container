@@ -214,7 +214,7 @@ jobs:
 
       - name: Cache Paper JAR
         id: cache_paper
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: paper.jar
           key: paper-jar-${{ steps.paper_version.outputs.version }}-${{ steps.paper_version.outputs.build }}
@@ -377,7 +377,7 @@ jobs:
 
       - name: Cache Paper JAR for Podman test
         id: cache_paper_podman
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: paper.jar
           key: |
