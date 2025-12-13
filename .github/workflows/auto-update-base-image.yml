@@ -33,7 +33,7 @@ jobs:
       - name: Read current digest
         id: current
         run: |
-          if [ -f "$DIGEST_FILE" ]; then
+          if [[ -f "$DIGEST_FILE" ]]; then
             CURRENT_DIGEST=$(cat "$DIGEST_FILE" | tr -d '[:space:]')
           else
             CURRENT_DIGEST="unknown"
@@ -48,7 +48,7 @@ jobs:
           CURRENT_DIGEST="${{ steps.current.outputs.digest }}"
           NEW_DIGEST="${{ inputs.digest }}"
 
-          if [ "$CURRENT_DIGEST" = "$NEW_DIGEST" ]; then
+          if [[ "$CURRENT_DIGEST" = "$NEW_DIGEST" ]]; then
             echo "update_needed=false" >> "$GITHUB_OUTPUT"
             echo "✅ Digest is already up to date"
           else

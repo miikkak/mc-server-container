@@ -674,7 +674,7 @@ jobs:
         run: |
           # If triggered by workflow_dispatch on a tag, use that tag
           REF="${{ github.ref }}"
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]] && [[ "${REF}" == refs/tags/* ]]; then
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${REF}" == refs/tags/* ]]; then
             NEW_VERSION="${REF#refs/tags/}"
             echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
             echo "🏷️  Using existing tag: $NEW_VERSION"
@@ -772,7 +772,7 @@ jobs:
           WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
         run: |
           DEPLOY_SERVERS="${{ vars.DEPLOY_SERVERS }}"
-          if [[ -z "$WEBHOOK_SECRET" ]] || [[ -z "$DEPLOY_SERVERS" ]]; then
+          if [[ -z "$WEBHOOK_SECRET" || -z "$DEPLOY_SERVERS" ]]; then
             echo "⏭️  Skipping webhook deployment (WEBHOOK_SECRET or DEPLOY_SERVERS not configured)"
             exit 0
           fi

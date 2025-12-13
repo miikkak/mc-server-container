@@ -34,19 +34,19 @@ jobs:
         run: |
           REPO_TYPE="generic"
 
-          if [ -f "Dockerfile" ]; then
+          if [[ -f "Dockerfile" ]]; then
             REPO_TYPE="container"
             echo "📦 Detected: Container repository"
-          elif [ -f "package.json" ]; then
+          elif [[ -f "package.json" ]]; then
             REPO_TYPE="nodejs"
             echo "📦 Detected: Node.js repository"
-          elif [ -f "requirements.txt" ] || [ -f "pyproject.toml" ]; then
+          elif [[ -f "requirements.txt"  ||  -f "pyproject.toml" ]]; then
             REPO_TYPE="python"
             echo "📦 Detected: Python repository"
-          elif [ -f "go.mod" ]; then
+          elif [[ -f "go.mod" ]]; then
             REPO_TYPE="golang"
             echo "📦 Detected: Go repository"
-          elif [ -f "Cargo.toml" ]; then
+          elif [[ -f "Cargo.toml" ]]; then
             REPO_TYPE="rust"
             echo "📦 Detected: Rust repository"
           else
@@ -76,18 +76,18 @@ jobs:
           SUMMARY=""
 
           # Check container base image updates
-          if [ "$REPO_TYPE" = "container" ] && [ -f "Dockerfile" ]; then
+          if [[ "$REPO_TYPE" = "container"  &&  -f "Dockerfile" ]]; then
             echo "🔍 Checking Docker base image updates..."
 
             # Extract base image from Dockerfile
             BASE_IMAGE=$(grep -E "^FROM" Dockerfile | head -1 | awk '{print $2}')
 
-            if [ -n "$BASE_IMAGE" ]; then
+            if [[ -n "$BASE_IMAGE" ]]; then
               echo "Base image: $BASE_IMAGE"
 
               # Check if image has a digest stored
               DIGEST_FILE=".github/.docker-base-digest.txt"
-              if [ -f "$DIGEST_FILE" ]; then
+              if [[ -f "$DIGEST_FILE" ]]; then
                 STORED_DIGEST=$(tr -d '[:space:]' < "$DIGEST_FILE")
                 echo "Stored digest: $STORED_DIGEST"
 
@@ -103,7 +103,7 @@ jobs:
                   CURRENT_DIGEST=""
                 fi
 
-                if [ -n "$CURRENT_DIGEST" ] && [ "$CURRENT_DIGEST" != "$STORED_DIGEST" ]; then
+                if [[ -n "$CURRENT_DIGEST"  &&  "$CURRENT_DIGEST" != "$STORED_DIGEST" ]]; then
                   HAS_UPDATES=true
                   SUMMARY="${SUMMARY}Docker base image update available; "
                   echo "✨ Base image update available"
@@ -115,7 +115,7 @@ jobs:
           fi
 
           # Check GitHub Actions workflow updates
-          if [ -d ".github/workflows" ]; then
+          if [[ -d ".github/workflows" ]]; then
             echo "🔍 Checking GitHub Actions updates..."
             echo "ℹ️  Manual review recommended for GitHub Actions versions"
           fi
@@ -123,13 +123,13 @@ jobs:
           # Check for dependency updates based on repo type
           case "$REPO_TYPE" in
             nodejs)
-              if [ -f "package.json" ]; then
+              if [[ -f "package.json" ]]; then
                 echo "🔍 Checking npm dependencies..."
-                if [ -f "package-lock.json" ]; then
+                if [[ -f "package-lock.json" ]]; then
                   npm ci --quiet 2>/dev/null || npm install --quiet 2>/dev/null || true
                 fi
                 npm outdated > /tmp/npm-outdated.txt 2>&1 || true
-                if [ -s /tmp/npm-outdated.txt ]; then
+                if [[ -s /tmp/npm-outdated.txt ]]; then
                   HAS_UPDATES=true
                   SUMMARY="${SUMMARY}npm package updates available; "
                   echo "✨ npm updates available"
@@ -142,7 +142,7 @@ jobs:
               ;;
 
             golang)
-              if [ -f "go.mod" ]; then
+              if [[ -f "go.mod" ]]; then
                 echo "🔍 Checking Go dependencies..."
                 go list -u -m all > /tmp/go-updates.txt 2>&1 || true
                 if grep -q "\[" /tmp/go-updates.txt 2>/dev/null; then
@@ -161,7 +161,7 @@ jobs:
 
           # Output results
           FORCE_UPDATE="${{ inputs.force }}"
-          if [ "$HAS_UPDATES" = "true" ] || [ "$FORCE_UPDATE" = "true" ]; then
+          if [[ "$HAS_UPDATES" = "true"  ||  "$FORCE_UPDATE" = "true" ]]; then
             echo "has_updates=true" >> "$GITHUB_OUTPUT"
             # Clean up summary - remove trailing semicolon and spaces
             SUMMARY_CLEAN=$(echo "$SUMMARY" | sed 's/; $//' | sed 's/  */ /g')

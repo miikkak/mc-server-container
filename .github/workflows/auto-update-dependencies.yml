@@ -60,7 +60,7 @@ jobs:
           MC_MONITOR_VERSION=$(grep 'ARG MC_MONITOR_VERSION=' Dockerfile | cut -d'=' -f2)
           OTEL_VERSION=$(grep 'ARG OTEL_VERSION=' Dockerfile | cut -d'=' -f2)
 
-          if [ -z "$MC_RUNNER_VERSION" ] || [ -z "$RCON_CLI_VERSION" ] || [ -z "$MC_MONITOR_VERSION" ] || [ -z "$OTEL_VERSION" ]; then
+          if [[ -z "$MC_RUNNER_VERSION"  ||  -z "$RCON_CLI_VERSION"  ||  -z "$MC_MONITOR_VERSION"  ||  -z "$OTEL_VERSION" ]]; then
             echo "❌ Failed to extract versions from Dockerfile"
             exit 1
           fi
@@ -79,46 +79,46 @@ jobs:
       - name: Determine target versions
         id: target
         run: |
-          if [ -n "${{ inputs.mc_runner_version }}" ]; then
+          if [[ -n "${{ inputs.mc_runner_version }}" ]]; then
             MC_RUNNER_LATEST="${{ inputs.mc_runner_version }}"
           else
             # Get the first non-prerelease, non-draft release (more reliable than /releases/latest)
             MC_RUNNER_LATEST=$(curl -sf \
               'https://api.github.com/repos/itzg/mc-server-runner/releases?per_page=10' | \
               jq -r '[.[] | select(.prerelease == false and .draft == false)][0].tag_name')
-            if [ -z "$MC_RUNNER_LATEST" ] || [ "$MC_RUNNER_LATEST" = "null" ]; then
+            if [[ -z "$MC_RUNNER_LATEST"  ||  "$MC_RUNNER_LATEST" = "null" ]]; then
               echo "❌ Failed to fetch mc-server-runner latest version"
               exit 1
             fi
           fi
 
-          if [ -n "${{ inputs.rcon_cli_version }}" ]; then
+          if [[ -n "${{ inputs.rcon_cli_version }}" ]]; then
             RCON_CLI_LATEST="${{ inputs.rcon_cli_version }}"
           else
             # Get the first non-prerelease, non-draft release (more reliable than /releases/latest)
             RCON_CLI_LATEST=$(curl -sf \
               'https://api.github.com/repos/itzg/rcon-cli/releases?per_page=10' | \
               jq -r '[.[] | select(.prerelease == false and .draft == false)][0].tag_name')
-            if [ -z "$RCON_CLI_LATEST" ] || [ "$RCON_CLI_LATEST" = "null" ]; then
+            if [[ -z "$RCON_CLI_LATEST"  ||  "$RCON_CLI_LATEST" = "null" ]]; then
               echo "❌ Failed to fetch rcon-cli latest version"
               exit 1
             fi
           fi
 
-          if [ -n "${{ inputs.mc_monitor_version }}" ]; then
+          if [[ -n "${{ inputs.mc_monitor_version }}" ]]; then
             MC_MONITOR_LATEST="${{ inputs.mc_monitor_version }}"
           else
             # Get the first non-prerelease, non-draft release (more reliable than /releases/latest)
             MC_MONITOR_LATEST=$(curl -sf \
               'https://api.github.com/repos/itzg/mc-monitor/releases?per_page=10' | \
               jq -r '[.[] | select(.prerelease == false and .draft == false)][0].tag_name')
-            if [ -z "$MC_MONITOR_LATEST" ] || [ "$MC_MONITOR_LATEST" = "null" ]; then
+            if [[ -z "$MC_MONITOR_LATEST"  ||  "$MC_MONITOR_LATEST" = "null" ]]; then
               echo "❌ Failed to fetch mc-monitor latest version"
               exit 1
             fi
           fi
 
-          if [ -n "${{ inputs.otel_version }}" ]; then
+          if [[ -n "${{ inputs.otel_version }}" ]]; then
             OTEL_LATEST="${{ inputs.otel_version }}"
           else
             # Get the first non-prerelease, non-draft release (more reliable than /releases/latest)
@@ -126,7 +126,7 @@ jobs:
               'https://api.github.com/repos/open-telemetry/opentelemetry-java-instrumentation/releases?per_page=10' | \
               jq -r '[.[] | select(.prerelease == false and .draft == false)][0].tag_name' | \
               sed 's/^v//')
-            if [ -z "$OTEL_LATEST" ] || [ "$OTEL_LATEST" = "null" ]; then
+            if [[ -z "$OTEL_LATEST"  ||  "$OTEL_LATEST" = "null" ]]; then
               echo "❌ Failed to fetch OpenTelemetry agent latest version"
               exit 1
             fi
@@ -157,7 +157,7 @@ jobs:
 
           UPDATE_NEEDED=false
 
-          if [ "$CURRENT_MC_RUNNER" != "$TARGET_MC_RUNNER" ]; then
+          if [[ "$CURRENT_MC_RUNNER" != "$TARGET_MC_RUNNER" ]]; then
             echo "mc_runner_update=true" >> "$GITHUB_OUTPUT"
             UPDATE_NEEDED=true
             echo "⚠️ mc-server-runner update needed: $CURRENT_MC_RUNNER → $TARGET_MC_RUNNER"
@@ -166,7 +166,7 @@ jobs:
             echo "✅ mc-server-runner is up to date: $CURRENT_MC_RUNNER"
           fi
 
-          if [ "$CURRENT_RCON_CLI" != "$TARGET_RCON_CLI" ]; then
+          if [[ "$CURRENT_RCON_CLI" != "$TARGET_RCON_CLI" ]]; then
             echo "rcon_cli_update=true" >> "$GITHUB_OUTPUT"
             UPDATE_NEEDED=true
             echo "⚠️ rcon-cli update needed: $CURRENT_RCON_CLI → $TARGET_RCON_CLI"
@@ -175,7 +175,7 @@ jobs:
             echo "✅ rcon-cli is up to date: $CURRENT_RCON_CLI"
           fi
 
-          if [ "$CURRENT_MC_MONITOR" != "$TARGET_MC_MONITOR" ]; then
+          if [[ "$CURRENT_MC_MONITOR" != "$TARGET_MC_MONITOR" ]]; then
             echo "mc_monitor_update=true" >> "$GITHUB_OUTPUT"
             UPDATE_NEEDED=true
             echo "⚠️ mc-monitor update needed: $CURRENT_MC_MONITOR → $TARGET_MC_MONITOR"
@@ -184,7 +184,7 @@ jobs:
             echo "✅ mc-monitor is up to date: $CURRENT_MC_MONITOR"
           fi
 
-          if [ "$CURRENT_OTEL" != "$TARGET_OTEL" ]; then
+          if [[ "$CURRENT_OTEL" != "$TARGET_OTEL" ]]; then
             echo "otel_update=true" >> "$GITHUB_OUTPUT"
             UPDATE_NEEDED=true
             echo "⚠️ OpenTelemetry agent update needed: $CURRENT_OTEL → $TARGET_OTEL"
@@ -193,7 +193,7 @@ jobs:
             echo "✅ OpenTelemetry agent is up to date: $CURRENT_OTEL"
           fi
 
-          if [ "$UPDATE_NEEDED" = true ]; then
+          if [[ "$UPDATE_NEEDED" = true ]]; then
             echo "updates_needed=true" >> "$GITHUB_OUTPUT"
             echo "📝 Updates are needed"
           else
