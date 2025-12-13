@@ -91,7 +91,7 @@ jobs:
                 elif [[ "$current_ver" = "$latest" ]]; then
                   status="✅ Up-to-date"
                 elif [[ "$current_major" = "$latest_norm" ]] || \
-     [[ "$current_norm" = "$latest_major" ]]; then
+                     [[ "$current_norm" = "$latest_major" ]]; then
                   # Major-only version matches latest major (e.g., v4 = v4.1.0)
                   status="✅ Up-to-date"
                 else
