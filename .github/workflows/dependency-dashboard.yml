@@ -42,7 +42,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [ -d .github/workflows ]; then
+          if [[ -d .github/workflows ]]; then
             {
               echo "| Action | Current | Latest | Status |"
               echo "|--------|---------|--------|--------|"
@@ -62,7 +62,7 @@ jobs:
 
                 # Check rate limit periodically within loop
                 rate_limit=$(gh api rate_limit --jq '.resources.core.remaining' 2>/dev/null || echo "0")
-                if [ "$rate_limit" -lt 10 ]; then
+                if [[ "$rate_limit" -lt 10 ]]; then
                   printf "| \`%s\` | N/A | N/A | ⚠️ Rate limit low |\n" "$action" >> /tmp/actions_status.md
                   echo "Remaining actions skipped due to rate limit exhaustion." >> /tmp/actions_status.md
                   break
@@ -86,12 +86,12 @@ jobs:
                 latest_major=$(echo "$latest_norm" | cut -d'.' -f1)
 
                 # Determine status with improved version comparison
-                if [ "$latest" = "N/A" ]; then
+                if [[ "$latest" = "N/A" ]]; then
                   status="⚠️ API Error"
-                elif [ "$current_ver" = "$latest" ]; then
+                elif [[ "$current_ver" = "$latest" ]]; then
                   status="✅ Up-to-date"
-                elif [ "$current_major" = "$latest_norm" ] || \
-                     [ "$current_norm" = "$latest_major" ]; then
+                elif [[ "$current_major" = "$latest_norm" ]] || \
+                     [[ "$current_norm" = "$latest_major" ]]; then
                   # Major-only version matches latest major (e.g., v4 = v4.1.0)
                   status="✅ Up-to-date"
                 else
@@ -115,7 +115,7 @@ jobs:
             echo ""
           } > /tmp/docker_status.md
 
-          if [ -f Dockerfile ]; then
+          if [[ -f Dockerfile ]]; then
             FROM_LINE=$(grep '^FROM' Dockerfile | head -1)
 
             {

@@ -168,7 +168,7 @@ jobs:
       - name: Check for Dockerfile
         id: check_dockerfile
         run: |
-          if [ -f Dockerfile ]; then
+          if [[ -f Dockerfile ]]; then
             echo "has_dockerfile=true" >> "$GITHUB_OUTPUT"
           else
             echo "has_dockerfile=false" >> "$GITHUB_OUTPUT"
