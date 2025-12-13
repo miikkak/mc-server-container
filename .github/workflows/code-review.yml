@@ -296,7 +296,7 @@ jobs:
           echo "✅ Code review analysis complete"
 
       - name: Upload analysis reports
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: code-review-reports
           path: reports/
