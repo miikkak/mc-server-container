@@ -4,9 +4,21 @@ name: Lint
 on:  # yamllint disable-line rule:truthy
   push:
     branches: [main]
+    paths:
+      - '**.sh'
+      - '**.bash'
+      - '**.yml'
+      - '**.yaml'
+      - '**.py'
+      - '**.md'
+      - '.github/workflows/**'
   pull_request:
     types: [opened, reopened, synchronize, labeled]
     branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -16,6 +28,7 @@ jobs:
   super-lint:
     name: Super-Linter
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     # Label-gated: only run if ci/ready label OR push to main
     if: |
       github.event_name == 'push' ||

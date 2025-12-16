@@ -13,6 +13,7 @@ jobs:
   auto-release:
     name: Auto Release on PR Merge
     runs-on: ubuntu-slim
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
         with:
