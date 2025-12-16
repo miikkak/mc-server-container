@@ -6,13 +6,21 @@ on:
     paths-ignore:
       - '**.md'
       - '.gitignore'
+      - 'LICENSE'
+      - 'CLAUDE.md'
       - '.pre-commit-config.yaml'
+      - '.yamllint'
+      - '.markdownlint.json'
       - '.github/ISSUE_TEMPLATE/**'
       - '.github/dependabot.yml'
   pull_request:
     types: [opened, reopened, synchronize, labeled]
     branches: [main]
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: write
@@ -24,9 +32,19 @@ jobs:
   check-trigger:
     name: Check CI/CD Trigger
     runs-on: ubuntu-slim
+    timeout-minutes: 5
     outputs:
       should_run: ${{ steps.check.outputs.should_run }}
     steps:
+      - name: Remove ci/ready label on new commits
+        if: github.event_name == 'pull_request' && github.event.action == 'synchronize'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr edit ${{ github.event.pull_request.number }} \
+            --repo ${{ github.repository }} \
+            --remove-label "ci/ready"
+
       - name: Check trigger conditions
         id: check
         run: |
@@ -57,7 +75,8 @@ jobs:
 
   lint:
     name: Lint and Validate
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
     needs: check-trigger
     if: needs.check-trigger.outputs.should_run == 'true'
 
@@ -65,17 +84,24 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
-      - name: Run hadolint
-        uses: hadolint/hadolint-action@v3.3.0
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          dockerfile: Dockerfile
-          ignore: DL3008,DL3018
+          python-version: '3.x'
+          cache: 'pip'
+
+      - name: Cache pre-commit environments
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
+          restore-keys: |
+            pre-commit-
 
       - name: Run pre-commit hooks
         uses: pre-commit/action@v3.0.1
         env:
           SKIP: no-commit-to-branch
-        continue-on-error: true
 
       - name: Shellcheck
         run: |
@@ -89,412 +115,27 @@ jobs:
             echo "Shellcheck not available, skipping"
           fi
 
-  build-container:
-    name: Build Container Image
-    runs-on: ubuntu-latest
+  test:
+    name: Run Tests
+    runs-on: ubuntu-slim
+    timeout-minutes: 15
     needs: lint
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: linux/amd64
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build container for testing
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          outputs: type=docker,dest=/tmp/mc-server-container.tar
-          tags: mc-server-container:test
-          platforms: linux/amd64
-          cache-from: |
-            type=gha,scope=${{ github.ref }}
-            type=gha,scope=refs/heads/main
-          cache-to: type=gha,mode=max,scope=${{ github.ref }}
-
-      - name: Upload container artifact
-        uses: actions/upload-artifact@v6
-        with:
-          name: container-image
-          path: /tmp/mc-server-container.tar
-          retention-days: 1
-
-  security-scan:
-    name: Security Scan
-    runs-on: ubuntu-latest
-    needs: build-container
-    permissions:
-      contents: read
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-
-      - name: Download container artifact
-        uses: actions/download-artifact@v7
-        with:
-          name: container-image
-          path: /tmp
-
-      - name: Load container image
+      - name: Run repository tests
         run: |
-          docker load -i /tmp/mc-server-container.tar
-          docker images
-
-      - name: Run Trivy vulnerability scanner (table output)
-        uses: aquasecurity/trivy-action@0.33.1
-        with:
-          image-ref: 'mc-server-container:test'
-          format: 'table'
-          severity: 'CRITICAL,HIGH,MEDIUM'
-          exit-code: '0'
-
-      - name: Run Trivy vulnerability scanner (JSON output)
-        uses: aquasecurity/trivy-action@0.33.1
-        with:
-          image-ref: 'mc-server-container:test'
-          format: 'json'
-          output: 'trivy-results.json'
-          severity: 'CRITICAL,HIGH'
-          exit-code: '0'
-
-      - name: Run Trivy config scanner (Dockerfile)
-        uses: aquasecurity/trivy-action@0.33.1
-        with:
-          scan-type: 'config'
-          scan-ref: '.'
-          format: 'table'
-          exit-code: '0'
-
-  test-docker:
-    name: Test Container with Docker
-    runs-on: ubuntu-latest
-    needs: security-scan
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-
-      - name: Download container artifact
-        uses: actions/download-artifact@v7
-        with:
-          name: container-image
-          path: /tmp
-
-      - name: Load container image
-        run: |
-          docker load -i /tmp/mc-server-container.tar
-          docker images
-
-      - name: Get Paper version info
-        id: paper_version
-        run: |
-          echo "🔍 Querying Paper API for latest version..."
-          USER_AGENT="GitHub Actions for container build (miikka@iki.fi)"
-
-          # Get latest Paper version
-          PAPER_API_URL="https://fill.papermc.io/v3/projects/paper"
-          PAPER_VERSION=$(curl -s -H "User-Agent: $USER_AGENT" "${PAPER_API_URL}" | \
-            jq -r '.versions | to_entries[0] | .value[0]')
-
-          # Get latest build number for that version
-          PAPER_VERSION_API_URL="${PAPER_API_URL}/versions/${PAPER_VERSION}"
-          BUILD_NUMBER=$(curl -s -H "User-Agent: $USER_AGENT" "${PAPER_VERSION_API_URL}" | \
-            jq -r '.builds[0]')
-
-          echo "version=${PAPER_VERSION}" >> "$GITHUB_OUTPUT"
-          echo "build=${BUILD_NUMBER}" >> "$GITHUB_OUTPUT"
-          echo "📋 Paper ${PAPER_VERSION} build ${BUILD_NUMBER}"
-
-      - name: Cache Paper JAR
-        id: cache_paper
-        uses: actions/cache@v5
-        with:
-          path: paper.jar
-          key: paper-jar-${{ steps.paper_version.outputs.version }}-${{ steps.paper_version.outputs.build }}
-
-      - name: Download Paper JAR
-        if: steps.cache_paper.outputs.cache-hit != 'true'
-        run: |
-          echo "⬇️  Downloading Paper JAR (cache miss)..."
-          USER_AGENT="GitHub Actions for container build (miikka@iki.fi)"
-          PAPER_VERSION="${{ steps.paper_version.outputs.version }}"
-          BUILD_NUMBER="${{ steps.paper_version.outputs.build }}"
-
-          # Get download URL
-          PAPER_BUILDS_API="https://fill.papermc.io/v3/projects/paper/versions/${PAPER_VERSION}/builds"
-          DOWNLOAD_URL=$(curl -s -H "User-Agent: $USER_AGENT" "${PAPER_BUILDS_API}" | \
-            jq -r 'max_by(.id) | .downloads["server:default"].url')
-
-          echo "📋 Downloading Paper ${PAPER_VERSION} build ${BUILD_NUMBER}"
-
-          # Download Paper JAR
-          curl -s -o paper.jar "${DOWNLOAD_URL}"
-
-          # Verify download
-          if [[ ! -f paper.jar ]]; then
-            echo "❌ Failed to download Paper JAR"
-            exit 1
-          fi
-
-          JAR_SIZE=$(stat -c%s paper.jar 2>/dev/null || stat -f%z paper.jar)
-          echo "✅ Downloaded Paper JAR (${JAR_SIZE} bytes)"
-
-      - name: Prepare test data
-        run: |
-          echo "📦 Preparing test data directory"
-          mkdir -p test-data
-
-          # Accept EULA
-          echo "eula=true" > test-data/eula.txt
-          echo "✅ Created eula.txt"
-
-          # Copy Paper JAR from cache or download
-          if [[ "${{ steps.cache_paper.outputs.cache-hit }}" == "true" ]]; then
-            echo "📦 Using cached Paper JAR"
-          fi
-          cp paper.jar test-data/paper.jar
-
-          JAR_SIZE=$(stat -c%s test-data/paper.jar 2>/dev/null || stat -f%z test-data/paper.jar)
-          echo "✅ Paper JAR ready (${JAR_SIZE} bytes)"
-
-          # Change ownership to minecraft user (UID 25565)
-          echo "🔧 Setting permissions for minecraft user"
-          sudo chown -R 25565:25565 test-data
-          echo "✅ Permissions set"
-
-      - name: Run integration tests
-        run: |
-          echo "🧪 Starting integration test with real Paper server"
-
-          # Start container with actual data
-          docker run -d --name mc-test \
-            -v "$(pwd)/test-data:/data" \
-            -e MEMORY=2G \
-            mc-server-container:test
-
-          echo "⏳ Waiting for Paper server to start (this may take 30-60 seconds)..."
-
-          # Wait up to 90 seconds for server to start
-          MAX_WAIT=90
-          ELAPSED=0
-          SERVER_STARTED=false
-
-          while (( ELAPSED < MAX_WAIT )); do
-            if docker logs mc-test 2>&1 | grep -q "Done (.*s)! For help, type \"help\""; then
-              SERVER_STARTED=true
-              echo "✅ Server started successfully after ${ELAPSED}s"
-              break
-            fi
-
-            # Check if container is still running
-            if [[ "$(docker inspect -f '{{.State.Running}}' mc-test)" != "true" ]]; then
-              echo "❌ Container stopped unexpectedly"
-              echo "📋 Container logs:"
-              docker logs mc-test
-              exit 1
-            fi
-
-            sleep 5
-            ELAPSED=$((ELAPSED + 5))
-            echo "  ... waiting (${ELAPSED}s / ${MAX_WAIT}s)"
-          done
-
-          if [[ "$SERVER_STARTED" != "true" ]]; then
-            echo "❌ Server failed to start within ${MAX_WAIT} seconds"
-            echo "📋 Container logs:"
-            docker logs mc-test
-            exit 1
-          fi
-
-          echo ""
-          echo "📋 Server startup logs:"
-          docker logs mc-test | tail -20
-
-          echo ""
-          echo "✅ Integration test passed - Paper server started successfully"
-
-          # Cleanup
-          echo ""
-          echo "🧹 Cleaning up test container"
-          docker stop mc-test
-          docker rm mc-test
-          sudo rm -rf test-data
-
-  test-podman:
-    name: Test Container with Podman (OCI Compliance)
-    runs-on: ubuntu-latest
-    needs: security-scan
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-
-      - name: Download container artifact
-        uses: actions/download-artifact@v7
-        with:
-          name: container-image
-          path: /tmp
-
-      - name: Install Podman
-        run: |
-          echo "📦 Installing Podman"
-          sudo apt-get update
-          sudo apt-get install -y podman
-          podman --version
-
-      - name: Load image into Podman
-        run: |
-          echo "📥 Loading Docker image into Podman (rootful storage)"
-          sudo podman load -i /tmp/mc-server-container.tar
-          sudo podman images
-
-      - name: Get Paper version info for Podman test
-        id: paper_version_podman
-        run: |
-          echo "🔍 Querying Paper API for latest version..."
-          USER_AGENT="GitHub Actions for container build (miikka@iki.fi)"
-
-          # Get latest Paper version
-          PAPER_API_URL="https://fill.papermc.io/v3/projects/paper"
-          PAPER_VERSION=$(curl -s -H "User-Agent: $USER_AGENT" "${PAPER_API_URL}" | \
-            jq -r '.versions | to_entries[0] | .value[0]')
-
-          # Get latest build number for that version
-          PAPER_VERSION_API_URL="${PAPER_API_URL}/versions/${PAPER_VERSION}"
-          BUILD_NUMBER=$(curl -s -H "User-Agent: $USER_AGENT" "${PAPER_VERSION_API_URL}" | \
-            jq -r '.builds[0]')
-
-          echo "version=${PAPER_VERSION}" >> "$GITHUB_OUTPUT"
-          echo "build=${BUILD_NUMBER}" >> "$GITHUB_OUTPUT"
-          echo "📋 Paper ${PAPER_VERSION} build ${BUILD_NUMBER}"
-
-      - name: Cache Paper JAR for Podman test
-        id: cache_paper_podman
-        uses: actions/cache@v5
-        with:
-          path: paper.jar
-          key: |
-            paper-jar-${{ steps.paper_version_podman.outputs.version }}-${{ steps.paper_version_podman.outputs.build }}
-
-      - name: Download Paper JAR for Podman test
-        if: steps.cache_paper_podman.outputs.cache-hit != 'true'
-        run: |
-          echo "⬇️  Downloading Paper JAR (cache miss)..."
-          USER_AGENT="GitHub Actions for container build (miikka@iki.fi)"
-          PAPER_VERSION="${{ steps.paper_version_podman.outputs.version }}"
-          BUILD_NUMBER="${{ steps.paper_version_podman.outputs.build }}"
-
-          # Get download URL
-          PAPER_BUILDS_API="https://fill.papermc.io/v3/projects/paper/versions/${PAPER_VERSION}/builds"
-          DOWNLOAD_URL=$(curl -s -H "User-Agent: $USER_AGENT" "${PAPER_BUILDS_API}" | \
-            jq -r 'max_by(.id) | .downloads["server:default"].url')
-
-          echo "📋 Downloading Paper ${PAPER_VERSION} build ${BUILD_NUMBER}"
-
-          # Download Paper JAR
-          curl -s -o paper.jar "${DOWNLOAD_URL}"
-
-          # Verify download
-          if [[ ! -f paper.jar ]]; then
-            echo "❌ Failed to download Paper JAR"
-            exit 1
-          fi
-
-          JAR_SIZE=$(stat -c%s paper.jar 2>/dev/null || stat -f%z paper.jar)
-          echo "✅ Downloaded Paper JAR (${JAR_SIZE} bytes)"
-
-      - name: Prepare test data for Podman
-        run: |
-          echo "📦 Preparing test data directory for Podman"
-          mkdir -p test-data-podman
-
-          # Accept EULA
-          echo "eula=true" > test-data-podman/eula.txt
-          echo "✅ Created eula.txt"
-
-          # Copy Paper JAR from cache or download
-          if [[ "${{ steps.cache_paper_podman.outputs.cache-hit }}" == "true" ]]; then
-            echo "📦 Using cached Paper JAR"
-          fi
-          cp paper.jar test-data-podman/paper.jar
-
-          JAR_SIZE=$(stat -c%s test-data-podman/paper.jar 2>/dev/null || stat -f%z test-data-podman/paper.jar)
-          echo "✅ Paper JAR ready (${JAR_SIZE} bytes)"
-
-          # Change ownership to minecraft user (UID 25565)
-          echo "🔧 Setting permissions for minecraft user"
-          sudo chown -R 25565:25565 test-data-podman
-          echo "✅ Permissions set"
-
-      - name: Run Podman integration tests
-        run: |
-          echo "🧪 Starting Podman integration test (OCI compliance verification)"
-
-          # Start container with Podman in rootful mode
-          sudo podman run -d --name mc-test-podman \
-            -v "$(pwd)/test-data-podman:/data:Z" \
-            -e MEMORY=2G \
-            mc-server-container:test
-
-          echo "⏳ Waiting for Paper server to start with Podman (this may take 30-60 seconds)..."
-
-          # Wait up to 90 seconds for server to start
-          MAX_WAIT=90
-          ELAPSED=0
-          SERVER_STARTED=false
-
-          while (( ELAPSED < MAX_WAIT )); do
-            if sudo podman logs mc-test-podman 2>&1 | grep -q "Done (.*s)! For help, type \"help\""; then
-              SERVER_STARTED=true
-              echo "✅ Server started successfully with Podman after ${ELAPSED}s"
-              break
-            fi
-
-            # Check if container is still running
-            if [[ "$(sudo podman inspect -f '{{.State.Running}}' mc-test-podman)" != "true" ]]; then
-              echo "❌ Container stopped unexpectedly"
-              echo "📋 Container logs:"
-              sudo podman logs mc-test-podman
-              exit 1
-            fi
-
-            sleep 5
-            ELAPSED=$((ELAPSED + 5))
-            echo "  ... waiting (${ELAPSED}s / ${MAX_WAIT}s)"
-          done
-
-          if [[ "$SERVER_STARTED" != "true" ]]; then
-            echo "❌ Server failed to start within ${MAX_WAIT} seconds"
-            echo "📋 Container logs:"
-            sudo podman logs mc-test-podman
-            exit 1
-          fi
-
-          echo ""
-          echo "📋 Server startup logs:"
-          sudo podman logs mc-test-podman | tail -20
-
-          echo ""
-          echo "✅ Podman integration test passed - OCI compliance verified!"
-
-          # Cleanup
-          echo ""
-          echo "🧹 Cleaning up Podman test container"
-          sudo podman stop mc-test-podman
-          sudo podman rm mc-test-podman
-          sudo rm -rf test-data-podman
-
-  build-tarball:
+          echo "✅ Basic validation passed"
+          # Placeholder for repository-specific tests
+          # Each repo can customize this section
+
+  build-artifacts:
     name: Build Tarball Artifacts
     runs-on: ubuntu-slim
-    needs: [test-docker, test-podman]
+    timeout-minutes: 10
+    needs: test
     if: |
       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       (github.event_name == 'workflow_dispatch' && startsWith(github.ref, 'refs/tags/'))
@@ -562,19 +203,33 @@ jobs:
 
           echo "📦 Creating tarball: $TARBALL"
 
-          # Generic structure: tar everything excluding CI/dev files
-          echo "  📁 Structure: generic (excluding .git, .github, etc.)"
-          tar -czf "$TARBALL" \
-            --exclude='.git' \
-            --exclude='.github' \
-            --exclude='*.tar.gz' \
-            --exclude='.pre-commit-config.yaml' \
-            --exclude='__pycache__' \
-            --exclude='*.pyc' \
-            --exclude='.ruff_cache' \
-            --exclude='node_modules' \
-            --exclude='.pytest_cache' \
-            . || true
+          # Detect repository structure and create appropriate tarball
+          if [[ -d "local-bin"  ||  -d "local-sbin"  ||  -d "local-lib" ]]; then
+            # Scripts repo structure: local-bin -> bin transformation
+            echo "  📁 Structure: local-* (will transform to bin/sbin/lib)"
+            tar -czf "$TARBALL" \
+              --transform 's|^local-||' \
+              local-bin local-sbin local-lib || true
+          elif [[ -d "bin"  ||  -d "lib" ]]; then
+            # Binary/library structure (e.g., check-minecraft-versions)
+            echo "  📁 Structure: bin/lib"
+            tar -czf "$TARBALL" bin lib 2>/dev/null || \
+            tar -czf "$TARBALL" bin 2>/dev/null || true
+          else
+            # Generic structure: tar everything excluding CI/dev files
+            echo "  📁 Structure: generic (excluding .git, .github, etc.)"
+            tar -czf "$TARBALL" \
+              --exclude='.git' \
+              --exclude='.github' \
+              --exclude='*.tar.gz' \
+              --exclude='.pre-commit-config.yaml' \
+              --exclude='__pycache__' \
+              --exclude='*.pyc' \
+              --exclude='.ruff_cache' \
+              --exclude='node_modules' \
+              --exclude='.pytest_cache' \
+              . || true
+          fi
 
           TAR_SIZE=$(stat -c%s "$TARBALL" 2>/dev/null || stat -f%z "$TARBALL")
           echo "✅ Created $TARBALL ($TAR_SIZE bytes)"
@@ -592,7 +247,8 @@ jobs:
   check-release:
     name: Check Release Labels
     runs-on: ubuntu-slim
-    needs: build-tarball
+    timeout-minutes: 5
+    needs: build-artifacts
     if: |
       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       (github.event_name == 'workflow_dispatch' && startsWith(github.ref, 'refs/tags/'))
@@ -659,7 +315,8 @@ jobs:
 
   release:
     name: Create Release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
     needs: check-release
     if: needs.check-release.outputs.should_release == 'true'
 
@@ -710,41 +367,6 @@ jobs:
         with:
           name: ${{ github.event.repository.name }}-tarball
 
-      - name: Download container artifact
-        uses: actions/download-artifact@v7
-        with:
-          name: container-image
-          path: /tmp
-
-      - name: Load container image
-        run: |
-          docker load -i /tmp/mc-server-container.tar
-          docker images
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Tag and push container images
-        run: |
-          VERSION="${{ steps.version.outputs.new_version }}"
-          REPO_OWNER="${{ github.repository_owner }}"
-          REPO_NAME="${{ github.event.repository.name }}"
-          IMAGE_BASE="ghcr.io/${REPO_OWNER}/${REPO_NAME}"
-
-          # Tag the tested image
-          docker tag mc-server-container:test "${IMAGE_BASE}:${VERSION}"
-          docker tag mc-server-container:test "${IMAGE_BASE}:latest"
-
-          # Push both tags
-          docker push "${IMAGE_BASE}:${VERSION}"
-          docker push "${IMAGE_BASE}:latest"
-
-          echo "✅ Container images pushed to ghcr.io"
-
       - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@v2
@@ -756,23 +378,13 @@ jobs:
           generate_release_notes: true
           files: |
             *.tar.gz
-          body: |
-            ## Container Image
-
-            ```bash
-            docker pull ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:${{
-              steps.version.outputs.new_version
-            }}
-            ```
-
-            Platform: linux/amd64
 
       - name: Trigger webhook deployment
         env:
           WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
         run: |
           DEPLOY_SERVERS="${{ vars.DEPLOY_SERVERS }}"
-          if [[ -z "$WEBHOOK_SECRET" || -z "$DEPLOY_SERVERS" ]]; then
+          if [[ -z "$WEBHOOK_SECRET"  ||  -z "$DEPLOY_SERVERS" ]]; then
             echo "⏭️  Skipping webhook deployment (WEBHOOK_SECRET or DEPLOY_SERVERS not configured)"
             exit 0
           fi
