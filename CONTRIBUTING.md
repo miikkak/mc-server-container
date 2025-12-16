@@ -11,6 +11,28 @@ Thank you for considering contributing to this project! We welcome contributions
 5. Test your changes
 6. Submit a pull request
 
+## Forking this Repository
+
+If you're creating your own fork of this project, you'll need to update repository-specific references:
+
+### Files to Update
+
+1. **`.github/dependabot.yml`** (lines 23, 42)
+   - Update `reviewers: - "miikkak"` to your GitHub username
+
+2. **`.github/ISSUE_TEMPLATE/config.yml`** (line 4)
+   - Update URL: `https://github.com/miikkak/mc-server-container/discussions`
+   - Change to: `https://github.com/YOUR-USERNAME/YOUR-REPO-NAME/discussions`
+
+3. **`CONTRIBUTING.md`** (line 154)
+   - Update the GitHub Discussions URL to point to your fork
+
+4. **`SECURITY.md`** (line 24)
+   - Update URL: `https://github.com/miikkak/mc-server-container/security/advisories/new`
+   - Change to: `https://github.com/YOUR-USERNAME/YOUR-REPO-NAME/security/advisories/new`
+
+These references are intentionally hardcoded as they point to the canonical repository. After forking, update them to point to your fork's location.
+
 ## Development Requirements
 
 - Bash 5+
