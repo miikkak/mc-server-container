@@ -247,13 +247,16 @@ jobs:
         id: check_image
         run: |
           # Extract current base image
-          CURRENT_IMAGE=$(grep '^FROM container-registry.oracle.com/graalvm/jdk:' Dockerfile | head -1 | awk '{print $2}')
+          CURRENT_IMAGE=$(
+            grep '^FROM container-registry.oracle.com/graalvm/jdk:' \
+            Dockerfile | head -1 | awk '{print $2}'
+          )
           echo "current=$CURRENT_IMAGE" >> "$GITHUB_OUTPUT"
           echo "📦 Current base image: $CURRENT_IMAGE"
 
           # Read the last known digest from stored file
           if [[ -f "$DIGEST_FILE" ]]; then
-            STORED_DIGEST=$(cat "$DIGEST_FILE" | tr -d '[:space:]')
+            STORED_DIGEST=$(tr -d '[:space:]' < "$DIGEST_FILE")
             echo "📦 Stored digest: $STORED_DIGEST"
           else
             STORED_DIGEST="unknown"

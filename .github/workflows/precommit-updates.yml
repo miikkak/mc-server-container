@@ -35,6 +35,15 @@ jobs:
           restore-keys: |
             pre-commit-
 
+      - name: Install hadolint
+        run: |
+          HADOLINT_VERSION="2.12.0"
+          wget -qO /tmp/hadolint \
+            "https://github.com/hadolint/hadolint/releases/download/v${HADOLINT_VERSION}/hadolint-Linux-x86_64"
+          chmod +x /tmp/hadolint
+          sudo mv /tmp/hadolint /usr/local/bin/hadolint
+          hadolint --version
+
       - name: Install pre-commit
         run: |
           pip install -r requirements.txt
