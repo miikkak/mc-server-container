@@ -91,7 +91,7 @@ jobs:
 
   build-container:
     name: Build Container Image
-    runs-on: ubuntu-slim
+    runs-on: ubuntu-latest
     needs: lint
 
     steps:
@@ -127,7 +127,7 @@ jobs:
 
   security-scan:
     name: Security Scan
-    runs-on: ubuntu-slim
+    runs-on: ubuntu-latest
     needs: build-container
     permissions:
       contents: read
@@ -174,7 +174,7 @@ jobs:
 
   test-docker:
     name: Test Container with Docker
-    runs-on: ubuntu-slim
+    runs-on: ubuntu-latest
     needs: security-scan
 
     steps:
@@ -329,7 +329,7 @@ jobs:
 
   test-podman:
     name: Test Container with Podman (OCI Compliance)
-    runs-on: ubuntu-slim
+    runs-on: ubuntu-latest
     needs: security-scan
 
     steps:
@@ -659,7 +659,7 @@ jobs:
 
   release:
     name: Create Release
-    runs-on: ubuntu-slim
+    runs-on: ubuntu-latest
     needs: check-release
     if: needs.check-release.outputs.should_release == 'true'
 
