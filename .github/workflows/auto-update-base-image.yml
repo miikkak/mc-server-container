@@ -34,7 +34,7 @@ jobs:
         id: current
         run: |
           if [[ -f "$DIGEST_FILE" ]]; then
-            CURRENT_DIGEST=$(cat "$DIGEST_FILE" | tr -d '[:space:]')
+            CURRENT_DIGEST=$(tr -d '[:space:]' < "$DIGEST_FILE")
           else
             CURRENT_DIGEST="unknown"
           fi

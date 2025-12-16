@@ -60,7 +60,8 @@ jobs:
           MC_MONITOR_VERSION=$(grep 'ARG MC_MONITOR_VERSION=' Dockerfile | cut -d'=' -f2)
           OTEL_VERSION=$(grep 'ARG OTEL_VERSION=' Dockerfile | cut -d'=' -f2)
 
-          if [[ -z "$MC_RUNNER_VERSION"  ||  -z "$RCON_CLI_VERSION"  ||  -z "$MC_MONITOR_VERSION"  ||  -z "$OTEL_VERSION" ]]; then
+          if [[ -z "$MC_RUNNER_VERSION" || -z "$RCON_CLI_VERSION" || \
+                -z "$MC_MONITOR_VERSION" || -z "$OTEL_VERSION" ]]; then
             echo "❌ Failed to extract versions from Dockerfile"
             exit 1
           fi
@@ -204,8 +205,10 @@ jobs:
       - name: Debug authenticated user for PAT
         if: steps.check.outputs.updates_needed == 'true'
         run: |
-          echo "Checking authenticated user for PULL_REQUEST_TOKEN (will not reveal token)"
-          curl -fsSL -H "Authorization: token ${{ secrets.PULL_REQUEST_TOKEN }}" https://api.github.com/user | jq -r '.login, .id'
+          TOKEN="${{ secrets.PULL_REQUEST_TOKEN }}"
+          echo "Checking authenticated user for PULL_REQUEST_TOKEN"
+          curl -fsSL -H "Authorization: token $TOKEN" \
+            https://api.github.com/user | jq -r '.login, .id'
 
       - name: Create PR with updates
         if: steps.check.outputs.updates_needed == 'true'
@@ -356,21 +359,21 @@ jobs:
 
               let releaseLinks = [];
               if (mcRunnerUpdate) {
-                releaseLinks.push(
-                  `- [mc-server-runner ${targetMcRunner}](https://github.com/itzg/mc-server-runner/releases/tag/${targetMcRunner})`
-                );
+                const url = `https://github.com/itzg/mc-server-runner/releases/tag/${targetMcRunner}`;
+                releaseLinks.push(`- [mc-server-runner ${targetMcRunner}](${url})`);
               }
               if (rconCliUpdate) {
-                releaseLinks.push(`- [rcon-cli ${targetRconCli}](https://github.com/itzg/rcon-cli/releases/tag/${targetRconCli})`);
+                const url = `https://github.com/itzg/rcon-cli/releases/tag/${targetRconCli}`;
+                releaseLinks.push(`- [rcon-cli ${targetRconCli}](${url})`);
               }
               if (mcMonitorUpdate) {
-                releaseLinks.push(`- [mc-monitor ${targetMcMonitor}](https://github.com/itzg/mc-monitor/releases/tag/${targetMcMonitor})`);
+                const url = `https://github.com/itzg/mc-monitor/releases/tag/${targetMcMonitor}`;
+                releaseLinks.push(`- [mc-monitor ${targetMcMonitor}](${url})`);
               }
               if (otelUpdate) {
-                releaseLinks.push(
-                  `- [OpenTelemetry Java agent v${targetOtel}]` +
-                  `(https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/tag/v${targetOtel})`
-                );
+                const url = 'https://github.com/open-telemetry/' +
+                  `opentelemetry-java-instrumentation/releases/tag/v${targetOtel}`;
+                releaseLinks.push(`- [OpenTelemetry Java agent v${targetOtel}](${url})`);
               }
 
               const prBody = [
@@ -438,11 +441,13 @@ jobs:
 
               for (const issue of issues.data) {
                 if (issue.title.includes('Binary dependency updates available')) {
+                  const commentBody = `Automated PR created: #${pr.number}\n\n` +
+                    'Closing this issue as the updates are now in progress.';
                   await github.rest.issues.createComment({
                     owner: context.repo.owner,
                     repo: context.repo.repo,
                     issue_number: issue.number,
-                    body: `Automated PR created: #${pr.number}\n\nClosing this issue as the updates are now in progress.`
+                    body: commentBody
                   });
 
                   await github.rest.issues.update({
