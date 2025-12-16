@@ -13,7 +13,7 @@ permissions:
 jobs:
   code-review:
     name: Automated Code Review
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     steps:
       - uses: actions/checkout@v6
 

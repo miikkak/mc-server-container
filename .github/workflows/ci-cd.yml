@@ -57,7 +57,7 @@ jobs:
 
   lint:
     name: Lint and Validate
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     needs: check-trigger
     if: needs.check-trigger.outputs.should_run == 'true'
 
@@ -91,7 +91,7 @@ jobs:
 
   build-container:
     name: Build Container Image
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     needs: lint
 
     steps:
@@ -127,7 +127,7 @@ jobs:
 
   security-scan:
     name: Security Scan
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     needs: build-container
     permissions:
       contents: read
@@ -174,7 +174,7 @@ jobs:
 
   test-docker:
     name: Test Container with Docker
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     needs: security-scan
 
     steps:
@@ -329,7 +329,7 @@ jobs:
 
   test-podman:
     name: Test Container with Podman (OCI Compliance)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     needs: security-scan
 
     steps:
@@ -659,7 +659,7 @@ jobs:
 
   release:
     name: Create Release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     needs: check-release
     if: needs.check-release.outputs.should_release == 'true'
 
