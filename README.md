@@ -1,7 +1,9 @@
 # Custom Minecraft Server Container
 
 A minimal, controlled Minecraft server container with a custom solution using
- [mc-server-runner](https://github.com/itzg/mc-server-runner).
+ [mc-server-runner](https://github.com/itzg/mc-server-runner),
+ [mc-monitor](https://github.com/itzg/mc-monitor) and
+ [rcon-cli](https://github.com/itzg/rcon-cli).
 
 ## Why This Container?
 
@@ -41,6 +43,8 @@ This container focuses on **JVM configuration only**. Minecraft-specific setting
 ## Credits
 
 - [mc-server-runner](https://github.com/itzg/mc-server-runner) - Process supervision
+- [mc-monitor](https://github.com/itzg/mc-monitor) - Minecraft monitoring
 - [rcon-cli](https://github.com/itzg/rcon-cli) - RCON client
 - [Meowice flags](https://github.com/Meowice/Minecraft-Server-Startup-Flags) - JVM optimization
 - [Paper](https://papermc.io/) - High-performance Minecraft server
+- [Velocity](https://papermc.io/software/velocity/) - High-performance Minecraft proxy
