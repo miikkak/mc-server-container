@@ -1,3 +1,51 @@
+# Editor files
 *.swp
 *~
+.vscode/
+.idea/
+*.iml
+*.code-workspace
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Build and test artifacts
 reports/
+*.tar.gz
+*.zip
+dist/
+build/
+
+# Docker/Podman
+*.tar
+docker-compose.override.yml
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+*.egg-info/
+.venv/
+venv/
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.bak
+*.backup
+*~.nib
+
+# Environment files (if any get added in future)
+.env
+.env.local
+.env.*.local
