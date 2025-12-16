@@ -49,3 +49,9 @@ logs/
 .env
 .env.local
 .env.*.local
+
+# Example data directories (from examples/)
+minecraft-data/
+velocity-data/
+survival-data/
+creative-data/

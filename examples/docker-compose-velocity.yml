@@ -1,0 +1,47 @@
+# Example Docker Compose configuration for Velocity Proxy Container
+# Copy this file and adjust values as needed
+
+services:
+  velocity:
+    # Use a specific version tag for production
+    image: ghcr.io/miikkak/mc-server-container:latest
+    container_name: velocity
+
+    # Restart policy
+    restart: unless-stopped
+
+    # Port mappings
+    ports:
+      - "25565:25565/tcp"  # Velocity proxy
+
+    # Volume mounts
+    # The container expects Velocity JAR and configuration in /data
+    volumes:
+      - ./velocity-data:/data
+
+    # Environment variables
+    environment:
+      # Memory allocation (Velocity typically needs less than Paper)
+      MEMORY: "2G"
+
+      # Optional: Disable ZGC to use G1GC instead
+      # DISABLE_VELOCITY_ZGC: "true"
+
+      # Optional: Disable GraalVM optimizations
+      # DISABLE_VELOCITY_GRAALVM_FLAGS: "false"
+
+      # Optional: Graceful shutdown configuration
+      # STOP_DURATION: "60s"
+
+    # Enable terminal features for colored output
+    stdin_open: true
+    tty: true
+
+    # Optional: Resource limits
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: '2'
+    #       memory: 4G
+    #     reservations:
+    #       memory: 2G
