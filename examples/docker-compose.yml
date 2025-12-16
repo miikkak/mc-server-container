@@ -1,0 +1,60 @@
+# Example Docker Compose configuration for Minecraft Server Container
+# Copy this file and adjust values as needed
+
+services:
+  minecraft:
+    # Use a specific version tag for production
+    image: ghcr.io/miikkak/mc-server-container:latest
+    container_name: minecraft
+
+    # Restart policy
+    restart: unless-stopped
+
+    # Port mappings
+    ports:
+      - "25565:25565/tcp"  # Minecraft server
+      - "25565:25565/udp"  # Minecraft server (UDP for some features)
+      - "25575:25575/tcp"  # RCON (optional, remove if not using RCON)
+
+    # Volume mounts
+    # The container expects Paper/Velocity JAR and configuration in /data
+    volumes:
+      - ./minecraft-data:/data
+
+    # Environment variables
+    environment:
+      # Memory allocation (adjust based on your needs)
+      MEMORY: "4G"
+
+      # Optional: Graceful shutdown configuration
+      # STOP_DURATION: "120s"
+      # STOP_SERVER_ANNOUNCE_DELAY: "30s"
+
+      # Optional: Disable specific optimizations for troubleshooting
+      # DISABLE_MEOWICE_FLAGS: "false"
+      # DISABLE_MEOWICE_GRAALVM_FLAGS: "false"
+
+      # Optional: OpenTelemetry configuration
+      # DISABLE_OTEL_AGENT: "true"
+      # OTEL_JAVAAGENT_CONFIGURATION_FILE: "/data/otel-config.properties"
+
+    # Enable terminal features for colored output
+    stdin_open: true
+    tty: true
+
+    # Optional: Resource limits
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: '4'
+    #       memory: 8G
+    #     reservations:
+    #       memory: 4G
+
+    # Optional: Health check override
+    # healthcheck:
+    #   test: ["/usr/local/bin/mc-health.sh"]
+    #   interval: 30s
+    #   timeout: 15s
+    #   start_period: 90s
+    #   retries: 3
