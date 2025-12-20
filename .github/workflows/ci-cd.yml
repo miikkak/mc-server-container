@@ -140,14 +140,74 @@ jobs:
           # Placeholder for repository-specific tests
           # Each repo can customize this section
 
+  semantic-release:
+    name: Semantic Release
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.PULL_REQUEST_TOKEN }}  # Needed to push CHANGELOG
+
+      - name: Check for release label
+        id: check_label
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Get the PR number from the merge commit
+          PR_NUMBER=$(
+            gh pr list \
+              --state merged \
+              --json number,mergeCommit \
+              --jq ".[] | select(.mergeCommit.oid == \"${{ github.sha }}\") | .number"
+          )
+
+          if [[ -z "$PR_NUMBER" ]]; then
+            echo "ℹ️  Not a PR merge commit, skipping release"
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Get PR labels
+          LABELS=$(gh pr view "$PR_NUMBER" --json labels --jq '.labels[].name')
+
+          # Check for any release:* label
+          if echo "$LABELS" | grep -q "^release:"; then
+            echo "✅ Release label found - proceeding with semantic-release"
+            echo "should_release=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ℹ️  No release label found - skipping release"
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Node.js
+        if: steps.check_label.outputs.should_release == 'true'
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        if: steps.check_label.outputs.should_release == 'true'
+        run: npm ci
+
+      - name: Run semantic-release
+        if: steps.check_label.outputs.should_release == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.PULL_REQUEST_TOKEN }}
+        run: npx semantic-release
+
   build-artifacts:
     name: Build Tarball Artifacts
     runs-on: ubuntu-slim
     timeout-minutes: 10
-    needs: test
-    if: |
-      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-      (github.event_name == 'workflow_dispatch' && startsWith(github.ref, 'refs/tags/'))
+    needs: semantic-release
+    if: startsWith(github.ref, 'refs/tags/')
 
     steps:
       - name: Checkout code
@@ -253,81 +313,11 @@ jobs:
           path: "*.tar.gz"
           retention-days: 90
 
-  check-release:
-    name: Check Release Labels
-    runs-on: ubuntu-slim
-    timeout-minutes: 5
-    needs: build-artifacts
-    if: |
-      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-      (github.event_name == 'workflow_dispatch' && startsWith(github.ref, 'refs/tags/'))
-    outputs:
-      should_release: ${{ steps.check.outputs.should_release }}
-      version_bump: ${{ steps.check.outputs.version_bump }}
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - name: Check for release labels
-        id: check
-        uses: actions/github-script@v8
-        with:
-          script: |
-            // If triggered by workflow_dispatch on a tag, always create release
-            if (context.eventName === 'workflow_dispatch' && context.ref.startsWith('refs/tags/')) {
-              console.log('🚀 Workflow dispatch on tag - creating release');
-              core.setOutput('should_release', 'true');
-              // Version bump doesn't matter since tag already exists
-              core.setOutput('version_bump', 'none');
-              return;
-            }
-
-            const commit = context.sha;
-
-            // Get PRs associated with this commit
-            const prs = await github.rest.repos.listPullRequestsAssociatedWithCommit({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              commit_sha: commit
-            });
-
-            if (prs.data.length === 0) {
-              console.log('ℹ️  No PR associated with this commit');
-              core.setOutput('should_release', 'false');
-              return;
-            }
-
-            const pr = prs.data[0];
-            const labels = pr.labels.map(l => l.name);
-
-            console.log('📋 PR labels:', labels);
-
-            if (labels.includes('release:major')) {
-              console.log('🚀 Major release detected');
-              core.setOutput('should_release', 'true');
-              core.setOutput('version_bump', 'major');
-            } else if (labels.includes('release:minor')) {
-              console.log('🚀 Minor release detected');
-              core.setOutput('should_release', 'true');
-              core.setOutput('version_bump', 'minor');
-            } else if (labels.includes('release:patch')) {
-              console.log('🚀 Patch release detected');
-              core.setOutput('should_release', 'true');
-              core.setOutput('version_bump', 'patch');
-            } else {
-              console.log('ℹ️  No release label found (release:patch/minor/major)');
-              core.setOutput('should_release', 'false');
-            }
-
   release:
     name: Create Release
     runs-on: ubuntu-slim
     timeout-minutes: 10
-    needs: check-release
-    if: needs.check-release.outputs.should_release == 'true'
+    needs: build-artifacts
 
     steps:
       - name: Checkout code
@@ -338,38 +328,11 @@ jobs:
       - name: Get version
         id: version
         run: |
-          # If triggered by workflow_dispatch on a tag, use that tag
+          # Extract version from tag ref (refs/tags/vX.Y.Z -> vX.Y.Z)
           REF="${{ github.ref }}"
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${REF}" == refs/tags/* ]]; then
-            NEW_VERSION="${REF#refs/tags/}"
-            echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
-            echo "🏷️  Using existing tag: $NEW_VERSION"
-            exit 0
-          fi
-
-          # Get current version from git tags
-          CURRENT_VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
-          CURRENT_VERSION=${CURRENT_VERSION#v}
-
-          # Parse version
-          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
-
-          # Increment based on bump type
-          BUMP_TYPE="${{ needs.check-release.outputs.version_bump }}"
-          if [[ "$BUMP_TYPE" == "major" ]]; then
-            MAJOR=$((MAJOR + 1))
-            MINOR=0
-            PATCH=0
-          elif [[ "$BUMP_TYPE" == "minor" ]]; then
-            MINOR=$((MINOR + 1))
-            PATCH=0
-          else
-            PATCH=$((PATCH + 1))
-          fi
-
-          NEW_VERSION="v${MAJOR}.${MINOR}.${PATCH}"
+          NEW_VERSION="${REF#refs/tags/}"
           echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
-          echo "🏷️  New version: $NEW_VERSION (was: v$CURRENT_VERSION)"
+          echo "🏷️  Release version: $NEW_VERSION"
 
       - name: Download tarball artifact
         uses: actions/download-artifact@v7
