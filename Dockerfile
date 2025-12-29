@@ -10,7 +10,7 @@ FROM busybox:1.37 AS downloader
 WORKDIR /downloads
 
 # Download and extract mc-server-runner
-ARG MC_SERVER_RUNNER_VERSION=1.14.0
+ARG MC_SERVER_RUNNER_VERSION=1.14.1
 ADD https://github.com/itzg/mc-server-runner/releases/download/${MC_SERVER_RUNNER_VERSION}/mc-server-runner_${MC_SERVER_RUNNER_VERSION}_linux_amd64.tar.gz mc-server-runner.tar.gz
 RUN tar -xzf mc-server-runner.tar.gz && chmod +x mc-server-runner
 
